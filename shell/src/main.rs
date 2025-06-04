@@ -21,11 +21,20 @@ impl Colors {
 
 fn main() {
     let mut buffer = String::new();
+
     loop {
-        let mut Prompt = Colors::Blue(String::from("➜ :")); 
-        print!("{}" , Prompt.to_ansi());
+        let prompt = Colors::Blue(String::from("➜ 0-shell :"));
+        print!("{}" , prompt.to_ansi());
+        
         io::stdout().flush().unwrap();
         buffer.clear();
         io::stdin().read_line(&mut buffer).unwrap();
+        
+        let input = buffer.trim();
+        match input {
+            "exit" => break,
+            "clear" => print!("\x1B[2J\x1B[H"),
+            _ => println!("0-shell command not found: {}" , input),
+        }
     }
 }
