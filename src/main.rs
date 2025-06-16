@@ -1,7 +1,6 @@
 use std::io::{self, Write};
-
 use shell::*;
-
+use shell::commands::echo;
 
 fn main() {
     let mut buffer = String::new();
@@ -16,6 +15,7 @@ fn main() {
         match input {
             "exit" => break,
             "clear" => print!("\x1B[2J\x1B[H"),
+            "echo" => echo::Echo::new("hello".to_string()).execute(),
             _ => println!("0-shell command not found: {}" , get_first_element(input , " ")),
         }
     }
