@@ -1,10 +1,16 @@
+use crate::ShellCommand;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Cat {
-    pub args : Vec<String>
+    pub args: Vec<String>,
 }
 
 impl Cat {
-    pub fn new(&self , args : Vec<String>) -> Self {
+    pub fn new(args: Vec<String>) -> Self {
         Cat { args: args }
     }
+}
+
+impl ShellCommand for Cat {
+    fn execute(&self) {}
 }
