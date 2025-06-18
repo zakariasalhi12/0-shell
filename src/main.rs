@@ -10,13 +10,7 @@ fn main() {
         io::stdout().flush().unwrap();
         buffer.clear();
         io::stdin().read_line(&mut buffer).unwrap();
-        
-        let input = buffer.trim();
-        match input {
-            "exit" => break,
-            "clear" => print!("\x1B[2J\x1B[H"),
-            "echo" => echo::Echo::new("hello".to_string()).execute(),
-            _ => println!("0-shell command not found: {}" , get_first_element(input , " ")),
-        }
+        let args : Vec<String> = buffer.trim().split(" ").map(|str| str.to_string()).collect();
+
     }
 }

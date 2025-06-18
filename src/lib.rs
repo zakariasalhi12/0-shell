@@ -1,6 +1,14 @@
 use std::env;
 pub mod commands{
+    pub mod cat;
+    pub mod cd;
+    pub mod cp;
     pub mod echo;
+    pub mod ls;
+    pub mod mkdir;
+    pub mod mv;
+    pub mod pwd;
+    pub mod rm;
 }
 
 enum Colors {
