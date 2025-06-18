@@ -1,19 +1,22 @@
 use std::env;
+pub mod commands{
+    pub mod echo;
+}
 
 enum Colors {
     White(String),
-    Black(String),
+    Grey(String),
     Blue(String),
-    Red(String),
+    Yellow(String),
 }
 
 impl Colors {
     fn to_ansi(&self) -> String {
         match self {
-            Colors::White(text) => format!("\x1b[37m{}\x1b[0m", text),
-            Colors::Black(text) => format!("\x1b[30m{}\x1b[0m", text),
-            Colors::Blue(text) => format!("\x1b[34m{}\x1b[0m", text),
-            Colors::Red(text) => format!("\x1b[31m{}\x1b[0m", text),
+            Colors::White(text) => format!("\x1b[1;37m{}\x1b[0m", text),
+            Colors::Grey(text) => format!("\x1b[1;30m{}\x1b[0m", text),
+            Colors::Blue(text) => format!("\x1b[1;34m{}\x1b[0m", text),
+            Colors::Yellow(text) => format!("\x1b[1;31m{}\x1b[0m", text),
         }
     }
 }
@@ -36,6 +39,6 @@ pub fn get_current_directory() -> Result<String, String> {
 
 pub fn distplay_promt() {
     let current_directory = get_current_directory().unwrap();
-    let prompt = Colors::Blue(format!("➜ {} " , current_directory));
+    let prompt = Colors::Yellow(format!("➜ {} " , current_directory));
     print!("{}" ,prompt.to_ansi());
 }
