@@ -1,16 +1,25 @@
-use std::io::{self, Write};
+use shell::commands::{cd, echo};
 use shell::*;
-use shell::commands::echo;
+mod config;
+pub mod executer;
+mod parser;
+pub use parser::*;
+use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
-
     loop {
-        distplay_promt();      
+        distplay_promt();
         io::stdout().flush().unwrap();
         buffer.clear();
         io::stdin().read_line(&mut buffer).unwrap();
-        let args : Vec<String> = buffer.trim().split(" ").map(|str| str.to_string()).collect();
-
+        let args: Vec<String> = buffer
+            .trim()
+            .split(" ")
+            .map(|str| str.to_string())
+            .collect();
+        let mut vece: Vec<String> = vec![];
+        vece.push("src".to_string());
+        cd::Cd::new(vece).execute();
     }
 }

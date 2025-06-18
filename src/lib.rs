@@ -1,5 +1,5 @@
 use std::env;
-pub mod commands{
+pub mod commands {
     pub mod cat;
     pub mod cd;
     pub mod cp;
@@ -35,18 +35,20 @@ pub fn get_first_element<'a>(s: &'a str, pattern: &str) -> &'a str {
 
 pub fn get_current_directory() -> Result<String, String> {
     match env::current_dir() {
-        Ok(path) => {
-            match path.file_name() {
-                Some(name) => Ok(name.to_string_lossy().to_string()),
-                None => Ok("/".to_string()), 
-            }
-        }
+        Ok(path) => match path.file_name() {
+            Some(name) => Ok(name.to_string_lossy().to_string()),
+            None => Ok("/".to_string()),
+        },
         Err(e) => Err(e.to_string()),
     }
 }
 
 pub fn distplay_promt() {
     let current_directory = get_current_directory().unwrap();
-    let prompt = Colors::Yellow(format!("➜ {} " , current_directory));
-    print!("{}" ,prompt.to_ansi());
+    let prompt = Colors::Yellow(format!("➜ {} ", current_directory));
+    print!("{}", prompt.to_ansi());
+}
+
+pub trait ShellCommand {
+    fn execute(&self);
 }
