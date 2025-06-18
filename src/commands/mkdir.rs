@@ -1,10 +1,16 @@
+use crate::ShellCommand;
+
 #[derive(Debug, PartialEq, Eq)]
-pub struct Ls {
-    pub args : Vec<String>
+pub struct mkdir {
+    pub args: Vec<String>,
 }
 
-impl Ls {
-    pub fn new(&self , args : Vec<String>) -> Self {
-        Ls { args: args }
+impl mkdir {
+    pub fn new(args: Vec<String>) -> Self {
+        mkdir { args: args }
     }
+}
+
+impl ShellCommand for mkdir {
+    fn execute(&self) {}
 }
