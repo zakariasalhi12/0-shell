@@ -12,5 +12,7 @@ impl Mv {
 }
 
 impl ShellCommand for Mv {
-    fn execute(&self) {}
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

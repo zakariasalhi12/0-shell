@@ -50,5 +50,7 @@ pub fn distplay_promt() {
 }
 
 pub trait ShellCommand {
-    fn execute(&self);
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

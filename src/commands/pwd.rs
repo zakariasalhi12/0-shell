@@ -12,5 +12,7 @@ impl Pwd {
 }
 
 impl ShellCommand for Pwd {
-    fn execute(&self) {}
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
