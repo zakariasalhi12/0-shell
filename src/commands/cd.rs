@@ -1,7 +1,7 @@
 // use core::error;
+use crate::ShellCommand;
 use std::env;
 use std::io::{Error, ErrorKind};
-use crate::ShellCommand;
 
 // use std::path::Path;
 
@@ -14,8 +14,10 @@ impl Cd {
     pub fn new(args: Vec<String>) -> Self {
         Cd { args: args }
     }
+}
 
-    pub fn execute(&self) -> std::io::Result<()> {
+impl ShellCommand for Cd {
+    fn execute(&self) -> std::io::Result<()> {
         let current_dir = env::current_dir()?;
 
         if self.args.len() != 1 {
@@ -42,8 +44,4 @@ impl Cd {
         env::set_current_dir(&dirname)?;
         Ok(())
     }
-}
-
-impl ShellCommand for Cd {
-    fn execute(&self) {}
 }

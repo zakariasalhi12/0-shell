@@ -12,5 +12,7 @@ impl Cat {
 }
 
 impl ShellCommand for Cat {
-    fn execute(&self) {}
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

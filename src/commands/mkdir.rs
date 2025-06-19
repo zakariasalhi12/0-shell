@@ -12,5 +12,7 @@ impl mkdir {
 }
 
 impl ShellCommand for mkdir {
-    fn execute(&self) {}
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }

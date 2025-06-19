@@ -10,7 +10,7 @@ use std::ptr::null;
 pub struct Commande {
     pub Type: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
     pub Name: Stdcommands, // "ls"
-    pub Option: String, //"-f j"
+    pub Option: Vec<String>, //"-f j"
     pub Args: Vec<String>,
 }
 
@@ -39,15 +39,19 @@ pub enum Stdcommands {
 }
 
 impl Stdcommands {
-    pub fn build_command(&self, args: Vec<String>) -> Option<Box<dyn ShellCommand>> {
+    pub fn build_command(
+        &self,
+        args: Vec<String>,
+        opts: Vec<String>,
+    ) -> Option<Box<dyn ShellCommand>> {
         match self {
             Stdcommands::echo => Some(Box::new(Echo::new(args))),
             Stdcommands::cd => Some(Box::new(Cd::new(args))),
-            Stdcommands::ls => Some(Box::new(Ls::new(args))),
+            Stdcommands::ls => Some(Box::new(Ls::new(args, opts))),
             Stdcommands::pwd => Some(Box::new(Pwd::new(args))),
             Stdcommands::cat => Some(Box::new(Cat::new(args))),
             Stdcommands::cp => Some(Box::new(Cp::new(args))),
-            Stdcommands::rm => Some(Box::new(Rm::new(args))),
+            Stdcommands::rm => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::mv => Some(Box::new(Mv::new(args))),
             Stdcommands::mkdir => Some(Box::new(mkdir::new(args))),
             Stdcommands::exit => {
@@ -106,13 +110,14 @@ pub fn parse_command(input: &str, exec_type: ExecType) -> Option<Commande> {
     let name = tokens[0];
     let cmd_type = matcher(name)?;
 
-    let mut option = String::new();
+    let mut option: Vec<String> = vec![];
     let mut args = vec![];
 
     for token in &tokens[1..] {
         if token.starts_with("-") {
-            option.push_str(token);
-            option.push(' ');
+            // option.push_str(token);
+            // option.push(' ');
+            option.push((token).to_string());
         } else {
             args.push(token.to_string());
         }
@@ -121,7 +126,7 @@ pub fn parse_command(input: &str, exec_type: ExecType) -> Option<Commande> {
     Some(Commande {
         Type: exec_type,
         Name: cmd_type,
-        Option: option.trim().to_string(),
+        Option: option,
         Args: args,
     })
 }
