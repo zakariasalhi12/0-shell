@@ -13,13 +13,15 @@ fn main() {
         io::stdout().flush().unwrap();
         buffer.clear();
         io::stdin().read_line(&mut buffer).unwrap();
-        let args: Vec<String> = buffer
-            .trim()
-            .split(" ")
-            .map(|str| str.to_string())
-            .collect();
-        let mut vece: Vec<String> = vec![];
-        vece.push("src".to_string());
-        cd::Cd::new(vece).execute();
+        // let args: Vec<String> = buffer
+        //     .trim()
+        //     .split(" ")
+        //     .map(|str| str.to_string())
+        //     .collect();
+        // let mut vece: Vec<String> = vec![];
+        // vece.push("src".to_string());
+        // cd::Cd::new(vece).execute();
+        let cmd = parse(&buffer);
+        executer::Execute(cmd);
     }
 }

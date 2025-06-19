@@ -12,5 +12,7 @@ impl Cp {
 }
 
 impl ShellCommand for Cp {
-    fn execute(&self) {}
+    fn execute(&self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
