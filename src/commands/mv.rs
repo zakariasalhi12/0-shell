@@ -1,8 +1,10 @@
-use libc::statvfs;
-
 use crate::ShellCommand;
+use libc::statvfs;
 use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Write;
+use std::ops::Index;
+use std::path::PathBuf;
 use std::{
     env, fs,
     io::{Error, ErrorKind},
@@ -33,11 +35,43 @@ impl Mv {
         }
         true
     }
+    fn get_param(&self) -> Result<(Vec<&str>, &str), &str> {
+        let mut source: Vec<&str> = vec![];
+        let dest: &str;
+        let current = match env::current_dir() {
+            Ok(val) => val,
+            Err(..) => return Err("Error in current directory"),
+        };
+        if !is_writable(current.join(dest))
+            || !source.iter().any(|file| is_readable(current.join(dest)))
+        {
+            return Err("");
+        }
+        self.args.iter().enumerate().for_each(|(index, arg)| {
+            if index != self.args.len() - 1 {
+                println!("{}", index);
+                source.push(&arg);
+            }
+        });
+        dest = &self.args[self.args.len() - 1];
+        Ok((source, dest))
+    }
 }
 
+// fn Check_permision(source: &PathBuf , dest: &PathBuf) -> bool {
+//     if source.metadata().p
+// }
+
+fn is_writable(path: &PathBuf) -> bool {
+    OpenOptions::new().write(true).open(path).is_ok()
+}
+
+fn is_readable(path: &PathBuf) -> bool {
+    File::open(path).is_ok()
+}
 // 🟢 2. Path Checks
 //  Check that source exists.
-// Use filesystem metadata functions (std::fs::metadata or equivalent).
+// Use filesystem metadata functions (std::fs::metadata  equivalent).
 //  Determine if source is:
 // - File
 // - Directory
@@ -101,7 +135,16 @@ impl ShellCommand for Mv {
                 "mv: missing file operand",
             ));
         }
-        // if ther's more than 2 args the last arg should be a directory
+        let (source, dest) = match self.get_param() {
+            Ok(val) => val,
+            Err(..) => {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Error: Invalid Parameters",
+                ));
+            }
+        };
+        println!("{:?} {}", source, dest);
         Ok(())
     }
 }
