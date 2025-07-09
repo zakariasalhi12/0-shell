@@ -2,6 +2,7 @@
 use crate::ShellCommand;
 use std::env;
 use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
 
 // use std::path::Path;
 
@@ -18,30 +19,31 @@ impl Cd {
 
 impl ShellCommand for Cd {
     fn execute(&self) -> std::io::Result<()> {
-        let current_dir = env::current_dir()?;
+        let target_dir: PathBuf;
 
-        if self.args.len() != 1 {
-            eprintln!(
-                "cd: string not in pwd: {}",
-                current_dir
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("<unknown>")
-            );
-            return Err(Error::new(ErrorKind::NotFound, "No such file or directory"));
+        if self.args.is_empty() {
+            // No argument: cd to home
+            target_dir = env::home_dir()
+                .ok_or(Error::new(ErrorKind::NotFound, "Home directory not found"))?;
+        } else {
+            let arg = self.args[0].as_str();
+            if arg == "~" || arg.trim().is_empty() {
+                target_dir = env::home_dir()
+                    .ok_or(Error::new(ErrorKind::NotFound, "Home directory not found"))?;
+            } else {
+                target_dir = PathBuf::from(arg);
+            }
         }
 
-        let dirname = current_dir.join(&self.args[0]);
-
-        if !dirname.exists() {
+        if !target_dir.exists() {
             eprintln!(
                 "cd: no such directory: {}",
-                dirname.to_str().unwrap_or("<invalid path>")
+                target_dir.to_str().unwrap_or("<invalid path>")
             );
             return Err(Error::new(ErrorKind::NotFound, "Directory does not exist"));
         }
 
-        env::set_current_dir(&dirname)?;
+        env::set_current_dir(&target_dir)?;
         Ok(())
     }
 }

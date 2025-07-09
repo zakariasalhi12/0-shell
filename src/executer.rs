@@ -1,4 +1,4 @@
-use crate::{Commande, parse};
+use crate::{parse, Commande};
 
 pub fn Execute(commandes: Vec<Commande>) {
     for command in commandes {
@@ -7,8 +7,8 @@ pub fn Execute(commandes: Vec<Commande>) {
             Some(val) => {
                 let res = val.execute();
                 match res {
-                    Ok(value) => println!("{:?}", value),
-                    Err(e) => panic!("{e}"),
+                    Ok(value) => {}
+                    Err(e) => println!("{e}"),
                 }
             }
             None => panic!(),
