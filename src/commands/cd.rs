@@ -15,7 +15,7 @@ impl Cd {
     pub fn new(args: Vec<String>) -> Self {
         Cd { args: args }
     }
-}
+}   
 
 impl ShellCommand for Cd {
     fn execute(&self) -> std::io::Result<()> {
