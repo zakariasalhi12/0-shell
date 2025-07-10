@@ -6,13 +6,12 @@ pub fn echo(args: Vec<String>) {
         return;
     }
     args.iter().enumerate().for_each(|(i, c)| {
-        if i != args.len() - 1{
+        if i != args.len() - 1 {
             print!("{c} ");
             std::io::stdout().flush();
-        }else {
-             println!("{c}");
+        } else {
+            println!("{c}");
         }
-        
     });
 }
 pub fn mkdir(args: Vec<String>) {
@@ -24,14 +23,13 @@ pub fn mkdir(args: Vec<String>) {
         println!("use only mkdir if you wish to make a dir without options !");
         return;
     }
-
 }
 pub fn pwd() {
-   if let Ok(path) = env::current_dir() {
+    if let Ok(path) = env::current_dir() {
         println!("{}", path.to_string_lossy());
         return;
-   }
-   println!("Error!");
+    }
+    println!("Error!");
 }
 pub fn cd() {}
 pub fn ls() {}

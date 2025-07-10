@@ -5,52 +5,88 @@ pub struct Cmd {
     pub empty: bool,
 }
 
+fn parse_word(s: String) -> Result<String, ()> {
+    let mut word = String::new();
+    let mut inside = None;
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match (c, inside) {
+            ('\"', None) => inside = Some('\"'),
+            ('\"', Some('\"')) => inside = None,
 
-fn clean_quotes(s: Vec<String>) -> bool{
-    let mut inside = false;
-    let mut count = 0;
-   s.chars().for_each(|c| if *c == '"' {count++});
-    true
+            ('\\', Some('\"')) => {
+                if let Some(n_c) = chars.next() {
+                    if matches!(n_c, '\"') {
+                        word.push(n_c);
+                        continue;
+                    }
+                    word.push('\\');
+                    word.push(n_c);
+                } else {
+                    return Err(());
+                }
+            }
+            _ => word.push(c),
+        }
+    }
+    if inside.is_some() {
+        return Err(());
+    }
+    Ok(word)
 }
-fn parse_quotes(s: String)-> String {
-    let s = s.replace("\"\"", "\" \"");
-    s.split(" ").map(|c| c.trim_matches('"').to_string()).collect::<String>()
+
+fn parse_quotes(s: Vec<String>) -> Result<Vec<String>, ()> {
+    let mut res: Vec<String> = vec![];
+    let mut i = 0;
+    println!("{:?}", s);
+    while i < s.len() {
+        if let Ok(word) = parse_word(s[i].clone()) {
+            res.push(word);
+        } else {
+            return Err(());
+        }
+        i += 1;
+    }
+    Ok(res)
 }
 
 impl Cmd {
     pub fn new(input: String) -> Self {
-        Self{input: input.trim().to_string(), empty: false}
+        Self {
+            input: input.trim().to_string(),
+            empty: false,
+        }
     }
     pub fn parse_exec(&self) {
         if self.empty {
-            return
+            return;
         }
-        let command = self.input.split_whitespace().map(|c| c.to_string()).collect::<Vec<String>>();
-        
-       let mut args = command;
-       println!("{:?}", args);
-       if args.len() > 0 {
-        if clean_quotes(args){
-       let command = args.remove(0);
-       if args.len() > 0 {
-            args = args.iter().map(|c|{ if c.starts_with("\"") {parse_quotes(c.to_string())} else {c.to_string()}}).collect::<Vec<String>>();
-       }
-        match command {
-            commmand if command ==  "echo" => echo(args),
-            command if command == "cd" => cd(),
-            command if command == "ls" => ls(),
-            command if command == "pwd" => pwd(),
-            command if command == "cat" => cat(),
-            command if command == "cp" => cp(),
-            command if command == "rm" => rm(),
-            command if command == "mv" => mv(),
-            command if command == "mkdir" => mkdir(args),
-            command if command == "exit" => exit(),
-            _ => println!("Command '<{command}>' not found"),
+        let command = self
+            .input
+            .split_whitespace()
+            .map(|c| c.to_string())
+            .collect::<Vec<String>>();
+
+        let mut args = command;
+        if args.len() > 0 {
+            let command = args.remove(0);
+            if let Ok(arg) = parse_quotes(args) {
+                match command {
+                    commmand if command == "echo" => echo(arg),
+                    command if command == "cd" => cd(),
+                    command if command == "ls" => ls(),
+                    command if command == "pwd" => pwd(),
+                    command if command == "cat" => cat(),
+                    command if command == "cp" => cp(),
+                    command if command == "rm" => rm(),
+                    command if command == "mv" => mv(),
+                    command if command == "mkdir" => mkdir(arg),
+                    command if command == "exit" => exit(),
+                    _ => println!("Command '<{command}>' not found"),
+                }
+            } else {
+                println!("parse err!");
+            }
         }
-    }
-       }
     }
 }
-
-
