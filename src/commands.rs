@@ -1,5 +1,6 @@
 use std::io::Write;
-pub fn echo(args: Vec<&str>) {
+use std::*;
+pub fn echo(args: Vec<String>) {
     if args.len() == 0 {
         println!("");
         return;
@@ -14,12 +15,28 @@ pub fn echo(args: Vec<&str>) {
         
     });
 }
+pub fn mkdir(args: Vec<String>) {
+    if args.len() == 0 {
+        println!("mkdir: missing operand\nTry 'mkdir --help' for more information.");
+        return;
+    }
+    if args[0] == "--help" {
+        println!("use only mkdir if you wish to make a dir without options !");
+        return;
+    }
+
+}
+pub fn pwd() {
+   if let Ok(path) = env::current_dir() {
+        println!("{}", path.to_string_lossy());
+        return;
+   }
+   println!("Error!");
+}
 pub fn cd() {}
 pub fn ls() {}
-pub fn pwd() {}
 pub fn cat() {}
 pub fn cp() {}
 pub fn rm() {}
 pub fn mv() {}
-pub fn mkdir() {}
 pub fn exit() {}
