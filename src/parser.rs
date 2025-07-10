@@ -119,7 +119,11 @@ pub fn parse_command(input: &str, exec_type: ExecType) -> Option<Commande> {
             // option.push(' ');
             option.push((token).to_string());
         } else {
-            args.push(token.to_string());
+            let words = match parse_word(token.to_string()) {
+                Ok(val) => val,
+                Err(..) => return None,
+            };
+            args.push(words);
         }
     }
 
@@ -147,4 +151,32 @@ pub fn matcher(cmd: &str) -> Option<Stdcommands> {
     };
 }
 
-// ls & mkdir && cd
+fn parse_word(s: String) -> Result<String, ()> {
+    let mut word = String::new();
+    let mut inside = None;
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
+        match (c, inside) {
+            ('\"', None) => inside = Some('\"'),
+            ('\"', Some('\"')) => inside = None,
+
+            ('\\', Some('\"')) => {
+                if let Some(n_c) = chars.next() {
+                    if matches!(n_c, '\"') {
+                        word.push(n_c);
+                        continue;
+                    }
+                    word.push('\\');
+                    word.push(n_c);
+                } else {
+                    return Err(());
+                }
+            }
+            _ => word.push(c),
+        }
+    }
+    if inside.is_some() {
+        return Err(());
+    }
+    Ok(word)
+}
