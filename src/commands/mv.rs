@@ -1,12 +1,9 @@
 use crate::ShellCommand;
-use libc::statvfs;
 use std::fs::File;
 use std::fs::OpenOptions;
-use std::io::Write;
-use std::ops::Index;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{
-    env, fs,
+    self, env, fs,
     io::{Error, ErrorKind},
 };
 
@@ -42,25 +39,21 @@ impl Mv {
             Ok(val) => val,
             Err(..) => return Err("Error in current directory"),
         };
-        if !is_writable(current.join(dest))
-            || !source.iter().any(|file| is_readable(current.join(dest)))
-        {
-            return Err("");
-        }
         self.args.iter().enumerate().for_each(|(index, arg)| {
             if index != self.args.len() - 1 {
-                println!("{}", index);
+                // println!("{}", index);
                 source.push(&arg);
             }
         });
         dest = &self.args[self.args.len() - 1];
+        if !is_writable(&current.join(dest))
+            || !source.iter().any(|file| is_readable(&current.join(dest)))
+        {
+            return Err("Permission Denied");
+        }
         Ok((source, dest))
     }
 }
-
-// fn Check_permision(source: &PathBuf , dest: &PathBuf) -> bool {
-//     if source.metadata().p
-// }
 
 fn is_writable(path: &PathBuf) -> bool {
     OpenOptions::new().write(true).open(path).is_ok()
@@ -68,6 +61,45 @@ fn is_writable(path: &PathBuf) -> bool {
 
 fn is_readable(path: &PathBuf) -> bool {
     File::open(path).is_ok()
+}
+
+fn is_direc(path: &str) -> bool {
+    let current = match env::current_dir() {
+        Ok(val) => val,
+        Err(..) => return false,
+    };
+    current.join(path).is_dir()
+}
+
+fn are_in_same_directory(src: &str, dest: &str) -> bool {
+    let src_parent = Path::new(src).parent();
+    let src_dir = match src_parent {
+        Some(path) => match fs::canonicalize(path) {
+            Ok(val) => val,
+            Err(_) => return false,
+        },
+        None => return false,
+    };
+
+    let dest_parent = Path::new(dest).parent().unwrap_or_else(|| Path::new("."));
+    let dest_dir = match fs::canonicalize(dest_parent) {
+        Ok(val) => val,
+        Err(_) => return false,
+    };
+
+    src_dir == dest_dir
+}
+
+fn try_rename_or_copy(src: &str, dest: &Path) -> std::io::Result<()> {
+    match fs::rename(src, dest) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::CrossesDevices => {
+            fs::copy(src, dest)?;
+            fs::remove_file(src)?;
+            Ok(())
+        }
+        Err(e) => Err(e),
+    }
 }
 // 🟢 2. Path Checks
 //  Check that source exists.
@@ -137,13 +169,14 @@ impl ShellCommand for Mv {
         }
         let (source, dest) = match self.get_param() {
             Ok(val) => val,
-            Err(..) => {
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    "Error: Invalid Parameters",
-                ));
+            Err(e) => {
+                return Err(Error::new(ErrorKind::InvalidInput, e));
             }
         };
+        if is_direc(dest) {
+        } else {
+            if are_in_same_directory(source[0], dest) {}
+        }
         println!("{:?} {}", source, dest);
         Ok(())
     }
