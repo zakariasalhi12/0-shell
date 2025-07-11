@@ -8,7 +8,7 @@ pub struct History {
     pub position: i32,
 }
 
-static NAME: &str = "0-shell_history";
+static NAME: &str = ".0-shell_history";
 
 fn file_to_vec(path: String) -> Vec<String> {
     let mut file = OpenOptions::new()
@@ -20,7 +20,6 @@ fn file_to_vec(path: String) -> Vec<String> {
 
     let mut content = String::new();
     file.read_to_string(&mut content).unwrap();
-
     content.lines().map(|line| line.to_string()).collect()
 }
 
@@ -60,13 +59,17 @@ impl History {
     }
 
     pub fn save(&mut self, command: String) {
+        if command.trim().is_empty() {
+            return;
+        }
+
         let mut file = OpenOptions::new()
             .append(true)
             .create(true)
             .open(self.path.to_owned())
             .unwrap();
 
-        file.write(command.as_bytes()).unwrap();
+        file.write((command.to_string()  + "\n").as_bytes()).unwrap();
         self.history.push(command);
         self.position += 1;
     }

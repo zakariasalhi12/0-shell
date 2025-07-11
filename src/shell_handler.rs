@@ -42,7 +42,7 @@ impl Shell {
     }
 
     pub fn run(&mut self) {
-        display_promt();
+        display_promt(&mut self.stdout);
         self.stdout.flush().unwrap();
         let stdin = &self.stdin;
         for key in stdin.keys() {
@@ -56,7 +56,7 @@ impl Shell {
                         executer::execute(cmd);
                     }
                     self.buffer.clear();
-                    display_promt();
+                    display_promt(&mut self.stdout);
                 }
 
                 termion::event::Key::Char(c) => {
@@ -72,18 +72,33 @@ impl Shell {
                 }
 
                 termion::event::Key::Ctrl('c') => {
-                    write!(self.stdout, "\n\r").unwrap();
+                    write!(self.stdout, "\r").unwrap();
                     break;
                 }
 
                 termion::event::Key::Up => {
-                    display_promt();
-                    write!(self.stdout, "{}\r\x1b[2K", self.history.prev()).unwrap();
+                    let next_history = self.history.next();
+                    if !next_history.is_empty() {
+                        self.buffer.clear();
+                        // ANSI escape code to clear the current line and move the cursor to the beginning
+                      write!(self.stdout, "\r\x1B[2K").unwrap();
+                        self.stdout.flush().unwrap();
+                        display_promt(&mut self.stdout);
+                        write!(self.stdout, "{}\r\n", next_history).unwrap();
+                        display_promt(&mut self.stdout);
+                    }
                 }
-
+                
                 termion::event::Key::Down => {
-                    display_promt();
-                    write!(self.stdout, "{}\r\x1b[2K", self.history.next()).unwrap();
+                    let prev_history = self.history.prev();
+                    if !prev_history.is_empty() {
+                        self.buffer.clear();
+                        // ANSI escape code to clear the current line and move the cursor to the beginning
+                        write!(self.stdout, "\r\x1B[2K").unwrap();
+                        display_promt(&mut self.stdout);
+                        write!(self.stdout, "{}\r\n", prev_history).unwrap();
+                        display_promt(&mut self.stdout);
+                    }
                 }
 
                 _ => {}

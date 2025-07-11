@@ -1,4 +1,6 @@
-use std::{env, io::{self, Write}};
+use std::{env, io::{self, Stdout, Write}};
+use termion::raw::RawTerminal;
+
 pub mod commands {
     pub mod cat;
     pub mod cd;
@@ -47,10 +49,12 @@ pub fn get_current_directory() -> Result<String, String> {
     }
 }
 
-pub fn display_promt() {
-    let current_directory = get_current_directory().unwrap();
+// .v reject 727662298172489799
+
+pub fn display_promt(stdout :&mut RawTerminal<Stdout>) {
+    let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
-    print!("{}", prompt.to_ansi());
+    write!(stdout , "{}" , prompt.to_ansi()).unwrap();
 }
 
 pub trait ShellCommand {
