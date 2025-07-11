@@ -11,20 +11,24 @@ pub mod commands {
     pub mod rm;
 }
 
+pub mod features {
+    pub mod history;
+}
+
 enum Colors {
-    White(String),
-    Grey(String),
-    Blue(String),
-    Yellow(String),
+    // WHITE(String),
+    // GREY(String),
+    // BLUE(String),
+    YELLOW(String),
 }
 
 impl Colors {
     fn to_ansi(&self) -> String {
         match self {
-            Colors::White(text) => format!("\x1b[1;37m{}\x1b[0m", text),
-            Colors::Grey(text) => format!("\x1b[1;30m{}\x1b[0m", text),
-            Colors::Blue(text) => format!("\x1b[1;34m{}\x1b[0m", text),
-            Colors::Yellow(text) => format!("\x1b[1;31m{}\x1b[0m", text),
+            // Colors::WHITE(text) => format!("\x1b[1;37m{}\x1b[0m", text),
+            // Colors::GREY(text) => format!("\x1b[1;30m{}\x1b[0m", text),
+            // Colors::BLUE(text) => format!("\x1b[1;34m{}\x1b[0m", text),
+            Colors::YELLOW(text) => format!("\x1b[1;31m{}\x1b[0m", text),
         }
     }
 }
@@ -45,7 +49,7 @@ pub fn get_current_directory() -> Result<String, String> {
 
 pub fn distplay_promt() {
     let current_directory = get_current_directory().unwrap();
-    let prompt = Colors::Yellow(format!("➜ {} ", current_directory));
+    let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print!("{}", prompt.to_ansi());
 }
 

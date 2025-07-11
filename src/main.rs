@@ -1,5 +1,4 @@
-use shell::commands::{cd, echo};
-use shell::*;
+use shell::{features::history, *};
 mod config;
 pub mod executer;
 mod parser;
@@ -8,6 +7,8 @@ use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
+    let mut history = history::History::new();
+
     loop {
         distplay_promt();
         io::stdout().flush().unwrap();
@@ -21,7 +22,10 @@ fn main() {
         // let mut vece: Vec<String> = vec![];
         // vece.push("src".to_string());
         // cd::Cd::new(vece).execute();
+        
+        // history.run(&mut buffer);
+        history.save(buffer.to_owned());
         let cmd = parse(&buffer);
-        executer::Execute(cmd);
+        executer::execute(cmd);
     }
 }

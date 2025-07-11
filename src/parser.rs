@@ -1,21 +1,17 @@
-// use regex::*;
 use crate::ShellCommand;
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::mkdir, mv::Mv, pwd::Pwd, rm::Rm,
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm,
 };
 
-use std::ptr::null;
 #[derive(Debug)]
-
 pub struct Commande {
-    pub Type: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
-    pub Name: Stdcommands, // "ls"
-    pub Option: Vec<String>, //"-f j"
-    pub Args: Vec<String>,
+    pub operator: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
+    pub name: Stdcommands, // "ls"
+    pub option: Vec<String>, //"-f j"
+    pub args: Vec<String>,
 }
 
 #[derive(Debug)]
-
 pub enum ExecType {
     Sync,       // ; or nothing
     And,        // &&
@@ -26,16 +22,16 @@ pub enum ExecType {
 
 #[derive(Debug)]
 pub enum Stdcommands {
-    echo,
-    cd,
-    ls,
-    pwd,
-    cat,
-    cp,
-    rm,
-    mv,
-    mkdir,
-    exit,
+    ECHO,
+    CD,
+    LS,
+    PWD,
+    CAT,
+    CP,
+    RM,
+    MV,
+    MKDIR,
+    EXIT,
 }
 
 impl Stdcommands {
@@ -45,16 +41,16 @@ impl Stdcommands {
         opts: Vec<String>,
     ) -> Option<Box<dyn ShellCommand>> {
         match self {
-            Stdcommands::echo => Some(Box::new(Echo::new(args))),
-            Stdcommands::cd => Some(Box::new(Cd::new(args))),
-            Stdcommands::ls => Some(Box::new(Ls::new(args, opts))),
-            Stdcommands::pwd => Some(Box::new(Pwd::new(args))),
-            Stdcommands::cat => Some(Box::new(Cat::new(args))),
-            Stdcommands::cp => Some(Box::new(Cp::new(args))),
-            Stdcommands::rm => Some(Box::new(Rm::new(args, opts))),
-            Stdcommands::mv => Some(Box::new(Mv::new(args))),
-            Stdcommands::mkdir => Some(Box::new(mkdir::new(args))),
-            Stdcommands::exit => {
+            Stdcommands::ECHO => Some(Box::new(Echo::new(args))),
+            Stdcommands::CD => Some(Box::new(Cd::new(args))),
+            Stdcommands::LS => Some(Box::new(Ls::new(args, opts))),
+            Stdcommands::PWD => Some(Box::new(Pwd::new(args))),
+            Stdcommands::CAT => Some(Box::new(Cat::new(args))),
+            Stdcommands::CP => Some(Box::new(Cp::new(args))),
+            Stdcommands::RM => Some(Box::new(Rm::new(args, opts))),
+            Stdcommands::MV => Some(Box::new(Mv::new(args))),
+            Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
+            Stdcommands::EXIT => {
                 std::process::exit(0);
             }
         }
@@ -128,25 +124,25 @@ pub fn parse_command(input: &str, exec_type: ExecType) -> Option<Commande> {
     }
 
     Some(Commande {
-        Type: exec_type,
-        Name: cmd_type,
-        Option: option,
-        Args: args,
+        operator: exec_type,
+        name: cmd_type,
+        option: option,
+        args: args,
     })
 }
 
 pub fn matcher(cmd: &str) -> Option<Stdcommands> {
     return match cmd {
-        "echo" => Some(Stdcommands::echo),
-        "cd" => Some(Stdcommands::cd),
-        "ls" => Some(Stdcommands::ls),
-        "pwd" => Some(Stdcommands::pwd),
-        "cat" => Some(Stdcommands::cat),
-        "cp" => Some(Stdcommands::cp),
-        "rm" => Some(Stdcommands::rm),
-        "mv" => Some(Stdcommands::mv),
-        "mkdir" => Some(Stdcommands::mkdir),
-        "exit" => Some(Stdcommands::exit),
+        "echo" => Some(Stdcommands::ECHO),
+        "cd" => Some(Stdcommands::CD),
+        "ls" => Some(Stdcommands::LS),
+        "pwd" => Some(Stdcommands::PWD),
+        "cat" => Some(Stdcommands::CAT),
+        "cp" => Some(Stdcommands::CP),
+        "rm" => Some(Stdcommands::RM),
+        "mv" => Some(Stdcommands::MV),
+        "mkdir" => Some(Stdcommands::MKDIR),
+        "exit" => Some(Stdcommands::EXIT),
         _ => None,
     };
 }
