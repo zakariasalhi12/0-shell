@@ -12,7 +12,7 @@ impl Echo {
 impl ShellCommand for Echo {
     fn execute(&self) -> std::io::Result<()> {
         let text = self.args.join(" ");
-        println!("{text}");
+        print!("{text}\n\r");
         Ok(())
     }
 }

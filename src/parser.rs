@@ -55,8 +55,6 @@ impl Stdcommands {
             Stdcommands::MV => Some(Box::new(Mv::new(args))),
             Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
             Stdcommands::EXIT => {
-                println!("\r\x1b[2K");
-                stdout().flush().unwrap();
                 std::process::exit(0);
             }
         }

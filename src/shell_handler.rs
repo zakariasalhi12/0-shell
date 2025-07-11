@@ -43,6 +43,7 @@ impl Shell {
 
     pub fn run(&mut self) {
         display_promt();
+        self.stdout.flush().unwrap();
         let stdin = &self.stdin;
         for key in stdin.keys() {
             match key.unwrap() {

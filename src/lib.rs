@@ -51,7 +51,6 @@ pub fn display_promt() {
     let current_directory = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print!("{}", prompt.to_ansi());
-    io::stdout().flush().unwrap();
 }
 
 pub trait ShellCommand {
