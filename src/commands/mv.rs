@@ -1,6 +1,7 @@
 use crate::ShellCommand;
 use std::fs::File;
 use std::fs::OpenOptions;
+use std::path;
 use std::path::{Path, PathBuf};
 use std::{
     self, env, fs,
@@ -21,7 +22,7 @@ impl Mv {
             return false;
         }
         if self.args.len() > 2 {
-            let destination = self.args[0].clone();
+            let destination = self.args[self.args.len() - 1].clone();
             let current = match env::current_dir() {
                 Ok(val) => val,
                 Err(..) => return false,
@@ -53,15 +54,20 @@ fn is_direc(path: &str) -> bool {
     current.join(path).is_dir()
 }
 
-fn try_rename_or_copy(src: &str, dest: &str) -> std::io::Result<()> {
-    let destination = match fs::canonicalize(dest) {
-        Ok(val) => val,
-        Err(e) => return Err(e),
-    };
-    match fs::rename(src, destination) {
+fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> std::io::Result<()> {
+    match fs::rename(src, dest) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::CrossesDevices => {
-            fs::copy(src, dest)?;
+            let dest_path = if dest.is_dir() {
+                dest.join(
+                    src.file_name()
+                        .ok_or_else(|| Error::new(ErrorKind::Other, "Invalid source filename"))?,
+                )
+            } else {
+                dest.clone()
+            };
+
+            fs::copy(src, &dest_path)?;
             fs::remove_file(src)?;
             Ok(())
         }
@@ -83,7 +89,8 @@ fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
             if entry_path.is_dir() {
                 copy_directory(&entry_path, &dest_path)?;
             } else if entry_path.is_file() {
-                fs::copy(&entry_path, &dest_path)?;
+                // fs::copy(&entry_path, &dest_path)?;
+                try_rename_or_copy(&entry_path, &dest_path)?;
             } else {
                 println!("Skipping {:?}", entry_path);
             }
@@ -115,14 +122,35 @@ impl ShellCommand for Mv {
             }
         };
         if is_direc(dest) {
-            for file in source {
-                copy_directory(&fs::canonicalize(file)?, &fs::canonicalize(dest)?)?;
+            for src in source {
+                let src_path = fs::canonicalize(src)?;
+                let filename = src_path
+                    .file_name()
+                    .ok_or_else(|| Error::new(ErrorKind::Other, "Invalid source path"))?;
+
+                let dest_path = PathBuf::from(dest).join(filename);
+
+                // If it's a directory, recursively copy
+                if src_path.is_dir() {
+                    copy_directory(&src_path, &dest_path)?;
+                    fs::remove_dir_all(&src_path)?; // optional: simulate "mv" by removing src
+                } else {
+                    fs::copy(&src_path, &dest_path)?;
+                    fs::remove_file(&src_path)?; // optional: simulate "mv"
+                }
             }
         } else {
-            match try_rename_or_copy(source[0], dest) {
-                Ok(val) => return Ok(val),
-                Err(e) => return Err(e),
+            if source.is_empty() {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "mv: missing source file",
+                ));
             }
+
+            let src_path = fs::canonicalize(&source[0])?;
+            let dest_path = PathBuf::from(dest);
+
+            try_rename_or_copy(&src_path, &dest_path)?;
         }
         // println!("{:?} {}", source, dest);
         Ok(())
