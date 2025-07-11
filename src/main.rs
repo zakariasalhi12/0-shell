@@ -8,6 +8,7 @@ use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
+    print!("\x1B[2J\x1B[H");
     loop {
         distplay_promt();
         io::stdout().flush().unwrap();
