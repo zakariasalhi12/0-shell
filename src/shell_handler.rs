@@ -49,7 +49,6 @@ impl Shell {
                 termion::event::Key::Char('\n') => {
                     writeln!(self.stdout).unwrap();
                     print!("\r\x1b[2K");
-                    self.stdout.flush().unwrap();
                     if !self.buffer.trim().is_empty() {
                         self.history.save(self.buffer.clone());
                         let cmd = parse(&self.buffer);
@@ -57,43 +56,39 @@ impl Shell {
                     }
                     self.buffer.clear();
                     display_promt();
-                    self.stdout.flush().unwrap();
                 }
 
                 termion::event::Key::Char(c) => {
                     self.buffer.push(c); // push the character to the buffer
                     write!(self.stdout, "{}", c).unwrap(); // write the character to stdout
-                    self.stdout.flush().unwrap(); // transfer data from the buffer to the stdout
                 }
 
                 termion::event::Key::Backspace => {
                     if !self.buffer.is_empty() {
                         self.buffer.pop();
                         write!(self.stdout, "\x08 \x08").unwrap(); // backspace
-                        self.stdout.flush().unwrap();
                     }
                 }
 
                 termion::event::Key::Ctrl('c') => {
-                    write!(self.stdout, "\r\x1b[2K").unwrap();
-                    self.stdout.flush().unwrap();
+                    write!(self.stdout, "\n\r").unwrap();
                     break;
                 }
 
                 termion::event::Key::Up => {
                     display_promt();
                     write!(self.stdout, "{}\r\x1b[2K", self.history.prev()).unwrap();
-                    self.stdout.flush().unwrap();
                 }
 
                 termion::event::Key::Down => {
                     display_promt();
                     write!(self.stdout, "{}\r\x1b[2K", self.history.next()).unwrap();
-                    self.stdout.flush().unwrap();
                 }
 
                 _ => {}
+                
             }
+            self.stdout.flush().unwrap();
         }
     }
 }
