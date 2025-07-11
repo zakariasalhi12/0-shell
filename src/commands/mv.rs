@@ -35,32 +35,14 @@ impl Mv {
     fn get_param(&self) -> Result<(Vec<&str>, &str), &str> {
         let mut source: Vec<&str> = vec![];
         let dest: &str;
-        let current = match env::current_dir() {
-            Ok(val) => val,
-            Err(..) => return Err("Error in current directory"),
-        };
         self.args.iter().enumerate().for_each(|(index, arg)| {
             if index != self.args.len() - 1 {
-                // println!("{}", index);
                 source.push(&arg);
             }
         });
         dest = &self.args[self.args.len() - 1];
-        if !is_writable(&current.join(dest))
-            || !source.iter().any(|file| is_readable(&current.join(dest)))
-        {
-            return Err("Permission Denied");
-        }
         Ok((source, dest))
     }
-}
-
-fn is_writable(path: &PathBuf) -> bool {
-    OpenOptions::new().write(true).open(path).is_ok()
-}
-
-fn is_readable(path: &PathBuf) -> bool {
-    File::open(path).is_ok()
 }
 
 fn is_direc(path: &str) -> bool {
@@ -71,27 +53,12 @@ fn is_direc(path: &str) -> bool {
     current.join(path).is_dir()
 }
 
-fn are_in_same_directory(src: &str, dest: &str) -> bool {
-    let src_parent = Path::new(src).parent();
-    let src_dir = match src_parent {
-        Some(path) => match fs::canonicalize(path) {
-            Ok(val) => val,
-            Err(_) => return false,
-        },
-        None => return false,
-    };
-
-    let dest_parent = Path::new(dest).parent().unwrap_or_else(|| Path::new("."));
-    let dest_dir = match fs::canonicalize(dest_parent) {
+fn try_rename_or_copy(src: &str, dest: &str) -> std::io::Result<()> {
+    let destination = match fs::canonicalize(dest) {
         Ok(val) => val,
-        Err(_) => return false,
+        Err(e) => return Err(e),
     };
-
-    src_dir == dest_dir
-}
-
-fn try_rename_or_copy(src: &str, dest: &Path) -> std::io::Result<()> {
-    match fs::rename(src, dest) {
+    match fs::rename(src, destination) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::CrossesDevices => {
             fs::copy(src, dest)?;
@@ -101,63 +68,37 @@ fn try_rename_or_copy(src: &str, dest: &Path) -> std::io::Result<()> {
         Err(e) => Err(e),
     }
 }
-// 🟢 2. Path Checks
-//  Check that source exists.
-// Use filesystem metadata functions (std::fs::metadata  equivalent).
-//  Determine if source is:
-// - File
-// - Directory
-// - Symlink
-// - Check if target exists.
-// If it is a directory:
-// Plan to move into the directory (target/source_basename).
 
-// 🟢 3. Permissions
-//  Confirm read permissions on source.
-//  Confirm write permissions in the destination directory.
-//  Confirm you can remove the original after moving.
+fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        // Create the destination directory
+        fs::create_dir_all(dest)?;
 
-// 🟢 4. Same Filesystem vs Cross-Filesystem
-//  Detect whether source and target are on the same filesystem.
-// (e.g., using device IDs from metadata if you want to be robust)
-//  If same filesystem:
-//  Perform rename operation (fast).
-//  If different filesystems:
-//  Copy the file/directory recursively.
-//  Preserve permissions and timestamps.
-//  Delete the original after successful copy.
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            let entry_name = entry.file_name();
+            let dest_path = dest.join(&entry_name);
 
-// 🟢 5. Copying Logic (Cross-Filesystem)
-//  For files:
-// Read data and write to target.
-// Copy permissions, timestamps.
-//  For directories:
-// Recursively create directories.
-// Recursively copy contents.
-// Preserve metadata.
-//  For symlinks:
-// Recreate the symlink pointing to the same target.
+            if entry_path.is_dir() {
+                copy_directory(&entry_path, &dest_path)?;
+            } else if entry_path.is_file() {
+                fs::copy(&entry_path, &dest_path)?;
+            } else {
+                println!("Skipping {:?}", entry_path);
+            }
+        }
+    } else if src.is_file() {
+        fs::copy(src, dest)?;
+    } else {
+        return Err(Error::new(
+            ErrorKind::Other,
+            "Source is not file or directory",
+        ));
+    }
 
-// 🟢 6. Cleanup and Error Handling
-//  If copying fails, clean up partial copies.
-//  If deleting fails after copying, report error but keep the copy.
-//  Handle special cases (moving onto itself, etc.).
-
-// 🟢 7. User Feedback
-//  Print clear error messages on:
-// Missing files
-// Permission errors
-// Invalid arguments
-
-//  Optionally support -v (verbose) flag for output.
-// 🟢 8. Testing
-//  Test moving a file in the same directory (rename).
-//  Test moving to another directory on the same filesystem.
-//  Test moving to another filesystem.
-//  Test moving directories.
-//  Test moving symlinks.
-//  Test permission errors.
-//  Test moving onto an existing target.
+    Ok(())
+}
 
 impl ShellCommand for Mv {
     fn execute(&self) -> std::io::Result<()> {
@@ -174,10 +115,16 @@ impl ShellCommand for Mv {
             }
         };
         if is_direc(dest) {
+            for file in source {
+                copy_directory(&fs::canonicalize(file)?, &fs::canonicalize(dest)?)?;
+            }
         } else {
-            if are_in_same_directory(source[0], dest) {}
+            match try_rename_or_copy(source[0], dest) {
+                Ok(val) => return Ok(val),
+                Err(e) => return Err(e),
+            }
         }
-        println!("{:?} {}", source, dest);
+        // println!("{:?} {}", source, dest);
         Ok(())
     }
 }
