@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, io::{self, Write}};
 pub mod commands {
     pub mod cat;
     pub mod cd;
@@ -47,10 +47,11 @@ pub fn get_current_directory() -> Result<String, String> {
     }
 }
 
-pub fn distplay_promt() {
+pub fn display_promt() {
     let current_directory = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print!("{}", prompt.to_ansi());
+    io::stdout().flush().unwrap();
 }
 
 pub trait ShellCommand {

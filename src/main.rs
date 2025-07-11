@@ -1,31 +1,33 @@
-use shell::{features::history, *};
 mod config;
-pub mod executer;
 mod parser;
+mod shell_handler;
+pub mod executer;
 pub use parser::*;
-use std::io::{self, Write};
+
+use shell_handler::*;
+
 
 fn main() {
-    let mut buffer = String::new();
-    let mut history = history::History::new();
-
-    loop {
-        distplay_promt();
-        io::stdout().flush().unwrap();
-        buffer.clear();
-        io::stdin().read_line(&mut buffer).unwrap();
-        // let args: Vec<String> = buffer
-        //     .trim()
-        //     .split(" ")
-        //     .map(|str| str.to_string())
-        //     .collect();
-        // let mut vece: Vec<String> = vec![];
-        // vece.push("src".to_string());
-        // cd::Cd::new(vece).execute();
-        
-        // history.run(&mut buffer);
-        history.save(buffer.to_owned());
-        let cmd = parse(&buffer);
-        executer::execute(cmd);
-    }
+    let mut shell = Shell::new();
+    shell.run();
 }
+
+
+
+
+
+// fn main() {
+//     let stdin = stdin();
+//     let mut stdout = stdout().into_raw_mode().unwrap();
+//     stdout.flush().unwrap();
+
+//     for c in stdin.events() {
+//         let evt = c.unwrap();
+//         match evt {
+//             Event::Key(Key::Up) => break,
+//             }
+//             _ => {}
+//         }
+//         stdout.flush().unwrap();
+//     }
+// }

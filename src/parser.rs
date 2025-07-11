@@ -1,9 +1,13 @@
-use crate::ShellCommand;
-use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm,
+use std::io::{stdout, Write};
+
+use shell::ShellCommand;
+use shell::commands::{
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm
 };
 
-#[derive(Debug)]
+use crate::shell_handler::Shell;
+
+// #[derive(Debug)]
 pub struct Commande {
     pub operator: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
     pub name: Stdcommands, // "ls"
@@ -51,6 +55,8 @@ impl Stdcommands {
             Stdcommands::MV => Some(Box::new(Mv::new(args))),
             Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
             Stdcommands::EXIT => {
+                println!("\r\x1b[2K");
+                stdout().flush().unwrap();
                 std::process::exit(0);
             }
         }

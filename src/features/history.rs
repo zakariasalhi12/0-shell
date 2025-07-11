@@ -5,7 +5,7 @@ use std::io::{self, Read, Write};
 pub struct History {
     pub path: String,
     pub history: Vec<String>,
-    pub position: usize,
+    pub position: i32,
 }
 
 static NAME: &str = "0-shell_history";
@@ -36,7 +36,7 @@ impl History {
 
         let history = History {
             path: file_path.to_owned(),
-            position: file_content.len(),
+            position: file_content.len() as i32 -1,
             history: file_content,
         };
 
@@ -48,15 +48,15 @@ impl History {
             return "".to_owned();
         }
         self.position -= 1;
-        return self.history[self.position].to_owned();
+        return self.history[self.position as usize].to_owned();
     }
 
     pub fn prev(&mut self) -> String {
-        if self.position + 1 >= self.history.len() {
+        if self.position + 1 >= self.history.len() as i32 {
             return "".to_owned();
         }
         self.position += 1;
-        return self.history[self.position].to_owned();
+        return self.history[self.position as usize].to_owned();
     }
 
     pub fn save(&mut self, command: String) {
