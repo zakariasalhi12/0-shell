@@ -1,13 +1,13 @@
-use crate::{parse, Commande};
+use crate::{Commande};
 
-pub fn Execute(commandes: Vec<Commande>) {
+pub fn execute(commandes: Vec<Commande>) {
     for command in commandes {
-        let com = command.Name.build_command(command.Args, command.Option);
+        let com = command.name.build_command(command.args, command.option);
         match com {
             Some(val) => {
                 let res = val.execute();
                 match res {
-                    Ok(value) => {}
+                    Ok(_) => {}
                     Err(e) => println!("{e}"),
                 }
             }
