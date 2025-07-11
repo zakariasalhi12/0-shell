@@ -1,4 +1,4 @@
-use crate::{ShellCommand, commands::cp};
+use crate::{ShellCommand};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Cp {
