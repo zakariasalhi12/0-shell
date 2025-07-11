@@ -28,7 +28,7 @@ lazy_static! {
             .unwrap_or_else(|| "/".to_string())
     );
 
-    let shell = get_user_shell(username.as_str()).expect("not found");
+    let shell = get_user_shell(username.as_str()).unwrap_or(String::from(""));
     map.insert(String::from("SHELL"), shell);
     
     // map.insert("SHELL", get_user_shell())
