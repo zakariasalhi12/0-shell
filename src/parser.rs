@@ -1,7 +1,6 @@
 use crate::ShellCommand;
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm,
-};
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm, export::Export};
 
 #[derive(Debug)]
 pub struct Commande {
@@ -32,6 +31,7 @@ pub enum Stdcommands {
     MV,
     MKDIR,
     EXIT,
+    EXPORT,
 }
 
 impl Stdcommands {
@@ -50,6 +50,8 @@ impl Stdcommands {
             Stdcommands::RM => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::MV => Some(Box::new(Mv::new(args))),
             Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
+            Stdcommands::EXPORT => Some(Box::new(Export::new(args))),
+
             Stdcommands::EXIT => {
                 std::process::exit(0);
             }
@@ -63,13 +65,14 @@ pub fn parse(input: &str) -> Vec<Commande> {
     let mut current_exec_type = Sync;
 
     // Regex for splitting by all valid execution delimiters
-    let re = regex::Regex::new(r"(\s*&&\s*|\s*\|\|\s*|\s*\|\s*|\s*;\s*|\s*&\s*)").unwrap();
+    let re = regex::Regex::new(r"(&&|\|\||\||;|&)").unwrap();
     let mut last_index = 0;
 
     for mat in re.find_iter(input) {
         let command_str = input[last_index..mat.start()].trim();
         let delimiter = mat.as_str().trim();
         last_index = mat.end();
+        println!("{}", delimiter);
 
         if let Some(cmd) = parse_command(command_str, current_exec_type) {
             commandes.push(cmd);
@@ -143,6 +146,7 @@ pub fn matcher(cmd: &str) -> Option<Stdcommands> {
         "mv" => Some(Stdcommands::MV),
         "mkdir" => Some(Stdcommands::MKDIR),
         "exit" => Some(Stdcommands::EXIT),
+        "export" => Some(Stdcommands::EXPORT),
         _ => None,
     };
 }
