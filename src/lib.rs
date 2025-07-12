@@ -6,18 +6,18 @@ pub mod commands {
     pub mod cd;
     pub mod cp;
     pub mod echo;
+    pub mod export;
     pub mod ls;
     pub mod mkdir;
     pub mod mv;
     pub mod pwd;
     pub mod rm;
-    pub mod export;
 }
 
 pub mod features {
     pub mod history;
 }
-
+// pub mod config;
 enum Colors {
     // WHITE(String),
     // GREY(String),

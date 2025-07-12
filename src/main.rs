@@ -1,3 +1,6 @@
+use shell::commands::{cd, echo};
+use shell::*;
+pub mod config;
 use shell::{features::history, *};
 pub mod executer;
 mod parser;
@@ -18,6 +21,7 @@ fn main() {
 
     let mut history = history::History::new();
 
+    print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
         distplay_promt();
         io::stdout().flush().unwrap();
