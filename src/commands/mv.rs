@@ -1,7 +1,4 @@
 use crate::ShellCommand;
-use std::fs::File;
-use std::fs::OpenOptions;
-use std::path;
 use std::path::{Path, PathBuf};
 use std::{
     self, env, fs,
@@ -46,7 +43,7 @@ impl Mv {
     }
 }
 
-fn is_direc(path: &str) -> bool {
+pub fn is_direc(path: &str) -> bool {
     let current = match env::current_dir() {
         Ok(val) => val,
         Err(..) => return false,
@@ -54,7 +51,7 @@ fn is_direc(path: &str) -> bool {
     current.join(path).is_dir()
 }
 
-fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> std::io::Result<()> {
+pub fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> std::io::Result<()> {
     match fs::rename(src, dest) {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::CrossesDevices => {
@@ -152,7 +149,6 @@ impl ShellCommand for Mv {
 
             try_rename_or_copy(&src_path, &dest_path)?;
         }
-        // println!("{:?} {}", source, dest);
         Ok(())
     }
 }

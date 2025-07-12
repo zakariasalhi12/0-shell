@@ -1,6 +1,6 @@
 use shell::commands::{cd, echo};
 use shell::*;
-mod config;
+pub mod config;
 pub mod executer;
 mod parser;
 pub use parser::*;
@@ -8,7 +8,7 @@ use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
-    print!("\x1B[2J\x1B[H");
+    print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
         distplay_promt();
         io::stdout().flush().unwrap();

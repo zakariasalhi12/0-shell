@@ -50,7 +50,7 @@ impl Stdcommands {
             Stdcommands::ls => Some(Box::new(Ls::new(args, opts))),
             Stdcommands::pwd => Some(Box::new(Pwd::new(args))),
             Stdcommands::cat => Some(Box::new(Cat::new(args))),
-            Stdcommands::cp => Some(Box::new(Cp::new(args))),
+            Stdcommands::cp => Some(Box::new(Cp::new(args, opts))),
             Stdcommands::rm => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::mv => Some(Box::new(Mv::new(args))),
             Stdcommands::mkdir => Some(Box::new(mkdir::new(args, opts))),

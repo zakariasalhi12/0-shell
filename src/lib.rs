@@ -10,7 +10,7 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
 }
-
+pub mod config;
 enum Colors {
     White(String),
     Grey(String),
