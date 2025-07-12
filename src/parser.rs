@@ -71,13 +71,14 @@ pub fn parse(input: &str) -> Vec<Commande> {
     let mut current_exec_type = Sync;
 
     // Regex for splitting by all valid execution delimiters
-    let re = regex::Regex::new(r"(\s*&&\s*|\s*\|\|\s*|\s*\|\s*|\s*;\s*|\s*&\s*)").unwrap();
+    let re = regex::Regex::new(r"(&&|\|\||\||;|&)").unwrap();
     let mut last_index = 0;
 
     for mat in re.find_iter(input) {
         let command_str = input[last_index..mat.start()].trim();
         let delimiter = mat.as_str().trim();
         last_index = mat.end();
+        println!("{}", delimiter);
 
         if let Some(cmd) = parse_command(command_str, current_exec_type) {
             commandes.push(cmd);
