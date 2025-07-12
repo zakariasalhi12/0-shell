@@ -1,12 +1,21 @@
 use shell::{features::history, *};
-mod config;
 pub mod executer;
 mod parser;
+use config::*;
 pub use parser::*;
+use std::env;
 use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
+    {
+        let map = ENV.lock().unwrap();
+
+        for (k, v) in map.iter() {
+            println!("{} : {}", k, v);
+        }
+    }
+
     let mut history = history::History::new();
 
     loop {
