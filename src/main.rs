@@ -1,13 +1,22 @@
 use shell::commands::{cd, echo};
 use shell::*;
-mod config;
 pub mod executer;
 mod parser;
+use config::*;
 pub use parser::*;
+use std::env;
 use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
+    {
+        let map = ENV.lock().unwrap();
+
+        for (k, v) in map.iter() {
+            println!("{} : {}", k, v);
+        }
+    }
+
     loop {
         distplay_promt();
         io::stdout().flush().unwrap();
