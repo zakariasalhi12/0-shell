@@ -1,34 +1,48 @@
+use std::cell::RefCell;
+use std::{fs, path::PathBuf};
+
 use crate::ShellCommand;
-use std::{fs, path::Path};
-use std::io::{Error, ErrorKind};
 use std::io;
+use std::io::{Error, ErrorKind};
+use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mkdir {
     pub args: Vec<String>,
+    pub flags: Vec<String>,
 }
 
 impl Mkdir {
-    pub fn new(args: Vec<String>) -> Self {
-        Mkdir { args: args }
+    pub fn new(args: Vec<String>, flags: Vec<String>) -> Self {
+        Mkdir { args: args, flags }
+    }
+    pub fn parse_flags(&self) -> bool {
+        for flag in &self.flags {
+            if flag == "-p" {
+                return true;
+            }
+        }
+        false
     }
 }
 
 impl ShellCommand for Mkdir {
-    fn execute(&self) -> io::Result<()> {
+    fn execute(&self) -> std::io::Result<()> {
+        let is_parent = self.parse_flags();
 
-        if self.args.len() == 0 {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "mkdir: missing operand\nusage: mkdir test1 test2"));
-        }
+        for drc in &self.args {
+            let path = PathBuf::from(drc);
 
-        for arg in &self.args {
-            let path = Path::new(arg);
-            match fs::create_dir(path) {
-                Ok(_) => continue,
-                Err(ref e) if e.kind() == ErrorKind::AlreadyExists => continue,
-                Err(e) => return Err(e),
+            if is_parent {
+                fs::create_dir_all(&path)?;
+            } else {
+                if path.exists() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::AlreadyExists,
+                        format!("Mkdir: cannot create directory '{}': File exists", drc),
+                    ));
+                }
+                fs::create_dir(&path)?;
             }
         }
         Ok(())
