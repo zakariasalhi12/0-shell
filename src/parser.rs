@@ -53,7 +53,7 @@ impl Stdcommands {
             Stdcommands::cp => Some(Box::new(Cp::new(args))),
             Stdcommands::rm => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::mv => Some(Box::new(Mv::new(args))),
-            Stdcommands::mkdir => Some(Box::new(mkdir::new(args))),
+            Stdcommands::mkdir => Some(Box::new(mkdir::new(args, opts))),
             Stdcommands::exit => {
                 std::process::exit(0);
             }
