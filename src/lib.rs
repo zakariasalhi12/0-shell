@@ -1,5 +1,6 @@
-use std::{env, io::{self, Stdout, Write}};
+use std::{env, io::{self, Stdout, Write}, os::unix::process};
 use termion::raw::RawTerminal;
+use termion::{clear, cursor, color, style};
 
 pub mod commands {
     pub mod cat;
@@ -48,8 +49,6 @@ pub fn get_current_directory() -> Result<String, String> {
         Err(e) => Err(e.to_string()),
     }
 }
-
-// .v reject 727662298172489799
 
 pub fn display_promt(stdout :&mut RawTerminal<Stdout>) {
     let current_directory: String = get_current_directory().unwrap();

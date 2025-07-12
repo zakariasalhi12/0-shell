@@ -1,6 +1,6 @@
-use std::cell::RefCell;
 use std::io::*;
-use std::process::exit;
+use termion::cursor::Goto;
+use termion::{clear , cursor};
 
 use shell::display_promt;
 use shell::features::history;
@@ -9,6 +9,7 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
 
+use crate::executer::execute;
 use crate::{executer, parse};
 
 pub struct Shell {
@@ -81,12 +82,11 @@ impl Shell {
                     let next_history = self.history.next();
                     if !next_history.is_empty() {
                         self.buffer.clear();
+                        write!(self.stdout , "\r").unwrap();
                         // ANSI escape code to clear the current line and move the cursor to the beginning
-                      write!(self.stdout, "\r\x1B[2K").unwrap();
                         self.stdout.flush().unwrap();
                         display_promt(&mut self.stdout);
-                        write!(self.stdout, "{}\r\n", next_history).unwrap();
-                        display_promt(&mut self.stdout);
+                        write!(self.stdout, "{}", next_history).unwrap();
                     }
                 }
                 
@@ -94,13 +94,19 @@ impl Shell {
                     let prev_history = self.history.prev();
                     if !prev_history.is_empty() {
                         self.buffer.clear();
+                        write!(self.stdout , "\r").unwrap();
                         // ANSI escape code to clear the current line and move the cursor to the beginning
-                        write!(self.stdout, "\r\x1B[2K").unwrap();
                         display_promt(&mut self.stdout);
-                        write!(self.stdout, "{}\r\n", prev_history).unwrap();
-                        display_promt(&mut self.stdout);
+                        write!(self.stdout, "{}", prev_history).unwrap();
                     }
                 }
+
+                termion::event::Key::Ctrl('l') => {
+                    write!(self.stdout, "{}{}\r", clear::All , cursor::Goto(1 , 1)).unwrap();
+                    display_promt(&mut self.stdout);
+                    self.stdout.flush().unwrap();
+                }
+
                 termion::event::Key::Ctrl('d') => {
                     write!(self.stdout , "\r").unwrap();
                     self.stdout.flush().unwrap();
