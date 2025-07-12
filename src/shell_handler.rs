@@ -1,15 +1,11 @@
 use std::io::*;
-use termion::cursor::Goto;
 use termion::{clear , cursor};
-
 use shell::display_promt;
 use shell::features::history;
 use shell::features::history::History;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
-
-use crate::executer::execute;
 use crate::{executer, parse};
 
 pub struct Shell {
@@ -29,19 +25,19 @@ impl Shell {
         }
     }
 
-    pub fn push_to_buffer(&mut self, c: char) {
-        self.buffer.push(c); // push the character to the buffer
-        write!(self.stdout, "{}", c).unwrap(); // write the character to stdout
-        self.stdout.flush().unwrap(); // transfer data from the buffer to the stdout
-    }
+    // pub fn push_to_buffer(&mut self, c: char) {
+    //     self.buffer.push(c); // push the character to the buffer
+    //     write!(self.stdout, "{}", c).unwrap(); // write the character to stdout
+    //     self.stdout.flush().unwrap(); // transfer data from the buffer to the stdout
+    // }
 
-    pub fn pop_from_buffer(&mut self) {
-        if !self.buffer.is_empty() {
-            self.buffer.pop();
-            write!(self.stdout, "\x08 \x08").unwrap(); // backspace
-            self.stdout.flush().unwrap();
-        }
-    }
+    // pub fn pop_from_buffer(&mut self) {
+    //     if !self.buffer.is_empty() {
+    //         self.buffer.pop();
+    //         write!(self.stdout, "\x08 \x08").unwrap(); // backspace
+    //         self.stdout.flush().unwrap();
+    //     }
+    // }
 
     pub fn run(&mut self) {
         display_promt(&mut self.stdout);
@@ -87,6 +83,7 @@ impl Shell {
                         self.stdout.flush().unwrap();
                         display_promt(&mut self.stdout);
                         write!(self.stdout, "{}", next_history).unwrap();
+                        self.buffer.push_str(&next_history);
                     }
                 }
                 
@@ -98,6 +95,7 @@ impl Shell {
                         // ANSI escape code to clear the current line and move the cursor to the beginning
                         display_promt(&mut self.stdout);
                         write!(self.stdout, "{}", prev_history).unwrap();
+                        self.buffer.push_str(&prev_history);
                     }
                 }
 
