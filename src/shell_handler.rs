@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::io::*;
+use std::process::exit;
 
 use shell::display_promt;
 use shell::features::history;
@@ -100,7 +101,11 @@ impl Shell {
                         display_promt(&mut self.stdout);
                     }
                 }
-
+                termion::event::Key::Ctrl('d') => {
+                    write!(self.stdout , "\r").unwrap();
+                    self.stdout.flush().unwrap();
+                    return;
+                }   
                 _ => {}
                 
             }

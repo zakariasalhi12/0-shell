@@ -55,7 +55,7 @@ impl Stdcommands {
             Stdcommands::MV => Some(Box::new(Mv::new(args))),
             Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
             Stdcommands::EXIT => {
-                std::process::exit(0);
+                std::process::exit(0) // need to clean befor exit;
             }
         }
     }

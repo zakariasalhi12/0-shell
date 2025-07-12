@@ -35,7 +35,7 @@ impl History {
 
         let history = History {
             path: file_path.to_owned(),
-            position: file_content.len() as i32 -1,
+            position: file_content.len() as i32,
             history: file_content,
         };
 
@@ -43,7 +43,7 @@ impl History {
     }
 
     pub fn next(&mut self) -> String {
-        if self.position - 1 <= 0 {
+        if self.position - 1 < 0 {
             return "".to_owned();
         }
         self.position -= 1;
