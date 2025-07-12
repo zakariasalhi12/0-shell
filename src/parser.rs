@@ -1,11 +1,13 @@
 use crate::ShellCommand;
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm, export::Export};
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
+    rm::Rm,
+};
 
 #[derive(Debug)]
 pub struct Commande {
     pub operator: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
-    pub name: Stdcommands, // "ls"
+    pub name: Stdcommands,  // "ls"
     pub option: Vec<String>, //"-f j"
     pub args: Vec<String>,
 }
@@ -46,10 +48,10 @@ impl Stdcommands {
             Stdcommands::LS => Some(Box::new(Ls::new(args, opts))),
             Stdcommands::PWD => Some(Box::new(Pwd::new(args))),
             Stdcommands::CAT => Some(Box::new(Cat::new(args))),
-            Stdcommands::CP => Some(Box::new(Cp::new(args))),
+            Stdcommands::CP => Some(Box::new(Cp::new(args, opts))),
             Stdcommands::RM => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::MV => Some(Box::new(Mv::new(args))),
-            Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args))),
+            Stdcommands::MKDIR => Some(Box::new(Mkdir::new(args, opts))),
             Stdcommands::EXPORT => Some(Box::new(Export::new(args))),
 
             Stdcommands::EXIT => {
