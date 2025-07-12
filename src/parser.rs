@@ -1,9 +1,10 @@
+
 // use regex::*;
 use crate::ShellCommand;
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::mkdir, mv::Mv, pwd::Pwd, rm::Rm,
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::mkdir, mv::Mv, pwd::Pwd, rm::Rm,  
 };
-
+use crate::commands::export::Export;
 use std::ptr::null;
 #[derive(Debug)]
 
@@ -36,6 +37,7 @@ pub enum Stdcommands {
     mv,
     mkdir,
     exit,
+    export
 }
 
 impl Stdcommands {
@@ -54,6 +56,8 @@ impl Stdcommands {
             Stdcommands::rm => Some(Box::new(Rm::new(args, opts))),
             Stdcommands::mv => Some(Box::new(Mv::new(args))),
             Stdcommands::mkdir => Some(Box::new(mkdir::new(args))),
+            Stdcommands::export => Some(Box::new(Export::new(args))),
+
             Stdcommands::exit => {
                 std::process::exit(0);
             }
@@ -147,6 +151,7 @@ pub fn matcher(cmd: &str) -> Option<Stdcommands> {
         "mv" => Some(Stdcommands::mv),
         "mkdir" => Some(Stdcommands::mkdir),
         "exit" => Some(Stdcommands::exit),
+        "export" => Some(Stdcommands::export),
         _ => None,
     };
 }
