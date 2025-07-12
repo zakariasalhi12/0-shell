@@ -1,4 +1,6 @@
 use std::env;
+pub mod config;
+
 pub mod commands {
     pub mod cat;
     pub mod cd;
@@ -9,6 +11,7 @@ pub mod commands {
     pub mod mv;
     pub mod pwd;
     pub mod rm;
+    pub mod export;
 }
 
 pub mod features {
