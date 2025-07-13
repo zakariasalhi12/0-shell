@@ -30,7 +30,20 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
     let mut i: usize = 0;
 
     while i < chars.len(){
-        
+        let c = chars[i];
+
+        if escaping {
+            token_buf.push(c);
+            escaping = false;
+            i +=1;
+            continue;
+        }
+
+        if c == '\\' && !inSingleQuote{
+            escaping = true;
+            i+=1;
+            continue;
+        }
     }
         
 
