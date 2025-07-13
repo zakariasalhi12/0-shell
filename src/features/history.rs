@@ -1,6 +1,6 @@
 use std::env::home_dir;
 use std::fs::OpenOptions;
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 
 pub struct History {
     pub path: String,
@@ -42,7 +42,7 @@ impl History {
         return history;
     }
 
-    pub fn next(&mut self) -> String {
+    pub fn prev(&mut self) -> String {
         if self.position - 1 < 0 {
             return "".to_owned();
         }
@@ -50,7 +50,7 @@ impl History {
         return self.history[self.position as usize].to_owned();
     }
 
-    pub fn prev(&mut self) -> String {
+    pub fn next(&mut self) -> String {
         if self.position + 1 >= self.history.len() as i32 {
             return "".to_owned();
         }
@@ -72,10 +72,6 @@ impl History {
         file.write((command.to_string()  + "\n").as_bytes()).unwrap();
         self.history.push(command);
         self.position += 1;
-    }
-
-    pub fn listen(&mut self, buff: &mut String) {
-
     }
 
 }

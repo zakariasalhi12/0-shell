@@ -1,6 +1,5 @@
-use std::{env, io::{self, Stdout, Write}, os::unix::process};
+use std::{env, io::{Stdout, Write}};
 use termion::raw::RawTerminal;
-use termion::{clear, cursor, color, style};
 
 pub mod commands {
     pub mod cat;

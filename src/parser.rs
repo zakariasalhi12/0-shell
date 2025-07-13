@@ -1,11 +1,7 @@
-use std::io::{stdout, Write};
-
 use shell::ShellCommand;
 use shell::commands::{
     cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm
 };
-
-use crate::shell_handler::Shell;
 
 // #[derive(Debug)]
 pub struct Commande {

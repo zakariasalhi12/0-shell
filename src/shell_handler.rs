@@ -16,7 +16,6 @@ pub struct Shell {
 }
 
 impl Shell {
-
     pub fn new() -> Self {
         Shell {
             stdin: stdin(),
@@ -26,20 +25,29 @@ impl Shell {
         }
     }
 
-    // pub fn push_to_buffer(stdout : &mut RawTerminal<Stdout>, c: char , buffer : &mut String ) {
-    //     buffer.push(c); // push the character to the buffer
-    //     write!(self.stdout, "{}", c).unwrap(); // write the character to stdout
-    // }
+    pub fn push_to_buffer(stdout: &mut RawTerminal<Stdout>, c: char, buffer: &mut String) {
+        buffer.push(c); // push the character to the buffer
+        write!(stdout, "{}", c).unwrap(); // write the character to stdout
+    }
 
-    pub fn pop_from_buffer(&mut self) {
-        if !self.buffer.is_empty() {
-            self.buffer.pop();
-            write!(self.stdout, "\x08 \x08").unwrap(); // backspace
-            self.stdout.flush().unwrap();
+    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
+        if !buffer.is_empty() {
+            buffer.pop();
+            write!(stdout, "\x08 \x08").unwrap(); // backspace
         }
     }
 
-    pub fn parse_and_exec(stdout : &mut RawTerminal<Stdout> , buffer : &mut String , history : &mut History) {
+    pub fn clear_terminal(stdout: &mut RawTerminal<Stdout>) {
+        write!(stdout, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
+        display_promt(stdout);
+        stdout.flush().unwrap();
+    }
+
+    pub fn parse_and_exec(
+        stdout: &mut RawTerminal<Stdout>,
+        buffer: &mut String,
+        history: &mut History,
+    ) {
         writeln!(stdout).unwrap();
         print!("\r\x1b[2K");
         if !buffer.trim().is_empty() {
@@ -51,6 +59,43 @@ impl Shell {
         display_promt(stdout);
     }
 
+    pub fn history_prev(
+        stdout: &mut RawTerminal<Stdout>,
+        buffer: &mut String,
+        history: &mut History,
+    ) {
+        let prev_history = history.prev();
+        if !prev_history.is_empty() {
+            for _ in 0..buffer.len() {
+                Shell::pop_from_buffer(stdout, buffer);
+            }
+            buffer.clear();
+            write!(stdout, "\r").unwrap();
+            stdout.flush().unwrap();
+            display_promt(stdout);
+            write!(stdout, "{}", prev_history).unwrap();
+            buffer.push_str(&prev_history);
+        }
+    }
+
+    pub fn history_next(
+        stdout: &mut RawTerminal<Stdout>,
+        buffer: &mut String,
+        history: &mut History,
+    ) {
+        let next_history = history.next();
+        if !next_history.is_empty() {
+            for _ in 0..buffer.len() {
+                Shell::pop_from_buffer(stdout, buffer);
+            }
+            buffer.clear();
+            write!(stdout, "\r").unwrap();
+            display_promt(stdout);
+            write!(stdout, "{}", next_history).unwrap();
+            buffer.push_str(&next_history);
+        }
+    }
+
     pub fn run(&mut self) {
         display_promt(&mut self.stdout);
         self.stdout.flush().unwrap();
@@ -59,55 +104,32 @@ impl Shell {
 
         for key in stdin.keys() {
             match key.unwrap() {
-
                 termion::event::Key::Char('\n') => {
-                    Shell::parse_and_exec(&mut self.stdout , &mut self.buffer , &mut self.history);
+                    Shell::parse_and_exec(&mut self.stdout, &mut self.buffer, &mut self.history);
+                }
+
+                termion::event::Key::Char('\t') => {
+                    //
                 }
 
                 termion::event::Key::Char(c) => {
-                    self.buffer.push(c); // push the character to the buffer
-                    write!(self.stdout, "{}", c).unwrap(); // write the character to stdout
+                    Shell::push_to_buffer(&mut self.stdout, c, &mut self.buffer);
                 }
 
                 termion::event::Key::Backspace => {
-                    if !self.buffer.is_empty() {
-                        self.buffer.pop();
-                        write!(self.stdout, "\x08 \x08").unwrap(); // backspace
-                    }
-                }
-
-                termion::event::Key::Ctrl('c') => {
-                    // write!(self.stdout, "\r").unwrap();
-                    // break;
+                    Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer);
                 }
 
                 termion::event::Key::Up => {
-                    let next_history = self.history.next();
-                    if !next_history.is_empty() {
-                        self.buffer.clear();
-                        write!(self.stdout, "\r").unwrap();
-                        self.stdout.flush().unwrap();
-                        display_promt(&mut self.stdout);
-                        write!(self.stdout, "{}", next_history).unwrap();
-                        self.buffer.push_str(&next_history);
-                    }
+                    Shell::history_prev(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
                 termion::event::Key::Down => {
-                    let prev_history = self.history.prev();
-                    if !prev_history.is_empty() {
-                        self.buffer.clear();
-                        write!(self.stdout, "\r").unwrap();
-                        display_promt(&mut self.stdout);
-                        write!(self.stdout, "{}", prev_history).unwrap();
-                        self.buffer.push_str(&prev_history);
-                    }
+                    Shell::history_next(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
                 termion::event::Key::Ctrl('l') => {
-                    write!(self.stdout, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
-                    display_promt(&mut self.stdout);
-                    self.stdout.flush().unwrap();
+                    Shell::clear_terminal(&mut self.stdout);
                 }
 
                 termion::event::Key::Ctrl('d') => {
@@ -115,6 +137,11 @@ impl Shell {
                     self.stdout.flush().unwrap();
                     return;
                 }
+
+                // termion::event::Key::Ctrl('c') => {
+                //     write!(self.stdout, "\r").unwrap();
+                //     break;
+                // }
                 _ => {}
             }
             self.stdout.flush().unwrap();
