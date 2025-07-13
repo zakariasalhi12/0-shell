@@ -30,10 +30,12 @@ impl Shell {
         write!(stdout, "{}", c).unwrap(); // write the character to stdout
     }
 
-    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
-        if !buffer.is_empty() {
-            buffer.pop();
-            write!(stdout, "\x08 \x08").unwrap(); // backspace
+    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String , size : usize) {
+        for _ in 0..size {
+            if !buffer.is_empty() {
+                buffer.pop();
+                write!(stdout, "\x08 \x08").unwrap(); // backspace
+            }
         }
     }
 
@@ -66,10 +68,7 @@ impl Shell {
     ) {
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            for _ in 0..buffer.len() {
-                Shell::pop_from_buffer(stdout, buffer);
-            }
-            buffer.clear();
+            Shell::pop_from_buffer(stdout, buffer,buffer.len());
             write!(stdout, "\r").unwrap();
             stdout.flush().unwrap();
             display_promt(stdout);
@@ -85,9 +84,7 @@ impl Shell {
     ) {
         let next_history = history.next();
         if !next_history.is_empty() {
-            for _ in 0..buffer.len() {
-                Shell::pop_from_buffer(stdout, buffer);
-            }
+            Shell::pop_from_buffer(stdout, buffer , buffer.len());
             buffer.clear();
             write!(stdout, "\r").unwrap();
             display_promt(stdout);
@@ -117,7 +114,7 @@ impl Shell {
                 }
 
                 termion::event::Key::Backspace => {
-                    Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer);
+                    Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer , 1);
                 }
 
                 termion::event::Key::Up => {
