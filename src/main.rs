@@ -2,7 +2,7 @@ use shell::commands::{cd, echo};
 use shell::*;
 pub mod config;
 use shell::{features::history, *};
-pub mod executer;
+// pub mod executer;
 mod parser;
 use config::*;
 pub use parser::*;
@@ -38,7 +38,7 @@ fn main() {
         
         // history.run(&mut buffer);
         history.save(buffer.to_owned());
-        let cmd = parse(&buffer);
-        executer::execute(cmd);
+        // let cmd = parse(&buffer);
+        // exec::execute(cmd);
     }
 }

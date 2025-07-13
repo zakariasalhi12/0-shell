@@ -1,4 +1,3 @@
-use std::env;
 pub mod config;
 
 pub mod commands {
@@ -17,6 +16,18 @@ pub mod commands {
 pub mod features {
     pub mod history;
 }
+
+
+pub mod ast;
+pub mod error;
+pub mod eval;
+pub mod lexer;
+pub mod parser;
+pub mod jobs;
+pub mod exec;
+pub mod env;
+pub mod builtins;
+pub mod expansion;
 // pub mod config;
 enum Colors {
     // WHITE(String),
@@ -41,7 +52,7 @@ pub fn get_first_element<'a>(s: &'a str, pattern: &str) -> &'a str {
 }
 
 pub fn get_current_directory() -> Result<String, String> {
-    match env::current_dir() {
+    match std::env::current_dir() {
         Ok(path) => match path.file_name() {
             Some(name) => Ok(name.to_string_lossy().to_string()),
             None => Ok("/".to_string()),
