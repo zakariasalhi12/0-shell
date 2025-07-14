@@ -1,12 +1,12 @@
-use shell::ShellCommand;
-use shell::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm
+use crate::ShellCommand;
+use crate::commands::{
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm,
 };
 
 // #[derive(Debug)]
 pub struct Commande {
     pub operator: ExecType, //if this commande should run async (case of &) or sync (case of && or ; or | )
-    pub name: Stdcommands, // "ls"
+    pub name: Stdcommands,  // "ls"
     pub option: Vec<String>, //"-f j"
     pub args: Vec<String>,
 }
