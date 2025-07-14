@@ -43,24 +43,33 @@ impl Shell {
         }
     }
 
-    pub fn remove_from_buffer(
+    // if the character == \0 remove the character from the buffer instead of add it
+    pub fn edit_buffer(
         stdout: &mut RawTerminal<Stdout>,
+        character: char,
         buffer: &mut String,
-        position: i16,
+        cursor_position: i16,
     ) {
-        let mut res = String::new();
+        let mut remove: i16 = 0;
+        
+        if character == '\0' {
+            remove = -1
+        }
 
+        let mut res = String::new();
         for (i, c) in buffer.to_owned().char_indices() {
-            if (i as i16) == (buffer.len() as i16) - position {
-                continue;
+            if (i as i16) == (buffer.len() as i16) - cursor_position + remove {
+                if character == '\0' {
+                    continue;
+                }
+                res.push(character);
             }
             res.push(c);
         }
-
-        write!(stdout, "{}", Right(position as u16)).unwrap();
+        write!(stdout, "{}", Right(cursor_position as u16)).unwrap();
         Shell::pop_from_buffer(stdout, buffer, buffer.len());
         buffer.push_str(&res);
-        write!(stdout, "{}{}", buffer, Left(position as u16)).unwrap();
+        write!(stdout, "{}{}", buffer, Left(cursor_position as u16)).unwrap();
     }
 
     pub fn clear_terminal(stdout: &mut RawTerminal<Stdout>) {
@@ -115,25 +124,6 @@ impl Shell {
         }
     }
 
-    pub fn edit_buffer(
-        stdout: &mut RawTerminal<Stdout>,
-        character: char,
-        buffer: &mut String,
-        cursor_position: i16,
-    ) {
-        let mut res = String::new();
-        for (i, c) in buffer.to_owned().char_indices() {
-            if (i as i16) == (buffer.len() as i16) - cursor_position {
-                res.push(character);
-            }
-            res.push(c);
-        }
-        write!(stdout, "{}", Right(cursor_position as u16)).unwrap();
-        Shell::pop_from_buffer(stdout, buffer, buffer.len());
-        buffer.push_str(&res);
-        write!(stdout, "{}{}", buffer, Left(cursor_position as u16)).unwrap();
-    }
-
     pub fn run(&mut self) {
         display_promt(&mut self.stdout);
         self.stdout.flush().unwrap();
@@ -144,7 +134,7 @@ impl Shell {
             match key.unwrap() {
                 // Parse Input
                 termion::event::Key::Char('\n') => {
-                    self.cursor_position = 0;  
+                    self.cursor_position = 0;
                     Shell::parse_and_exec(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
@@ -167,7 +157,12 @@ impl Shell {
                 // Remove the last character
                 termion::event::Key::Backspace => {
                     if self.cursor_position > 0 {
-                        Shell::remove_from_buffer(&mut self.stdout, &mut self.buffer, self.cursor_position);
+                        Shell::edit_buffer(
+                            &mut self.stdout,
+                            '\0',
+                            &mut self.buffer,
+                            self.cursor_position,
+                        );
                     } else {
                         Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer, 1);
                     }
