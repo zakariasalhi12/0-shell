@@ -34,7 +34,7 @@ impl Shell {
         write!(stdout, "{}", c).unwrap(); // write the character to stdout
     }
 
-    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String , size : usize) {
+    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String, size: usize) {
         for _ in 0..size {
             if !buffer.is_empty() {
                 buffer.pop();
@@ -43,7 +43,25 @@ impl Shell {
         }
     }
 
-    // pub fn remove_from_buffer(stdout: &mut RawTerminal<Stdout> , buffer: &mut String , position : i32)
+    pub fn remove_from_buffer(
+        stdout: &mut RawTerminal<Stdout>,
+        buffer: &mut String,
+        position: i16,
+    ) {
+        let mut res = String::new();
+
+        for (i, c) in buffer.to_owned().char_indices() {
+            if (i as i16) == (buffer.len() as i16) - position {
+                continue;
+            }
+            res.push(c);
+        }
+
+        write!(stdout, "{}", Right(position as u16)).unwrap();
+        Shell::pop_from_buffer(stdout, buffer, buffer.len());
+        buffer.push_str(&res);
+        write!(stdout, "{}{}", buffer, Left(position as u16)).unwrap();
+    }
 
     pub fn clear_terminal(stdout: &mut RawTerminal<Stdout>) {
         write!(stdout, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
@@ -74,7 +92,7 @@ impl Shell {
     ) {
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            Shell::pop_from_buffer(stdout, buffer , buffer.len());
+            Shell::pop_from_buffer(stdout, buffer, buffer.len());
             write!(stdout, "\r").unwrap();
             display_promt(stdout);
             write!(stdout, "{}", prev_history).unwrap();
@@ -89,7 +107,7 @@ impl Shell {
     ) {
         let next_history = history.next();
         if !next_history.is_empty() {
-            Shell::pop_from_buffer(stdout , buffer , buffer.len());
+            Shell::pop_from_buffer(stdout, buffer, buffer.len());
             write!(stdout, "\r").unwrap();
             display_promt(stdout);
             write!(stdout, "{}", next_history).unwrap();
@@ -111,7 +129,7 @@ impl Shell {
             res.push(c);
         }
         write!(stdout, "{}", Right(cursor_position as u16)).unwrap();
-        Shell::pop_from_buffer(stdout, buffer , buffer.len());
+        Shell::pop_from_buffer(stdout, buffer, buffer.len());
         buffer.push_str(&res);
         write!(stdout, "{}{}", buffer, Left(cursor_position as u16)).unwrap();
     }
@@ -126,6 +144,7 @@ impl Shell {
             match key.unwrap() {
                 // Parse Input
                 termion::event::Key::Char('\n') => {
+                    self.cursor_position = 0;  
                     Shell::parse_and_exec(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
@@ -147,7 +166,11 @@ impl Shell {
 
                 // Remove the last character
                 termion::event::Key::Backspace => {
-                        Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer, 1 );
+                    if self.cursor_position > 0 {
+                        Shell::remove_from_buffer(&mut self.stdout, &mut self.buffer, self.cursor_position);
+                    } else {
+                        Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer, 1);
+                    }
                 }
 
                 // Get prev history
@@ -194,14 +217,14 @@ impl Shell {
                     todo!();
                 }
 
-                // send SIGINT signal to the current process (signal number is 2)
+                // Send SIGINT signal to the current process (signal number is 2)
                 termion::event::Key::Ctrl('c') => {
-                    todo!()
+                    //
                 }
 
-                // send SIGTSTP signal to the current process (signal number is 20)
+                // Send SIGTSTP signal to the current process (signal number is 20)
                 termion::event::Key::Ctrl('z') => {
-                    todo!()
+                    //
                 }
 
                 _ => {}
