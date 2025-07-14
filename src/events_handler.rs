@@ -3,7 +3,7 @@ use crate::features::history;
 use crate::features::history::History;
 use crate::{executer, parse};
 use std::io::*;
-use termion::cursor::Left;
+use termion::cursor::{Left};
 use termion::cursor::Right;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -138,7 +138,9 @@ impl Shell {
                     Shell::parse_and_exec(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
-                termion::event::Key::Char('\t') => {}
+                termion::event::Key::Char('\t') => {
+                    // 
+                }
 
                 // append character to the buffer and write it in the stdout
                 termion::event::Key::Char(c) => {
@@ -209,8 +211,9 @@ impl Shell {
 
                 // Remove the whole Word from buffer and delete it from terminal
                 termion::event::Key::Ctrl('w') => {
-                    todo!();
+                    //    
                 }
+
 
                 // Send SIGINT signal to the current process (signal number is 2)
                 termion::event::Key::Ctrl('c') => {
