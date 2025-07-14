@@ -1,6 +1,8 @@
-use std::env;
 pub mod config;
-
+pub mod events_handler;
+pub mod parser;
+pub use parser::*;
+pub mod executer;
 pub mod commands {
     pub mod cat;
     pub mod cd;
@@ -13,7 +15,9 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
 }
-
+use std::env;
+use std::{io::{Stdout, Write},};
+use termion::raw::RawTerminal;
 pub mod features {
     pub mod history;
 }
@@ -50,10 +54,10 @@ pub fn get_current_directory() -> Result<String, String> {
     }
 }
 
-pub fn distplay_promt() {
-    let current_directory = get_current_directory().unwrap();
+pub fn display_promt(stdout: &mut RawTerminal<Stdout>) {
+    let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
-    print!("{}", prompt.to_ansi());
+    write!(stdout, "{}", prompt.to_ansi()).unwrap();
 }
 
 pub trait ShellCommand {
