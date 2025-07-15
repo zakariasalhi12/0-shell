@@ -23,10 +23,22 @@ fn main() {
 
     print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
+            println!("loop");
         distplay_promt();
         io::stdout().flush().unwrap();
         buffer.clear();
         io::stdin().read_line(&mut buffer).unwrap();
+
+        println!("{}", buffer);
+
+        match lexer::tokenize(buffer.to_owned().as_str()){
+            Ok(res) =>{
+                println!("res: {:#?}", res);
+            },
+            Err(err) =>{
+                println!("res: {:#?}", err);
+            }
+        }
         // let args: Vec<String> = buffer
         //     .trim()
         //     .split(" ")
@@ -37,7 +49,7 @@ fn main() {
         // cd::Cd::new(vece).execute();
         
         // history.run(&mut buffer);
-        history.save(buffer.to_owned());
+        // history.save(buffer.to_owned());
         // let cmd = parse(&buffer);
         // exec::execute(cmd);
     }
