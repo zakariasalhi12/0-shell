@@ -61,6 +61,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
     let mut i: usize = 0;
 
     while i < chars.len() {
+        println!("looping");
         let c = chars[i];
 
         if escaping {
@@ -215,25 +216,23 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
 
                         let mut depth = 1;
                         let mut expression = String::new();
-
-                        while i + 1 < chars.len() {
-                            if chars[i] == '(' && chars[i + 1] == '(' {
+                        while i < chars.len() {
+                            if chars[i] == '$' && chars.get(i + 1) == Some(&'(') {
                                 depth += 1;
-                                expression.push('(');
+                                expression.push('$');
                                 expression.push('(');
                                 i += 2;
                                 continue;
                             }
 
-                            if chars[i] == ')' && chars[i + 1] == ')' {
+                            if chars[i] == ')' {
                                 depth -= 1;
                                 if depth == 0 {
-                                    i += 2;
+                                    i += 1;
                                     break;
                                 }
                                 expression.push(')');
-                                expression.push(')');
-                                i += 2;
+                                i += 1;
                                 continue;
                             }
 
@@ -243,10 +242,10 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
 
                         if depth != 0 {
                             return Err(ShellError::Syntax(
-                                "Unclosed arithmetic substitution".to_string(),
+                                "Unclosed command substitution".to_string(),
                             ));
                         }
-
+                        println!("expression: {}", expression);
                         match tokenize(&expression) {
                             Ok(subtokens) => tokens.push(Token::CommandSubstitution(subtokens)),
                             Err(e) => return Err(e),
@@ -261,43 +260,78 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
         }
 
         match c {
-            '|' => {}
-            '&' => {}
-            ';' => {}
-            '<' => {}
-            '>' => {}
-            '!' => {}
-            '(' => {}
+            '|' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Pipe);
+                i += 1;
+            }
+            '&' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Amp);
+                i += 1;
+            }
+            ';' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Semi);
+                i += 1;
+            }
+            '<' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Less);
+                i += 1;
+            }
+            '>' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Great);
+                i += 1;
+            }
+            '!' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::Bang);
+                i += 1;
+            }
+            '(' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::LParen);
+                i += 1;
+            }
             ')' => {
-                if command_sub {
-                    command_sub = !command_sub;
-                    if let Ok(res) = tokenize(&token_buf) {
-                        tokens.push(Token::CommandSubstitution(res));
-                        token_buf.clear();
-                    } else {
-                        return Err(ShellError::Syntax("".to_string()));
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::RParen);
+                i += 1;
+            }
+            '{' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::LBrace);
+                i += 1;
+            }
+            '}' => {
+                flush_buf(&mut token_buf, &mut tokens);
+                tokens.push(Token::RBrace);
+                i += 1;
+            }
+            '$' => {
+                let mut acc = String::new();
+                if !inSingleQuote{
+                    i+=1;
+                    while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
+                        acc.push(chars[i]);
+                        i += 1;
                     }
-                    i += 1;
+                    tokens.push(Token::Variable(acc));
                     continue;
-                } else if arithmetic_sub {
-                    arithmetic_sub = !arithmetic_sub;
-                    if let Ok(res) = tokenize_arithmetic(&token_buf) {
-                        tokens.push(Token::ArithmeticSubstitution(res));
-                        token_buf.clear();
-                    } else {
-                        return Err(ShellError::Syntax("".to_string()));
-                    }
-                    i += 1;
                 }
             }
-            '{' => {}
-            '}' => {}
-            '$' => {}
-            _ => {}
+            _ => {
+                token_buf.push(c);
+                i += 1;
+            }
         }
     }
 
-    Ok(vec![])
+    flush_buf(&mut token_buf, &mut tokens);
+
+    Ok(tokens)
 }
 
 fn flush_buf(buf: &mut String, tokens: &mut Vec<Token>) {
@@ -313,6 +347,7 @@ pub fn tokenize_arithmetic(input: &str) -> Result<Vec<ArithmeticToken>, ShellErr
     let mut i = 0;
 
     while i < chars.len() {
+        println!("looping");
         let c = chars[i];
 
         if c.is_whitespace() {
