@@ -8,7 +8,7 @@ pub fn execute(commandes: Vec<Commande>) {
                 let res = val.execute();
                 match res {
                     Ok(_) => {}
-                    Err(e) => println!("{e}"),
+                    Err(e) => println!("{e}\r"),
                 }
             }
             None => panic!(),

@@ -37,7 +37,7 @@ lazy_static! {
         if let Ok(current_dir) = env::current_dir() {
             map.insert("PWD".to_string(), current_dir.to_string_lossy().into_owned());
         } else {
-            eprintln!("Failed to get current working directory");
+            eprintln!("Failed to get current working directory\r");
         }
 
         // $0 (program name / shell binary)
