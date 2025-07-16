@@ -51,7 +51,7 @@ impl ShellCommand for Rm {
         for target in &self.args {
             let path = PathBuf::from(target);
             if !path.exists() {
-                eprintln!("rm: cannot remove '{}': No such file or directory", target);
+                eprintln!("rm: cannot remove '{}': No such file or directory\r", target);
                 continue;
             }
 
@@ -59,7 +59,7 @@ impl ShellCommand for Rm {
                 if recursive {
                     delete_recursive(&path)?;
                 } else {
-                    eprintln!("rm: cannot remove '{}': Is a directory", target);
+                    eprintln!("rm: cannot remove '{}': Is a directory\r", target);
                 }
             } else {
                 fs::remove_file(&path)?;

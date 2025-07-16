@@ -37,7 +37,7 @@ impl ShellCommand for Cd {
 
         if !target_dir.exists() {
             eprintln!(
-                "cd: no such directory: {}",
+                "cd: no such directory: {}\r",
                 target_dir.to_str().unwrap_or("<invalid path>")
             );
             return Err(Error::new(ErrorKind::NotFound, "Directory does not exist"));

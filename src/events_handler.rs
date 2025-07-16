@@ -215,6 +215,8 @@ impl Shell {
                     //    
                 }
 
+                
+
 
                 // Send SIGINT signal to the current process (signal number is 2)
                 termion::event::Key::Ctrl('c') => {
