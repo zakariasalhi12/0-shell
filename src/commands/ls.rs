@@ -96,7 +96,7 @@ impl ShellCommand for Ls {
                             if self.format {
                                 print_entry_long(&meta, special, &special_path, self.classify);
                             } else {
-                                println!("{}", display_name);
+                                println!("{}\r", display_name);
                             }
                         }
                     }
@@ -155,7 +155,7 @@ impl ShellCommand for Ls {
                         // let display_name =
 
                         println!(
-                            "{} {} {} {} {:>5} {} {}",
+                            "{} {} {} {} {:>5} {} {}\r",
                             file_type_char + &perm,
                             nlink,
                             user,
@@ -165,7 +165,7 @@ impl ShellCommand for Ls {
                             file_name_str
                         );
                     } else {
-                        println!("{}", file_name_str);
+                        println!("{}\r", file_name_str);
                     }
                 }
             } else {
@@ -196,7 +196,7 @@ impl ShellCommand for Ls {
                         .unwrap_or("???".to_string());
 
                     println!(
-                        "{} {} {} {} {:>5} {} {}",
+                        "{} {} {} {} {:>5} {} {}\r",
                         file_type_char(&file_type) + &perm,
                         nlink,
                         user,
@@ -206,7 +206,7 @@ impl ShellCommand for Ls {
                         name
                     );
                 } else {
-                    println!("{}", name);
+                    println!("{}\r", name);
                 }
             }
         }
@@ -314,7 +314,7 @@ fn print_entry_long(meta: &fs::Metadata, name: &str, path: &Path, classify: bool
     };
 
     println!(
-        "{} {} {} {} {:>5} {} {}",
+        "{} {} {} {} {:>5} {} {}\r",
         file_type_char(&file_type) + &perm,
         nlink,
         user,
