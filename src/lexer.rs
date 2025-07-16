@@ -2,8 +2,16 @@ use crate::error::ShellError;
 use crate::expansion::ArithmeticToken;
 
 #[derive(Debug, Clone)]
+pub enum WordPart {
+    Literal(String),
+    Variable(String),
+    CommandSubstitution(Vec<Token>),
+    ArithmeticSubstitution(Vec<ArithmeticToken>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Token {
-    Word(String), // any word or argument
+    Word(Vec<WordPart>), // any word or argument
     Variable(String),
     CommandSubstitution(Vec<Token>),              // $(...)
     ArithmeticSubstitution(Vec<ArithmeticToken>), // $((...))
@@ -30,33 +38,13 @@ pub enum Token {
     RedirectDuplicateIn,
 }
 
-// trait Substitutable {
-//     fn parse(input: &str) -> Result<Vec<Self>, ShellError>
-//     where
-//         Self: Sized;
-// }
-
-// impl Substitutable for Token {
-//     fn parse(input: &str) -> Result<Vec<Self>, ShellError> {
-//         return tokenize(input);
-//     }
-// }
-
-// impl Substitutable for ArithmeticToken {
-//     fn parse(input: &str) -> Result<Vec<Self>, ShellError> {
-//         return tokenize_arithmetic(input);
-//     }
-// }
-
 pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
     let mut tokens: Vec<Token> = vec![];
     let chars: Vec<char> = input.chars().collect();
-    let mut inSingleQuote = false;
-    let mut inDoubleQuote = false;
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
     let mut escaping = false;
     let mut token_buf = String::new();
-    let mut command_sub = false;
-    let mut arithmetic_sub = false;
 
     let mut i: usize = 0;
 
@@ -71,25 +59,25 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
             continue;
         }
 
-        if c == '\\' && !inSingleQuote {
+        if c == '\\' && !in_single_quote {
             escaping = true;
             i += 1;
             continue;
         }
 
-        if c == '\'' && !inDoubleQuote {
-            inSingleQuote = !inSingleQuote;
+        if c == '\'' && !in_double_quote {
+            in_single_quote = !in_single_quote;
             i += 1;
             continue;
         }
 
-        if c == '"' && !inSingleQuote {
-            inDoubleQuote = !inDoubleQuote;
+        if c == '"' && !in_single_quote {
+            in_double_quote = !in_double_quote;
             i += 1;
             continue;
         }
 
-        if inSingleQuote || inDoubleQuote {
+        if in_single_quote || in_double_quote {
             token_buf.push(c);
             i += 1;
             continue;
@@ -97,7 +85,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
 
         if c.is_whitespace() {
             if !token_buf.is_empty() {
-                tokens.push(Token::Word(token_buf.clone()));
+                tokens.push(Token::Word(vec![WordPart::Literal(token_buf.clone())]));
                 token_buf.clear();
             }
 
@@ -210,7 +198,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
                 }
                 ";;" => {}
                 "$(" => {
-                    if !inSingleQuote {
+                    if !in_single_quote {
                         flush_buf(&mut token_buf, &mut tokens);
                         i += 2;
 
@@ -312,8 +300,8 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
             }
             '$' => {
                 let mut acc = String::new();
-                if !inSingleQuote{
-                    i+=1;
+                if !in_single_quote {
+                    i += 1;
                     while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
                         acc.push(chars[i]);
                         i += 1;
@@ -322,6 +310,32 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
                     continue;
                 }
             }
+            '~' => {
+                if !in_single_quote && !in_double_quote && token_buf.is_empty() {
+                    let mut rest = String::new();
+                    i += 1;
+
+                    while i < chars.len()
+                        && !chars[i].is_whitespace()
+                        && !matches!(
+                            chars[i],
+                            '|' | '&' | ';' | '<' | '>' | '(' | ')' | '{' | '}'
+                        )
+                    {
+                        rest.push(chars[i]);
+                        i += 1;
+                    }
+
+                    let mut parts = vec![WordPart::Variable("HOME".to_string())];
+                    if !rest.is_empty() {
+                        parts.push(WordPart::Literal(rest));
+                    }
+
+                    tokens.push(Token::Word(parts));
+                    continue;
+                }
+            }
+
             _ => {
                 token_buf.push(c);
                 i += 1;
@@ -336,7 +350,7 @@ pub fn tokenize(input: &str) -> Result<Vec<Token>, ShellError> {
 
 fn flush_buf(buf: &mut String, tokens: &mut Vec<Token>) {
     if !buf.is_empty() {
-        tokens.push(Token::Word(buf.clone()));
+        tokens.push(Token::Word(vec![WordPart::Literal(buf.clone())]));
         buf.clear();
     }
 }
@@ -482,7 +496,3 @@ pub fn tokenize_arithmetic(input: &str) -> Result<Vec<ArithmeticToken>, ShellErr
 
     Ok(tokens)
 }
-
-// fn handle_substitution<T: Substitutable>(rest: &str) -> Result<Vec<T>, ShellError> {
-//     return Ok(vec![]);
-// }
