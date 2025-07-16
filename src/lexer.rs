@@ -1,7 +1,7 @@
 use crate::error::ShellError;
 use crate::expansion::ArithmeticToken;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WordPart {
     Literal(String),
     Variable(String),
@@ -9,7 +9,7 @@ pub enum WordPart {
     ArithmeticSubstitution(Vec<ArithmeticToken>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(Vec<WordPart>), // any word or argument
     Variable(String),
