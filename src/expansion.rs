@@ -1,6 +1,6 @@
 use crate::env::ShellEnv;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ArithmeticToken {
     Number(i64),
     Variable(String),
