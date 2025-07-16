@@ -74,7 +74,7 @@ pub fn parse(input: &str) -> Vec<Commande> {
         let command_str = input[last_index..mat.start()].trim();
         let delimiter = mat.as_str().trim();
         last_index = mat.end();
-        println!("{}", delimiter);
+        println!("{}\r", delimiter);
 
         if let Some(cmd) = parse_command(command_str, current_exec_type) {
             commandes.push(cmd);
