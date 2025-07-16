@@ -13,15 +13,17 @@ fn main() {
         distplay_promt();
         io::stdout().flush().unwrap();
         buffer.clear();
-        io::stdin().read_line(&mut buffer).unwrap();
-        // let args: Vec<String> = buffer
-        //     .trim()
-        //     .split(" ")
-        //     .map(|str| str.to_string())
-        //     .collect();
-        // let mut vece: Vec<String> = vec![];
-        // vece.push("src".to_string());
-        // cd::Cd::new(vece).execute();
+        let _bytes_read = match io::stdin().read_line(&mut buffer) {
+            Ok(0) => {
+                println!("\nEOF");
+                break;
+            }
+            Ok(n) => n,
+            Err(e) => {
+                eprintln!("Failed to read from stdin: {}", e);
+                break; // or continue / return depending on your case
+            }
+        };
         let cmd = parse(&buffer);
         executer::Execute(cmd);
     }
