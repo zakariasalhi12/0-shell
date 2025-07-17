@@ -22,7 +22,7 @@ impl ShellCommand for Cat {
                 let file_name = canonicalize(file)?;
                 let content = read(file_name)?;
                 let content_str = String::from_utf8_lossy(&content);
-                println!("{}", content_str);
+                println!("{}\r", content_str);
             }
         } else {
             let stdin = stdin();
