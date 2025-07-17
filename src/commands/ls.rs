@@ -57,8 +57,6 @@ impl Ls {
 }
 
 impl ShellCommand for Ls {
-    // Add `users` crate in Cargo.toml
-
     fn execute(&self) -> Result<()> {
         if !self.Valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
@@ -76,7 +74,6 @@ impl ShellCommand for Ls {
                 let mut entries: Vec<fs::DirEntry> = Vec::new();
 
                 if self.all {
-                    // Manually add "." and ".."
                     for special in &[".", ".."] {
                         let special_path = path.join(special);
                         if let Ok(meta) = fs::symlink_metadata(&special_path) {
@@ -104,7 +101,6 @@ impl ShellCommand for Ls {
 
                 // Now read actual entries from the directory
                 entries.extend(read_dir(path)?.filter_map(Result::ok));
-
                 if !self.format && !self.classify && !self.all {
                     entries.sort_by_key(|e| e.path()); // default alphabetical
                 }
