@@ -3,7 +3,7 @@ use crate::features::history;
 use crate::features::history::History;
 use crate::{executer, parse};
 use std::io::*;
-use termion::cursor::{Left};
+use termion::cursor::Left;
 use termion::cursor::Right;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -51,7 +51,7 @@ impl Shell {
         cursor_position: i16,
     ) {
         let mut remove: i16 = 0;
-        
+
         if character == '\0' {
             remove = -1
         }
@@ -72,7 +72,7 @@ impl Shell {
         write!(stdout, "{}{}", buffer, Left(cursor_position as u16)).unwrap();
     }
 
-    pub fn clear_terminal(stdout: &mut RawTerminal<Stdout> , buffer : &mut String) {
+    pub fn clear_terminal(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
         buffer.clear();
         write!(stdout, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
         display_promt(stdout);
@@ -102,9 +102,16 @@ impl Shell {
     ) {
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            Shell::pop_from_buffer(stdout, buffer, buffer.len());
-            write!(stdout, "\r").unwrap();
-            display_promt(stdout);
+            // let (width, height) = termion::terminal_size().unwrap();
+            // let column_to_remove = (width + prev_history.len() as u16 - 1) / width;
+            // for i in 0..column_to_remove {
+            //     if i != 0 {
+            //         write!(stdout, "{}", cursor::Up(1)).unwrap();
+            //     }
+            //     Shell::clear_current_line(stdout, buffer);
+            // }
+            Shell::clear_current_line(stdout, buffer);
+            // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
             write!(stdout, "{}", prev_history).unwrap();
             buffer.push_str(&prev_history);
         }
@@ -117,12 +124,25 @@ impl Shell {
     ) {
         let next_history = history.next();
         if !next_history.is_empty() {
-            Shell::pop_from_buffer(stdout, buffer, buffer.len());
-            write!(stdout, "\r").unwrap();
-            display_promt(stdout);
+            // let (width, height) = termion::terminal_size().unwrap();
+            // let column_to_remove = (width + next_history.len() as u16 - 1) / width;
+            // for i in 0..column_to_remove {
+            //     if i != 0 {
+            //         write!(stdout, "{}", cursor::Up(1)).unwrap();
+            //     }
+            //     Shell::clear_current_line(stdout, buffer);
+            // }
+            Shell::clear_current_line(stdout, buffer);
+            // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
             write!(stdout, "{}", next_history).unwrap();
             buffer.push_str(&next_history);
         }
+    }
+
+    fn clear_current_line(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
+        buffer.clear();
+        write!(stdout, "{}\r", clear::CurrentLine).unwrap();
+        display_promt(stdout);
     }
 
     pub fn run(&mut self) {
@@ -140,7 +160,7 @@ impl Shell {
                 }
 
                 termion::event::Key::Char('\t') => {
-                    // 
+                    //
                 }
 
                 // append character to the buffer and write it in the stdout
@@ -200,7 +220,7 @@ impl Shell {
                 // Clear terminal
                 termion::event::Key::Ctrl('l') => {
                     self.cursor_position = 0;
-                    Shell::clear_terminal(&mut self.stdout , &mut self.buffer);
+                    Shell::clear_terminal(&mut self.stdout, &mut self.buffer);
                 }
 
                 // Kill terminal proc
@@ -212,11 +232,8 @@ impl Shell {
 
                 // Remove the whole Word from buffer and delete it from terminal
                 termion::event::Key::Ctrl('w') => {
-                    //    
+                    //
                 }
-
-                
-
 
                 // Send SIGINT signal to the current process (signal number is 2)
                 termion::event::Key::Ctrl('c') => {
