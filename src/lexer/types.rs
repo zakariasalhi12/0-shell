@@ -1,0 +1,61 @@
+#[derive(Debug, Clone, PartialEq)]
+pub enum ArithmeticToken {
+    Number(i64),
+    Variable(String),
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    Modulo,
+    Assign,
+    AddAssign,
+    SubAssign,
+    MulAssign,
+    DivAssign,
+    ModAssign,
+    Increment,
+    Decrement,
+    Equal,
+    NotEqual,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
+    LogicalAnd,
+    LogicalOr,
+    LogicalNot,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BitNot,
+    ShiftLeft,
+    ShiftRight,
+    LParen,
+    RParen,
+    QuestionMark,
+    Colon,
+    Substitution(Vec<ArithmeticToken>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Token {
+    Word(Vec<WordPart>),
+    Assignment(String, String),
+    AndIf,      
+    OrIf,       
+    Pipe,       
+    Semicolon,  
+    Background, 
+    Newline,
+    EOF,
+    CommandSubstitution(Vec<Token>),
+    ArithmeticSubstitution(Vec<ArithmeticToken>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WordPart {
+    Literal(String),
+    Variable(String),
+    CommandSubstitution(Vec<Token>),
+    ArithmeticSubstitution(Vec<ArithmeticToken>),
+}

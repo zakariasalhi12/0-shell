@@ -31,7 +31,7 @@ fn main() {
 
         println!("{}", buffer);
 
-        match lexer::tokenize(buffer.to_owned().as_str()){
+        match lexer::tokenize::tokenize(buffer.to_owned().as_str()){
             Ok(res) =>{
                 println!("res: {:#?}", res);
             },
