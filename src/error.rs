@@ -2,6 +2,7 @@ use std::io;
 
 #[derive(Debug)]
 pub enum ShellError {
+    InvalidVariableSyntax,
     Io(io::Error),
     Syntax(String),
     Parse(String),
