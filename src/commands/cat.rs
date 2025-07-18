@@ -32,8 +32,8 @@ impl ShellCommand for Cat {
                 match key.unwrap() {
                     // Parse Input
                     termion::event::Key::Char('\n') => {
-                        writeln!(stdout).unwrap();
-                        writeln!(stdout, "{}", buffer).unwrap();
+                        writeln!(stdout, "\r").unwrap();
+                        writeln!(stdout, "{}\r", buffer).unwrap();
                         stdout.flush().unwrap();
                         buffer = String::new();
                         continue;
