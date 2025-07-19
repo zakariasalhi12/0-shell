@@ -31,14 +31,10 @@ fn main() {
 
         println!("{}", buffer);
 
-        match lexer::tokenize::tokenize(buffer.to_owned().as_str()){
-            Ok(res) =>{
-                println!("res: {:#?}", res);
-            },
-            Err(err) =>{
-                println!("res: {:#?}", err);
-            }
-        }
+      
+                println!("res: {:#?}", lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize());
+        
+    
         // let args: Vec<String> = buffer
         //     .trim()
         //     .split(" ")
