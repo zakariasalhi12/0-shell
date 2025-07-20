@@ -58,12 +58,14 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Double Quote ---
                 (State::Default, '"') => {
+                    buffer.push('"');
                     self.chars.next();
                     state = State::InDoubleQuote;
                 }
 
                 // --- Single Quote ---
                 (State::Default, '\'') => {
+                    buffer.push('\'');
                     self.chars.next();
                     state = State::InSingleQuote;
                 }
@@ -193,6 +195,7 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Inside Double Quote ---
                 (State::InDoubleQuote, '"') => {
+                    buffer.push('"');
                     self.chars.next();
                     tokens.push(Token::Word(buffer.clone()));
                     buffer.clear();
@@ -228,6 +231,7 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Inside Single Quote ---
                 (State::InSingleQuote, '\'') => {
+                    buffer.push('\'');
                     self.chars.next();
                     tokens.push(Token::Word(buffer.clone()));
                     buffer.clear();
@@ -245,6 +249,8 @@ impl<'a> Tokenizer<'a> {
         if !buffer.is_empty() {
             tokens.push(Token::Word(buffer));
         }
+
+        tokens.push(Token::Eof);
 
         tokens
     }
