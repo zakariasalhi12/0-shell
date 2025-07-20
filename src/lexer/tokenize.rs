@@ -2,7 +2,6 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 #[derive(Debug, Clone, PartialEq)]
-
 pub struct Word {
     parts: Vec<WordPart>,
     quote: QuoteType,
@@ -25,14 +24,13 @@ pub enum Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-
 enum QuoteType {
     Single,
     Double,
     None,
 }
-#[derive(Debug, Clone, PartialEq)]
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum WordPart {
     Literal(String),
     VariableSubstitution(String),   // $USER
@@ -66,35 +64,83 @@ impl<'a> Tokenizer<'a> {
         let mut tokens = Vec::new();
         let mut state = State::Default;
         let mut buffer = String::new();
+        let mut parts: Vec<WordPart> = vec![];
 
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
-                // --- Whitespace ---
                 (State::Default, ' ' | '\t' | '\n') => {
                     self.chars.next();
                     if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+                    if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
-                            parts: vec![WordPart::Literal(buffer.clone())],
+                            parts: parts.clone(),
                             quote: QuoteType::None,
                         }));
-                        buffer.clear();
+                        parts.clear();
                     }
                     state = State::Default;
                 }
 
-                // --- Double Quote ---
+                (State::InDoubleQuote | State::Default, '$') => {
+                    self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+
+                    if let Some(c) = self.chars.peek() {
+                        match *c {
+                            '{' => {
+                                self.chars.next();
+                                let mut var = String::new();
+                                self.read_until_matching("{", "}", &mut var);
+                                parts.push(WordPart::VariableSubstitution(var));
+                            }
+                            '(' => {
+                                self.chars.next();
+                                if let Some(&'(') = self.chars.peek() {
+                                    self.chars.next();
+                                    let mut expr = String::new();
+                                    self.read_until_matching("((", "))", &mut expr);
+                                    parts.push(WordPart::ArithmeticSubstitution(expr));
+                                } else {
+                                    let mut cmd = String::new();
+                                    self.read_until_matching("(", ")", &mut cmd);
+                                    parts.push(WordPart::CommandSubstitution(cmd));
+                                }
+                            }
+                            c if c.is_alphanumeric() || c == '_' => {
+                                let mut var = String::new();
+                                while let Some(&ch) = self.chars.peek() {
+                                    if ch.is_alphanumeric() || ch == '_' {
+                                        var.push(ch);
+                                        self.chars.next();
+                                    } else {
+                                        break;
+                                    }
+                                }
+                                parts.push(WordPart::VariableSubstitution(var));
+                            }
+                            _ => buffer.push('$'),
+                        }
+                    } else {
+                        buffer.push('$');
+                    }
+                }
+
                 (State::Default, '"') => {
                     self.chars.next();
                     state = State::InDoubleQuote;
                 }
 
-                // --- Single Quote ---
                 (State::Default, '\'') => {
                     self.chars.next();
                     state = State::InSingleQuote;
                 }
 
-                // --- Comments ---
                 (State::Default, '#') => {
                     self.chars.next();
                     while let Some(c) = self.chars.next() {
@@ -102,21 +148,11 @@ impl<'a> Tokenizer<'a> {
                             break;
                         }
                     }
-                    if !buffer.is_empty() {
-                        tokens.push(Token::Word(Word {
-                            parts: vec![WordPart::Literal(buffer.clone())],
-                            quote: QuoteType::None,
-                        }));
-
-                        buffer.clear();
-                    }
-                    state = State::Default;
                 }
 
-                // --- Logical Operators ---
                 (State::Default, '&') => {
                     self.chars.next();
-                    if let Some('&') = self.chars.peek().copied() {
+                    if let Some(&'&') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalAnd);
                     } else {
@@ -126,7 +162,7 @@ impl<'a> Tokenizer<'a> {
 
                 (State::Default, '|') => {
                     self.chars.next();
-                    if let Some('|') = self.chars.peek().copied() {
+                    if let Some(&'|') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalOr);
                     } else {
@@ -139,7 +175,6 @@ impl<'a> Tokenizer<'a> {
                     tokens.push(Token::LogicalNot);
                 }
 
-                // --- Redirections ---
                 (State::Default, '>') => {
                     self.chars.next();
                     state = State::MaybeRedirectOut2;
@@ -172,70 +207,60 @@ impl<'a> Tokenizer<'a> {
                     state = State::Default;
                 }
 
-                // --- Semicolon ---
                 (State::Default, ';') => {
                     self.chars.next();
                     if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+                    if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
-                            parts: vec![WordPart::Literal(buffer.clone())],
+                            parts: parts.clone(),
                             quote: QuoteType::None,
                         }));
-
-                        buffer.clear();
+                        parts.clear();
                     }
                     tokens.push(Token::Semicolon);
                     state = State::Default;
                 }
 
-                // --- Start of Word ---
                 (State::Default, _) => {
                     self.chars.next();
                     buffer.push(c);
                     state = State::InWord;
                 }
 
-                // --- In Word: End of word on special char ---
                 (State::InWord, ' ' | '\t' | '\n' | '|' | '>' | '<' | ';' | '&' | '!') => {
-                    tokens.push(Token::Word(Word {
-                        parts: vec![WordPart::Literal(buffer.clone())],
-                        quote: QuoteType::None,
-                    }));
-                    buffer.clear();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+                    if !parts.is_empty() {
+                        tokens.push(Token::Word(Word {
+                            parts: parts.clone(),
+                            quote: QuoteType::None,
+                        }));
+                        parts.clear();
+                    }
                     state = State::Default;
                 }
 
                 (State::InWord, c) => {
                     self.chars.next();
                     buffer.push(c);
-
-                    // Handle special syntax inside words
-                    if buffer.ends_with("${") {
-                        buffer.truncate(buffer.len() - 2);
-                        buffer.push_str("${");
-                        self.read_until_matching('{', '}', &mut buffer);
-                    } else if buffer.ends_with("$((\")") {
-                        buffer.truncate(buffer.len() - 4);
-                        buffer.push_str("$((\"");
-                        self.read_until_matching('(', ')', &mut buffer);
-                    } else if buffer.ends_with("$(( ") {
-                        buffer.truncate(buffer.len() - 4);
-                        buffer.push_str("$(( ");
-                        self.read_until_matching('(', ')', &mut buffer);
-                    } else if buffer.ends_with("$(") {
-                        buffer.truncate(buffer.len() - 2);
-                        buffer.push_str("$(");
-                        self.read_until_matching('(', ')', &mut buffer);
-                    }
                 }
 
-                // --- Inside Double Quote ---
                 (State::InDoubleQuote, '"') => {
                     self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
                     tokens.push(Token::Word(Word {
-                        parts: vec![WordPart::Literal(buffer.clone())],
+                        parts: parts.clone(),
                         quote: QuoteType::Double,
                     }));
-                    buffer.clear();
+                    parts.clear();
                     state = State::Default;
                 }
 
@@ -249,32 +274,19 @@ impl<'a> Tokenizer<'a> {
                 (State::InDoubleQuote, c) => {
                     self.chars.next();
                     buffer.push(c);
-
-                    // Handle special syntax inside double quotes
-                    if buffer.ends_with("${") {
-                        buffer.truncate(buffer.len() - 2);
-                        buffer.push_str("${");
-                        self.read_until_matching('{', '}', &mut buffer);
-                    } else if buffer.ends_with("$((\")") {
-                        buffer.truncate(buffer.len() - 4);
-                        buffer.push_str("$((\"");
-                        self.read_until_matching('(', ')', &mut buffer);
-                    } else if buffer.ends_with("$(") {
-                        buffer.truncate(buffer.len() - 2);
-                        buffer.push_str("$(");
-                        self.read_until_matching('(', ')', &mut buffer);
-                    }
                 }
 
-                // --- Inside Single Quote ---
                 (State::InSingleQuote, '\'') => {
                     self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
                     tokens.push(Token::Word(Word {
-                        parts: vec![WordPart::Literal(buffer.clone())],
+                        parts: parts.clone(),
                         quote: QuoteType::Single,
                     }));
-
-                    buffer.clear();
+                    parts.clear();
                     state = State::Default;
                 }
 
@@ -285,35 +297,63 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        // Flush remaining buffer
         if !buffer.is_empty() {
+            parts.push(WordPart::Literal(buffer));
+        }
+
+        if !parts.is_empty() {
             tokens.push(Token::Word(Word {
-                parts: vec![WordPart::Literal(buffer.clone())],
+                parts,
                 quote: QuoteType::None,
             }));
         }
 
         tokens.push(Token::Eof);
-
         tokens
     }
 
-    /// Reads until matching closing delimiter, supporting nesting
-    fn read_until_matching(&mut self, open: char, close: char, buffer: &mut String) {
-        let mut depth = 1;
+  fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) {
+    let start_len = start.len();
+    let end_len = end.len();
+    let mut depth = 1;
 
-        while let Some(c) = self.chars.next() {
-            if c == open {
-                depth += 1;
-            } else if c == close {
-                depth -= 1;
+    while let Some(_) = self.chars.peek() {
+        if self.peek_matches(start) {
+            for _ in 0..start_len {
+                buffer.push(self.chars.next().unwrap());
             }
+            depth += 1;
+            continue;
+        }
 
-            buffer.push(c);
-
+        if self.peek_matches(end) {
+            for _ in 0..end_len {
+                self.chars.next();
+            }
+            depth -= 1;
             if depth == 0 {
-                break;
+                break; 
             }
+            buffer.push_str(end);
+            continue;
+        }
+
+        if let Some(c) = self.chars.next() {
+            buffer.push(c);
         }
     }
 }
+
+fn peek_matches(&mut self, s: &str) -> bool {
+    let mut iter = self.chars.clone();
+    for expected_char in s.chars() {
+        match iter.next() {
+            Some(c) if c == expected_char => (),
+            _ => return false,
+        }
+    }
+    true
+}
+
+}
+
