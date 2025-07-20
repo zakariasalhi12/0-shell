@@ -2,8 +2,15 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 #[derive(Debug, Clone, PartialEq)]
+
+pub struct Word {
+    parts: Vec<WordPart>,
+    quote: QuoteType,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Word(String),
+    Word(Word),
     Pipe,
     RedirectOut,
     RedirectAppend,
@@ -15,6 +22,22 @@ pub enum Token {
     LogicalOr,
     LogicalNot,
     Eof,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+
+enum QuoteType {
+    Single,
+    Double,
+    None,
+}
+#[derive(Debug, Clone, PartialEq)]
+
+pub enum WordPart {
+    Literal(String),
+    VariableSubstitution(String),   // $USER
+    ArithmeticSubstitution(String), // $((1 + 2))
+    CommandSubstitution(String),    // $(whoami)
 }
 
 #[derive(Debug)]
@@ -50,7 +73,10 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, ' ' | '\t' | '\n') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        tokens.push(Token::Word(buffer.clone()));
+                        tokens.push(Token::Word(Word {
+                            parts: vec![WordPart::Literal(buffer.clone())],
+                            quote: QuoteType::None,
+                        }));
                         buffer.clear();
                     }
                     state = State::Default;
@@ -58,14 +84,12 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Double Quote ---
                 (State::Default, '"') => {
-                    buffer.push('"');
                     self.chars.next();
                     state = State::InDoubleQuote;
                 }
 
                 // --- Single Quote ---
                 (State::Default, '\'') => {
-                    buffer.push('\'');
                     self.chars.next();
                     state = State::InSingleQuote;
                 }
@@ -79,7 +103,11 @@ impl<'a> Tokenizer<'a> {
                         }
                     }
                     if !buffer.is_empty() {
-                        tokens.push(Token::Word(buffer.clone()));
+                        tokens.push(Token::Word(Word {
+                            parts: vec![WordPart::Literal(buffer.clone())],
+                            quote: QuoteType::None,
+                        }));
+
                         buffer.clear();
                     }
                     state = State::Default;
@@ -148,7 +176,11 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, ';') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        tokens.push(Token::Word(buffer.clone()));
+                        tokens.push(Token::Word(Word {
+                            parts: vec![WordPart::Literal(buffer.clone())],
+                            quote: QuoteType::None,
+                        }));
+
                         buffer.clear();
                     }
                     tokens.push(Token::Semicolon);
@@ -164,7 +196,10 @@ impl<'a> Tokenizer<'a> {
 
                 // --- In Word: End of word on special char ---
                 (State::InWord, ' ' | '\t' | '\n' | '|' | '>' | '<' | ';' | '&' | '!') => {
-                    tokens.push(Token::Word(buffer.clone()));
+                    tokens.push(Token::Word(Word {
+                        parts: vec![WordPart::Literal(buffer.clone())],
+                        quote: QuoteType::None,
+                    }));
                     buffer.clear();
                     state = State::Default;
                 }
@@ -195,9 +230,11 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Inside Double Quote ---
                 (State::InDoubleQuote, '"') => {
-                    buffer.push('"');
                     self.chars.next();
-                    tokens.push(Token::Word(buffer.clone()));
+                    tokens.push(Token::Word(Word {
+                        parts: vec![WordPart::Literal(buffer.clone())],
+                        quote: QuoteType::Double,
+                    }));
                     buffer.clear();
                     state = State::Default;
                 }
@@ -231,9 +268,12 @@ impl<'a> Tokenizer<'a> {
 
                 // --- Inside Single Quote ---
                 (State::InSingleQuote, '\'') => {
-                    buffer.push('\'');
                     self.chars.next();
-                    tokens.push(Token::Word(buffer.clone()));
+                    tokens.push(Token::Word(Word {
+                        parts: vec![WordPart::Literal(buffer.clone())],
+                        quote: QuoteType::Single,
+                    }));
+
                     buffer.clear();
                     state = State::Default;
                 }
@@ -247,7 +287,10 @@ impl<'a> Tokenizer<'a> {
 
         // Flush remaining buffer
         if !buffer.is_empty() {
-            tokens.push(Token::Word(buffer));
+            tokens.push(Token::Word(Word {
+                parts: vec![WordPart::Literal(buffer.clone())],
+                quote: QuoteType::None,
+            }));
         }
 
         tokens.push(Token::Eof);
