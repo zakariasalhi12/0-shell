@@ -6,6 +6,7 @@ pub struct History {
     pub path: String,
     pub history: Vec<String>,
     pub position: i32,
+    pub current_history : String,
 }
 
 static NAME: &str = ".0-shell_history";
@@ -37,6 +38,7 @@ impl History {
             path: file_path.to_owned(),
             position: file_content.len() as i32,
             history: file_content,
+            current_history : String::new(),
         };
 
         return history;
@@ -47,6 +49,7 @@ impl History {
             return "".to_owned();
         }
         self.position -= 1;
+        self.current_history = self.history[self.position as usize].to_owned(); 
         return self.history[self.position as usize].to_owned();
     }
 
@@ -55,6 +58,7 @@ impl History {
             return "".to_owned();
         }
         self.position += 1;
+        self.current_history = self.history[self.position as usize].to_owned(); 
         return self.history[self.position as usize].to_owned();
     }
 
