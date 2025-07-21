@@ -1,61 +1,46 @@
 #[derive(Debug, Clone, PartialEq)]
-pub enum ArithmeticToken {
-    Number(i64),
-    Variable(String),
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
-    Modulo,
-    Assign,
-    AddAssign,
-    SubAssign,
-    MulAssign,
-    DivAssign,
-    ModAssign,
-    Increment,
-    Decrement,
-    Equal,
-    NotEqual,
-    Less,
-    Greater,
-    LessEqual,
-    GreaterEqual,
-    LogicalAnd,
-    LogicalOr,
-    LogicalNot,
-    BitAnd,
-    BitOr,
-    BitXor,
-    BitNot,
-    ShiftLeft,
-    ShiftRight,
-    LParen,
-    RParen,
-    QuestionMark,
-    Colon,
-    Substitution(Vec<ArithmeticToken>),
+pub struct Word {
+    pub parts: Vec<WordPart>,
+    pub quote: QuoteType,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
-    Word(Vec<WordPart>),
-    Assignment(String, String),
-    AndIf,      
-    OrIf,       
-    Pipe,       
-    Semicolon,  
-    Background, 
-    Newline,
-    EOF,
-    CommandSubstitution(Vec<Token>),
-    ArithmeticSubstitution(Vec<ArithmeticToken>),
+    Word(Word),
+    Pipe,
+    RedirectOut,
+    RedirectAppend,
+    RedirectIn,
+    RedirectHereDoc,
+    Semicolon,
+    Ampersand,
+    LogicalAnd,
+    LogicalOr,
+    LogicalNot,
+    Eof,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum QuoteType {
+    Single,
+    Double,
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WordPart {
     Literal(String),
-    Variable(String),
-    CommandSubstitution(Vec<Token>),
-    ArithmeticSubstitution(Vec<ArithmeticToken>),
+    VariableSubstitution(String),   // $USER
+    ArithmeticSubstitution(String), // $((1 + 2))
+    CommandSubstitution(String),    // $(whoami)
+}
+
+#[derive(Debug)]
+pub enum State {
+    Default,
+    InWord,
+    InDoubleQuote,
+    InSingleQuote,
+    MaybeRedirectOut2,
+    MaybeRedirectIn2,
 }
