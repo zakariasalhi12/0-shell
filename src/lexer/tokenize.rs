@@ -1,56 +1,10 @@
+pub use crate::lexer::types::{QuoteType, State, Token, Word, WordPart};
 use std::iter::Peekable;
 use std::str::Chars;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Word {
-    parts: Vec<WordPart>,
-    quote: QuoteType,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Token {
-    Word(Word),
-    Pipe,
-    RedirectOut,
-    RedirectAppend,
-    RedirectIn,
-    RedirectHereDoc,
-    Semicolon,
-    Ampersand,
-    LogicalAnd,
-    LogicalOr,
-    LogicalNot,
-    Eof,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-enum QuoteType {
-    Single,
-    Double,
-    None,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum WordPart {
-    Literal(String),
-    VariableSubstitution(String),   // $USER
-    ArithmeticSubstitution(String), // $((1 + 2))
-    CommandSubstitution(String),    // $(whoami)
-}
-
-#[derive(Debug)]
-enum State {
-    Default,
-    InWord,
-    InDoubleQuote,
-    InSingleQuote,
-    MaybeRedirectOut2,
-    MaybeRedirectIn2,
-}
-
 #[derive(Debug)]
 pub struct Tokenizer<'a> {
-    chars: Peekable<Chars<'a>>,
+    pub chars: Peekable<Chars<'a>>,
 }
 
 impl<'a> Tokenizer<'a> {
@@ -312,48 +266,46 @@ impl<'a> Tokenizer<'a> {
         tokens
     }
 
-  fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) {
-    let start_len = start.len();
-    let end_len = end.len();
-    let mut depth = 1;
+    fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) {
+        let start_len = start.len();
+        let end_len = end.len();
+        let mut depth = 1;
 
-    while let Some(_) = self.chars.peek() {
-        if self.peek_matches(start) {
-            for _ in 0..start_len {
-                buffer.push(self.chars.next().unwrap());
+        while let Some(_) = self.chars.peek() {
+            if self.peek_matches(start) {
+                for _ in 0..start_len {
+                    buffer.push(self.chars.next().unwrap());
+                }
+                depth += 1;
+                continue;
             }
-            depth += 1;
-            continue;
-        }
 
-        if self.peek_matches(end) {
-            for _ in 0..end_len {
-                self.chars.next();
+            if self.peek_matches(end) {
+                for _ in 0..end_len {
+                    self.chars.next();
+                }
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+                buffer.push_str(end);
+                continue;
             }
-            depth -= 1;
-            if depth == 0 {
-                break; 
-            }
-            buffer.push_str(end);
-            continue;
-        }
 
-        if let Some(c) = self.chars.next() {
-            buffer.push(c);
+            if let Some(c) = self.chars.next() {
+                buffer.push(c);
+            }
         }
     }
-}
 
-fn peek_matches(&mut self, s: &str) -> bool {
-    let mut iter = self.chars.clone();
-    for expected_char in s.chars() {
-        match iter.next() {
-            Some(c) if c == expected_char => (),
-            _ => return false,
+    fn peek_matches(&mut self, s: &str) -> bool {
+        let mut iter = self.chars.clone();
+        for expected_char in s.chars() {
+            match iter.next() {
+                Some(c) if c == expected_char => (),
+                _ => return false,
+            }
         }
+        true
     }
-    true
 }
-
-}
-
