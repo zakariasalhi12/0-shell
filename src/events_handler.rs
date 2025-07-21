@@ -3,6 +3,7 @@ use crate::features::history;
 use crate::features::history::History;
 use crate::{executer, parse};
 use std::io::*;
+use std::{self};
 use termion::cursor::Left;
 use termion::cursor::Right;
 use termion::input::TermRead;
@@ -11,7 +12,7 @@ use termion::raw::RawTerminal;
 use termion::{clear, cursor};
 
 pub struct Shell {
-    pub stdout: RawTerminal<Stdout>,
+    pub stdout: Option<RawTerminal<Stdout>>,
     pub stdin: Stdin,
     pub buffer: String,
     pub history: History,
@@ -19,33 +20,45 @@ pub struct Shell {
 }
 
 impl Shell {
-    pub fn new() -> Self {
-        Shell {
+    pub fn new() -> std::io::Result<Self> {
+        let stdout = match stdout().into_raw_mode() {
+            Ok(raw) => Some(raw),
+            Err(_) => {
+                eprintln!("stdout is not a TTY (maybe piped?). Raw mode not available.");
+                None
+            }
+        };
+
+        Ok(Shell {
             stdin: stdin(),
-            stdout: stdout().into_raw_mode().unwrap(),
+            stdout,
             buffer: String::new(),
             history: history::History::new(),
             cursor_position: 0,
-        }
+        })
     }
 
-    pub fn push_to_buffer(stdout: &mut RawTerminal<Stdout>, c: char, buffer: &mut String) {
+    pub fn push_to_buffer(stdout: &mut Option<RawTerminal<Stdout>>, c: char, buffer: &mut String) {
         buffer.push(c); // push the character to the buffer
-        write!(stdout, "{}", c).unwrap(); // write the character to stdout
+        Print_out(stdout, &format!("{}", c)); // write the character to stdout
     }
 
-    pub fn pop_from_buffer(stdout: &mut RawTerminal<Stdout>, buffer: &mut String, size: usize) {
+    pub fn pop_from_buffer(
+        stdout: &mut Option<RawTerminal<Stdout>>,
+        buffer: &mut String,
+        size: usize,
+    ) {
         for _ in 0..size {
             if !buffer.is_empty() {
                 buffer.pop();
-                write!(stdout, "\x08 \x08").unwrap(); // backspace
+                Print_out(stdout, "\x08 \x08"); // backspace
             }
         }
     }
 
     // if the character == \0 remove the character from the buffer instead of add it
     pub fn edit_buffer(
-        stdout: &mut RawTerminal<Stdout>,
+        stdout: &mut Option<RawTerminal<Stdout>>,
         character: char,
         buffer: &mut String,
         cursor_position: i16,
@@ -66,37 +79,64 @@ impl Shell {
             }
             res.push(c);
         }
-        write!(stdout, "{}", Right(cursor_position as u16)).unwrap();
+        Print_out(stdout, &format!("{}", Right(cursor_position as u16)));
         Shell::pop_from_buffer(stdout, buffer, buffer.len());
         buffer.push_str(&res);
-        write!(stdout, "{}{}", buffer, Left(cursor_position as u16)).unwrap();
+        Print_out(
+            stdout,
+            &format!("{}{}", buffer, Left(cursor_position as u16)),
+        );
     }
 
-    pub fn clear_terminal(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
+    pub fn clear_terminal(stdout: &mut Option<RawTerminal<std::io::Stdout>>, buffer: &mut String) {
         buffer.clear();
-        write!(stdout, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
-        display_promt(stdout);
-        stdout.flush().unwrap();
+
+        match stdout {
+            Some(s) => {
+                write!(s, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
+                s.flush().unwrap();
+                display_promt(stdout);
+            }
+            None => {
+                let mut std = std::io::stdout();
+                write!(std, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
+                std.flush().unwrap();
+                display_promt(&mut None);
+            }
+        }
     }
 
     pub fn parse_and_exec(
-        stdout: &mut RawTerminal<Stdout>,
+        stdout: &mut Option<RawTerminal<Stdout>>,
         buffer: &mut String,
         history: &mut History,
     ) {
-        writeln!(stdout).unwrap();
+        match stdout {
+            Some(s) => {
+                writeln!(s).unwrap();
+                s.flush().unwrap();
+            }
+            None => {
+                writeln!(std::io::stdout()).unwrap();
+                std::io::stdout().flush().unwrap();
+            }
+        }
+
         print!("\r\x1b[2K");
+        std::io::stdout().flush().unwrap();
+
         if !buffer.trim().is_empty() {
             history.save(buffer.clone());
             let cmd = parse(&buffer);
             executer::execute(cmd);
         }
+
         buffer.clear();
         display_promt(stdout);
     }
 
     pub fn history_prev(
-        stdout: &mut RawTerminal<Stdout>,
+        stdout: &mut Option<RawTerminal<Stdout>>,
         buffer: &mut String,
         history: &mut History,
     ) {
@@ -112,13 +152,14 @@ impl Shell {
             // }
             Shell::clear_current_line(stdout, buffer);
             // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
-            write!(stdout, "{}", prev_history).unwrap();
+
+            Print_out(stdout, &prev_history);
             buffer.push_str(&prev_history);
         }
     }
 
     pub fn history_next(
-        stdout: &mut RawTerminal<Stdout>,
+        stdout: &mut Option<RawTerminal<Stdout>>,
         buffer: &mut String,
         history: &mut History,
     ) {
@@ -134,20 +175,32 @@ impl Shell {
             // }
             Shell::clear_current_line(stdout, buffer);
             // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
-            write!(stdout, "{}", next_history).unwrap();
+            Print_out(stdout, &next_history);
             buffer.push_str(&next_history);
         }
     }
 
-    fn clear_current_line(stdout: &mut RawTerminal<Stdout>, buffer: &mut String) {
+    fn clear_current_line(stdout: &mut Option<RawTerminal<std::io::Stdout>>, buffer: &mut String) {
         buffer.clear();
-        write!(stdout, "{}\r", clear::CurrentLine).unwrap();
-        display_promt(stdout);
+
+        match stdout {
+            Some(s) => {
+                write!(s, "{}\r", clear::CurrentLine).unwrap();
+                s.flush().unwrap();
+                display_promt(stdout);
+            }
+            None => {
+                let mut std = std::io::stdout();
+                write!(std, "{}\r", clear::CurrentLine).unwrap();
+                std.flush().unwrap();
+                display_promt(&mut None);
+            }
+        }
     }
 
     pub fn run(&mut self) {
         display_promt(&mut self.stdout);
-        self.stdout.flush().unwrap();
+        // self.stdout.flush().unwrap();
 
         let stdin = &self.stdin;
 
@@ -205,7 +258,7 @@ impl Shell {
                 termion::event::Key::Left => {
                     if self.cursor_position < self.buffer.len() as i16 {
                         self.cursor_position += 1;
-                        write!(self.stdout, "{}", Left(1)).unwrap();
+                        Print_out(&mut self.stdout, &format!("{}", Left(1)));
                     }
                 }
 
@@ -213,7 +266,7 @@ impl Shell {
                 termion::event::Key::Right => {
                     if self.cursor_position > 0 {
                         self.cursor_position -= 1;
-                        write!(self.stdout, "{}", Right(1)).unwrap();
+                        Print_out(&mut self.stdout, &format!("{}", Right(1)));
                     }
                 }
 
@@ -225,8 +278,8 @@ impl Shell {
 
                 // Kill terminal proc
                 termion::event::Key::Ctrl('d') => {
-                    write!(self.stdout, "\r").unwrap();
-                    self.stdout.flush().unwrap();
+                    Print_out(&mut self.stdout, "\r");
+                    // self.stdout.flush().unwrap();
                     return;
                 }
 
@@ -247,7 +300,21 @@ impl Shell {
 
                 _ => {}
             }
-            self.stdout.flush().unwrap();
+            // self.stdout.flush().unwrap();
+        }
+    }
+}
+
+pub fn Print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
+    match w {
+        Some(raw_stdout) => {
+            write!(raw_stdout, "{}", input).unwrap();
+            raw_stdout.flush().unwrap();
+        }
+        None => {
+            let mut std = std::io::stdout();
+            write!(std, "{}", input).unwrap();
+            std.flush().unwrap();
         }
     }
 }
