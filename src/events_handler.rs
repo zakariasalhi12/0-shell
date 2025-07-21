@@ -4,7 +4,7 @@ use crate::features::history::History;
 use crate::{executer, parse};
 use std::io::*;
 use std::{self};
-use termion::cursor::Left;
+use termion::cursor::{Left, Up};
 use termion::cursor::Right;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -40,7 +40,7 @@ impl Shell {
 
     pub fn push_to_buffer(stdout: &mut Option<RawTerminal<Stdout>>, c: char, buffer: &mut String) {
         buffer.push(c); // push the character to the buffer
-        Print_out(stdout, &format!("{}", c)); // write the character to stdout
+        print_out(stdout, &format!("{}", c)); // write the character to stdout
     }
 
     pub fn pop_from_buffer(
@@ -51,7 +51,7 @@ impl Shell {
         for _ in 0..size {
             if !buffer.is_empty() {
                 buffer.pop();
-                Print_out(stdout, "\x08 \x08"); // backspace
+                print_out(stdout, "\x08 \x08"); // backspace
             }
         }
     }
@@ -79,10 +79,10 @@ impl Shell {
             }
             res.push(c);
         }
-        Print_out(stdout, &format!("{}", Right(cursor_position as u16)));
+        print_out(stdout, &format!("{}", Right(cursor_position as u16)));
         Shell::pop_from_buffer(stdout, buffer, buffer.len());
         buffer.push_str(&res);
-        Print_out(
+        print_out(
             stdout,
             &format!("{}{}", buffer, Left(cursor_position as u16)),
         );
@@ -90,20 +90,8 @@ impl Shell {
 
     pub fn clear_terminal(stdout: &mut Option<RawTerminal<std::io::Stdout>>, buffer: &mut String) {
         buffer.clear();
-
-        match stdout {
-            Some(s) => {
-                write!(s, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
-                s.flush().unwrap();
-                display_promt(stdout);
-            }
-            None => {
-                let mut std = std::io::stdout();
-                write!(std, "{}{}\r", clear::All, cursor::Goto(1, 1)).unwrap();
-                std.flush().unwrap();
-                display_promt(&mut None);
-            }
-        }
+        print_out(stdout, &format!("{}{}\r" , clear::All, cursor::Goto(1, 1)));
+        display_promt(stdout);
     }
 
     pub fn parse_and_exec(
@@ -140,20 +128,21 @@ impl Shell {
         buffer: &mut String,
         history: &mut History,
     ) {
+        let current_history = history.current_history.clone();
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            // let (width, height) = termion::terminal_size().unwrap();
-            // let column_to_remove = (width + prev_history.len() as u16 - 1) / width;
-            // for i in 0..column_to_remove {
-            //     if i != 0 {
-            //         write!(stdout, "{}", cursor::Up(1)).unwrap();
-            //     }
-            //     Shell::clear_current_line(stdout, buffer);
-            // }
             Shell::clear_current_line(stdout, buffer);
-            // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
+            if !current_history.is_empty() {
+                let (width, height) = termion::terminal_size().unwrap();
+                let column_to_remove = (width + current_history.len() as u16 - 1) / width;
+                for i in 0..column_to_remove - 1 {
+                    print_out(stdout, &format!("{}", Up(1)));
 
-            Print_out(stdout, &prev_history);
+                    Shell::clear_current_line(stdout, buffer);
+                }
+            }
+            display_promt(stdout);
+            print_out(stdout, &prev_history);
             buffer.push_str(&prev_history);
         }
     }
@@ -163,44 +152,31 @@ impl Shell {
         buffer: &mut String,
         history: &mut History,
     ) {
+        let current_history = history.current_history.clone();
         let next_history = history.next();
         if !next_history.is_empty() {
-            // let (width, height) = termion::terminal_size().unwrap();
-            // let column_to_remove = (width + next_history.len() as u16 - 1) / width;
-            // for i in 0..column_to_remove {
-            //     if i != 0 {
-            //         write!(stdout, "{}", cursor::Up(1)).unwrap();
-            //     }
-            //     Shell::clear_current_line(stdout, buffer);
-            // }
             Shell::clear_current_line(stdout, buffer);
-            // write!(stdout, "{}", cursor::Down(column_to_remove)).unwrap();
-            Print_out(stdout, &next_history);
+            if !current_history.is_empty() {
+                let (width, height) = termion::terminal_size().unwrap();
+                let column_to_remove = (width + current_history.len() as u16 - 1) / width;
+                for i in 0..column_to_remove - 1 {
+                    print_out(stdout, &format!("{}", Up(1)));
+                    Shell::clear_current_line(stdout, buffer);
+                }
+            }
+            display_promt(stdout);
+            print_out(stdout, &next_history);
             buffer.push_str(&next_history);
         }
     }
 
     fn clear_current_line(stdout: &mut Option<RawTerminal<std::io::Stdout>>, buffer: &mut String) {
         buffer.clear();
-
-        match stdout {
-            Some(s) => {
-                write!(s, "{}\r", clear::CurrentLine).unwrap();
-                s.flush().unwrap();
-                display_promt(stdout);
-            }
-            None => {
-                let mut std = std::io::stdout();
-                write!(std, "{}\r", clear::CurrentLine).unwrap();
-                std.flush().unwrap();
-                display_promt(&mut None);
-            }
-        }
+        print_out(stdout, &format!("{}\r", clear::CurrentLine));
     }
 
     pub fn run(&mut self) {
         display_promt(&mut self.stdout);
-        // self.stdout.flush().unwrap();
 
         let stdin = &self.stdin;
 
@@ -215,7 +191,6 @@ impl Shell {
                 termion::event::Key::Char('\t') => {
                     //
                 }
-
                 // append character to the buffer and write it in the stdout
                 termion::event::Key::Char(c) => {
                     if self.cursor_position > 0 {
@@ -258,7 +233,7 @@ impl Shell {
                 termion::event::Key::Left => {
                     if self.cursor_position < self.buffer.len() as i16 {
                         self.cursor_position += 1;
-                        Print_out(&mut self.stdout, &format!("{}", Left(1)));
+                        print_out(&mut self.stdout, &format!("{}", Left(1)));
                     }
                 }
 
@@ -266,7 +241,7 @@ impl Shell {
                 termion::event::Key::Right => {
                     if self.cursor_position > 0 {
                         self.cursor_position -= 1;
-                        Print_out(&mut self.stdout, &format!("{}", Right(1)));
+                        print_out(&mut self.stdout, &format!("{}", Right(1)));
                     }
                 }
 
@@ -278,7 +253,7 @@ impl Shell {
 
                 // Kill terminal proc
                 termion::event::Key::Ctrl('d') => {
-                    Print_out(&mut self.stdout, "\r");
+                    print_out(&mut self.stdout, "\r");
                     // self.stdout.flush().unwrap();
                     return;
                 }
@@ -305,7 +280,7 @@ impl Shell {
     }
 }
 
-pub fn Print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
+pub fn print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
     match w {
         Some(raw_stdout) => {
             write!(raw_stdout, "{}", input).unwrap();
