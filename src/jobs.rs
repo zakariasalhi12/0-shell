@@ -1,7 +1,7 @@
 use std::process::Child;
 use std::collections::HashMap;
 use std::time::SystemTime;
-use crate::ast::AstNode;
+use crate::parser::types::AstNode;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobStatus {
     Running,
