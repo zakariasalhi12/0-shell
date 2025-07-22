@@ -71,6 +71,11 @@ pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
     }
 }
 
+pub fn promt_len() -> usize {
+    let current_directory: String = get_current_directory().unwrap();
+    format!("➜ {} ", current_directory).chars().count()
+}
+
 pub trait ShellCommand {
     fn execute(&self) -> std::io::Result<()> {
         Ok(())

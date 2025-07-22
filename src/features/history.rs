@@ -76,6 +76,7 @@ impl History {
         file.write((command.to_string()  + "\n").as_bytes()).unwrap();
         self.history.push(command);
         self.position += 1;
+        self.current_history = String::new();
     }
 
 }
