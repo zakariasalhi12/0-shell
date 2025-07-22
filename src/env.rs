@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use crate::ast::{AstNode};
+use crate::parser::types::AstNode;
 use crate::jobs::Job;
 
 /// Represents the current shell environment.
