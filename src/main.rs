@@ -31,8 +31,16 @@ fn main() {
 
         println!("{}", buffer);
 
-      
-                println!("res: {:#?}", lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize());
+        match lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize(){
+            Ok(res)=>{
+
+                println!("res: {:#?}", res);
+            },
+
+            Err(err) =>{
+                println!("Error: {:#?}", err);
+            }
+        }
         
     
         // let args: Vec<String> = buffer
