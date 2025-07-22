@@ -63,14 +63,26 @@ impl Shell {
 
         print_out(stdout, &format!("{}", Goto(1, height))); // move the cursor to the last line
 
-        for i in 0..Shell::calc_termlines_in_buffer(&stdout, old_buffer.len()) { // clear all buffer lines
+        for i in 0..Shell::calc_termlines_in_buffer(&stdout, old_buffer.len()) {
+            // clear all buffer lines
             if i > 0 {
                 print_out(stdout, &format!("{}", Up(1)));
             }
-            Shell::clear_current_line(stdout, old_buffer); 
+            Shell::clear_current_line(stdout);
         }
         display_promt(stdout);
-        print_out(stdout, &format!("{}{}", new_buffer, Goto(x, y))); // restore the old cursor position
+        old_buffer.clear();
+        print_out(
+            stdout,
+            &format!(
+                "{}{}",
+                new_buffer,
+                Goto(
+                    x,
+                    y + Shell::calc_termlines_in_buffer(stdout, new_buffer.len()) - 1
+                )
+            ),
+        ); // restore the old cursor position
     }
 
     pub fn pop_from_buffer(
@@ -110,9 +122,9 @@ impl Shell {
         }
         Shell::re_render(stdout, buffer, res.clone());
         if remove == -1 {
-            print_out(stdout, &format!("{}" , Left(1)));
+            print_out(stdout, &format!("{}", Left(1)));
         } else {
-            print_out(stdout, &format!("{}" , Right(1)));
+            print_out(stdout, &format!("{}", Right(1)));
         }
         buffer.push_str(&res);
     }
@@ -157,17 +169,15 @@ impl Shell {
         buffer: &mut String,
         history: &mut History,
     ) {
-        let current_history = history.current_history.clone();
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            Shell::clear_current_line(stdout, buffer);
-            if !current_history.is_empty() {
-                for i in 0..Shell::calc_termlines_in_buffer(&stdout, current_history.len()) - 1 {
+            for i in 0..Shell::calc_termlines_in_buffer(&stdout, buffer.len()) {
+                if i > 0 {
                     print_out(stdout, &format!("{}", Up(1)));
-
-                    Shell::clear_current_line(stdout, buffer);
                 }
+                Shell::clear_current_line(stdout);
             }
+            buffer.clear();
             display_promt(stdout);
             print_out(stdout, &prev_history);
             buffer.push_str(&prev_history);
@@ -179,16 +189,15 @@ impl Shell {
         buffer: &mut String,
         history: &mut History,
     ) {
-        let current_history = history.current_history.clone();
         let next_history = history.next();
         if !next_history.is_empty() {
-            Shell::clear_current_line(stdout, buffer);
-            if !current_history.is_empty() {
-                for i in 0..Shell::calc_termlines_in_buffer(&stdout, current_history.len()) - 1 {
+            for i in 0..Shell::calc_termlines_in_buffer(&stdout, buffer.len()) {
+                if i > 0 {
                     print_out(stdout, &format!("{}", Up(1)));
-                    Shell::clear_current_line(stdout, buffer);
                 }
+                Shell::clear_current_line(stdout);
             }
+            buffer.clear();
             display_promt(stdout);
             print_out(stdout, &next_history);
             buffer.push_str(&next_history);
@@ -200,8 +209,7 @@ impl Shell {
         (width + ((buffer_size + promt_len()) as u16 - 1)) / width
     }
 
-    fn clear_current_line(stdout: &mut Option<RawTerminal<std::io::Stdout>>, buffer: &mut String) {
-        buffer.clear();
+    fn clear_current_line(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
         print_out(stdout, &format!("{}\r", clear::CurrentLine));
     }
 
