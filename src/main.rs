@@ -2,7 +2,9 @@ use shell::commands::{cd, echo};
 use shell::parser::parser::Parser;
 use shell::*;
 pub mod config;
+use colored::*;
 use shell::{features::history, *};
+
 // pub mod executer;
 mod parser;
 use config::*;
@@ -34,19 +36,27 @@ fn main() {
 
         match lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
             Ok(res) => {
-                // println!("res: {:#?}", res);
+                println!("{}", "== Tokens ==".bold().bright_blue());
+                for token in &res {
+                    println!("{:#?}", token);
+                }
+
+                println!("{}", "== Parsing AST ==".bold().bright_green());
                 match Parser::new(&res).parse() {
                     Ok(ast) => {
-                        println!("Ast: {:#?}", ast);
+                        println!("{}", "== AST Output ==".bold().bright_yellow());
+                        println!("{:#?}", ast);
                     }
                     Err(e) => {
-                        println!("Error: {:#?}", e);
+                        eprintln!("{}", "== AST Parse Error ==".bold().red());
+                        eprintln!("{:#?}", e);
                     }
                 }
             }
 
             Err(err) => {
-                println!("Error: {:#?}", err);
+                eprintln!("{}", "== Tokenization Error ==".bold().red());
+                eprintln!("{:#?}", err);
             }
         }
 

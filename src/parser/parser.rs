@@ -1,8 +1,9 @@
 use crate::error::ShellError;
+use crate::lexer::tokenize::Tokenizer;
 use crate::lexer::types::{QuoteType, Token, Word, WordPart};
 use crate::parser::types::*;
 use std::iter::Peekable;
-use crate::lexer::tokenize::Tokenizer;
+
 pub struct Parser<'a> {
     tokens: Peekable<std::slice::Iter<'a, Token>>,
 }
@@ -36,28 +37,29 @@ impl<'a> Parser<'a> {
     fn parse_assignment(&mut self) -> Option<(String, Vec<WordPart>)> {
         let token = self.tokens.peek()?;
         if let Token::Word(word) = token {
-            if word.quote == QuoteType::None && word.parts.len() == 1 {
-                if let WordPart::Literal(part) = &word.parts[0] {
-                    if let Some(eq_pos) = part.find('=') {
-                        let key = part[..eq_pos].to_string();
+            if word.quote == QuoteType::None{
+                if let Some(WordPart::Literal(part)) = word.parts.get(0) {
+                    if let Some(pos) = part.find('=') {
+                        let key = part[..pos].to_string();
+                        if pos == part.len() - 1 && word.parts.len() == 1 {
+                            self.tokens.next();
 
-                        let val_str = &part[eq_pos + 1..];
-
-                        self.tokens.next();
-
-                        let mut tokenizer = Tokenizer::new(val_str);
-                        match tokenizer.tokenize() {
-                            Ok(tokens) => {
-                                if let Some(Token::Word(val_word)) = tokens.iter().find(|t| matches!(t, Token::Word(_))) {
-                                    return Some((key, val_word.parts.clone()));
-                                } else {
-                                    return Some((key, vec![WordPart::Literal(val_str.to_string())]));
-                                }
-                            }
-                            Err(_) => {
-                                return Some((key, vec![WordPart::Literal(val_str.to_string())]));
+                            if let Some(Token::Word(val)) = self.tokens.peek() {
+                                self.tokens.next();
+                                return Some((key, val.parts.clone()));
                             }
                         }
+                        let mut value_parts = Vec::new();
+
+                        let after_eq = &part[pos + 1..];
+                        if !after_eq.is_empty() {
+                            value_parts.push(WordPart::Literal(after_eq.to_string()));
+                        }
+
+                        value_parts.extend_from_slice(&word.parts[1..]);
+
+                        self.tokens.next();
+                        return Some((key, value_parts));
                     }
                 }
             }
@@ -73,7 +75,7 @@ impl<'a> Parser<'a> {
         }
 
         let cmd_word = self.parse_word()?;
-        self.tokens.next(); 
+        self.tokens.next();
 
         let mut args = Vec::new();
         while let Some(Token::Word(word)) = self.tokens.peek() {
