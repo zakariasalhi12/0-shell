@@ -1,6 +1,6 @@
 // src/ast.rs
 
-use crate::lexer::types::Word;
+use crate::lexer::types::{Word, WordPart};
 
 // Arithmetic expression AST
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ pub enum AstNode {
     Command {
         cmd: Word,
         args : Vec<Word>,
-        assignments: Vec<(String, String)>,
+        assignments: Vec<(String, Vec<WordPart>)>,
         redirects: Vec<Redirect>,
     },
 

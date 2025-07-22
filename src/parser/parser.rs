@@ -2,62 +2,63 @@ use crate::error::ShellError;
 use crate::lexer::types::{QuoteType, Token, Word, WordPart};
 use crate::parser::types::*;
 use std::iter::Peekable;
-use std::process::Command;
-
+use crate::lexer::tokenize::Tokenizer;
 pub struct Parser<'a> {
     tokens: Peekable<std::slice::Iter<'a, Token>>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
-        return Self {
+        Self {
             tokens: tokens.iter().peekable(),
-        };
+        }
     }
 
-    pub fn check(&mut self, expected: &Token) -> bool {
-        if let Some(tok) = self.tokens.peek() {
-            return *tok == expected;
-        }
-        return false;
-    }
+    // pub fn check(&mut self, expected: &Token) -> bool {
+    //     match self.tokens.peek() {
+    //         Some(tok) => *tok == expected,
+    //         None => false,
+    //     }
+    // }
 
     pub fn parse(&mut self) -> Result<AstNode, ShellError> {
-        while let Some(tok) = self.tokens.peek() {
-            //    self.parse_command()
-        }
-        Err(ShellError::Parse("unimplemented parser".into()))
+        self.parse_command()
+            .ok_or_else(|| ShellError::Parse("Unexpected end of input".into()))
     }
 
     fn parse_word(&mut self) -> Option<Word> {
-        match self.tokens.peek()? {
-            Token::Word(word) => Some(word.to_owned()),
+        match self.tokens.peek() {
+            Some(Token::Word(word)) => Some((*word).clone()),
             _ => None,
         }
     }
 
-    fn parse_assignement(&mut self) -> Option<(String, String)> {
-        while let Some(Token::Word(word)) = self.tokens.peek() {
+    fn parse_assignment(&mut self) -> Option<(String, Vec<WordPart>)> {
+        let token = self.tokens.peek()?;
+        if let Token::Word(word) = token {
             if word.quote == QuoteType::None && word.parts.len() == 1 {
-                match &word.parts[0] {
-                    WordPart::Literal(part) => {
-                        let mut seen_equal = 0;
-                        let mut key = String::new();
-                        let mut val = String::new();
-                        for c in part.chars() {
-                            if c == '=' {
-                                seen_equal += 1;
-                            } else if seen_equal == 0 {
-                                key.push(c);
-                            } else if seen_equal == 1 {
-                                val.push(c);
-                            } else if seen_equal > 1 {
-                                return None;
+                if let WordPart::Literal(part) = &word.parts[0] {
+                    if let Some(eq_pos) = part.find('=') {
+                        let key = part[..eq_pos].to_string();
+
+                        let val_str = &part[eq_pos + 1..];
+
+                        self.tokens.next();
+
+                        let mut tokenizer = Tokenizer::new(val_str);
+                        match tokenizer.tokenize() {
+                            Ok(tokens) => {
+                                if let Some(Token::Word(val_word)) = tokens.iter().find(|t| matches!(t, Token::Word(_))) {
+                                    return Some((key, val_word.parts.clone()));
+                                } else {
+                                    return Some((key, vec![WordPart::Literal(val_str.to_string())]));
+                                }
+                            }
+                            Err(_) => {
+                                return Some((key, vec![WordPart::Literal(val_str.to_string())]));
                             }
                         }
-                        return Some((key, val));
                     }
-                    _ => return None,
                 }
             }
         }
@@ -65,29 +66,26 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_command(&mut self) -> Option<AstNode> {
-        let mut assignments = vec![];
+        let mut assignments = Vec::new();
 
-        while let Some((key, val)) = self.parse_assignement() {
-            assignments.push((key, val));
-            self.tokens.next(); 
+        while let Some((key, val_parts)) = self.parse_assignment() {
+            assignments.push((key, val_parts));
         }
 
-        let cmd = self.parse_word()?;
-        self.tokens.next(); // consume it
+        let cmd_word = self.parse_word()?;
+        self.tokens.next(); 
 
-        let mut args: Vec<Word> = vec![];
-
-        // parse remaining words as arguments
+        let mut args = Vec::new();
         while let Some(Token::Word(word)) = self.tokens.peek() {
-            args.push(word.clone());
+            args.push((*word).clone());
             self.tokens.next();
         }
 
         Some(AstNode::Command {
-            cmd,
+            cmd: cmd_word,
             assignments,
             args,
-            redirects: vec![]
+            redirects: vec![], // TODO: implement redirects
         })
     }
 }

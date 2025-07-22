@@ -1,4 +1,5 @@
 use shell::commands::{cd, echo};
+use shell::parser::parser::Parser;
 use shell::*;
 pub mod config;
 use shell::{features::history, *};
@@ -23,7 +24,7 @@ fn main() {
 
     print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
-            println!("loop");
+        println!("loop");
         distplay_promt();
         io::stdout().flush().unwrap();
         buffer.clear();
@@ -31,19 +32,24 @@ fn main() {
 
         println!("{}", buffer);
 
-        match lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize(){
-            Ok(res)=>{
+        match lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
+            Ok(res) => {
+                // println!("res: {:#?}", res);
+                match Parser::new(&res).parse() {
+                    Ok(ast) => {
+                        println!("Ast: {:#?}", ast);
+                    }
+                    Err(e) => {
+                        println!("Error: {:#?}", e);
+                    }
+                }
+            }
 
-                println!("res: {:#?}", res);
-            },
-
-            Err(err) =>{
+            Err(err) => {
                 println!("Error: {:#?}", err);
             }
         }
 
-        
-    
         // let args: Vec<String> = buffer
         //     .trim()
         //     .split(" ")
@@ -52,7 +58,7 @@ fn main() {
         // let mut vece: Vec<String> = vec![];
         // vece.push("src".to_string());
         // cd::Cd::new(vece).execute();
-        
+
         // history.run(&mut buffer);
         // history.save(buffer.to_owned());
         // let cmd = parse(&buffer);
