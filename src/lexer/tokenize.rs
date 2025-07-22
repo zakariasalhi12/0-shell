@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 pub use crate::lexer::types::{QuoteType, State, Token, Word, WordPart};
 use std::iter::Peekable;
 use std::str::Chars;
@@ -14,7 +15,7 @@ impl<'a> Tokenizer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, ShellError> {
         let mut tokens = Vec::new();
         let mut state = State::Default;
         let mut buffer = String::new();
@@ -50,7 +51,7 @@ impl<'a> Tokenizer<'a> {
                             '{' => {
                                 self.chars.next();
                                 let mut var = String::new();
-                                self.read_until_matching("{", "}", &mut var);
+                                self.read_until_matching("{", "}", &mut var)?;
                                 parts.push(WordPart::VariableSubstitution(var));
                             }
                             '(' => {
@@ -58,11 +59,11 @@ impl<'a> Tokenizer<'a> {
                                 if let Some(&'(') = self.chars.peek() {
                                     self.chars.next();
                                     let mut expr = String::new();
-                                    self.read_until_matching("((", "))", &mut expr);
+                                    self.read_until_matching("((", "))", &mut expr)?;
                                     parts.push(WordPart::ArithmeticSubstitution(expr));
                                 } else {
                                     let mut cmd = String::new();
-                                    self.read_until_matching("(", ")", &mut cmd);
+                                    self.read_until_matching("(", ")", &mut cmd)?;
                                     parts.push(WordPart::CommandSubstitution(cmd));
                                 }
                             }
@@ -263,10 +264,10 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
-        tokens
+        Ok(tokens)
     }
 
-    fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) {
+    fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) -> Result<(), ShellError> {
         let start_len = start.len();
         let end_len = end.len();
         let mut depth = 1;
@@ -295,6 +296,12 @@ impl<'a> Tokenizer<'a> {
             if let Some(c) = self.chars.next() {
                 buffer.push(c);
             }
+        }
+
+        if depth == 0{
+            Ok(())
+        }else {
+            Err(ShellError::Syntax(format!("unclosed {}", start)))
         }
     }
 
