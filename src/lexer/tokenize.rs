@@ -39,7 +39,7 @@ impl<'a> Tokenizer<'a> {
                     state = State::Default;
                 }
 
-                (State::InDoubleQuote | State::Default, '$') => {
+                (State::InDoubleQuote | State::Default | State::InWord, '$') => {
                     self.chars.next();
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
@@ -86,13 +86,35 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                (State::Default, '"') => {
+                (State::InWord, '"') | (State::Default, '"') => {
                     self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+                    if !parts.is_empty() {
+                        tokens.push(Token::Word(Word {
+                            parts: parts.clone(),
+                            quote: QuoteType::None,
+                        }));
+                        parts.clear();
+                    }
                     state = State::InDoubleQuote;
                 }
 
-                (State::Default, '\'') => {
+                (State::InWord, '\'') | (State::Default, '\'') => {
                     self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal(buffer.clone()));
+                        buffer.clear();
+                    }
+                    if !parts.is_empty() {
+                        tokens.push(Token::Word(Word {
+                            parts: parts.clone(),
+                            quote: QuoteType::None,
+                        }));
+                        parts.clear();
+                    }
                     state = State::InSingleQuote;
                 }
 
@@ -216,7 +238,7 @@ impl<'a> Tokenizer<'a> {
                         quote: QuoteType::Double,
                     }));
                     parts.clear();
-                    state = State::Default;
+                    state = State::InWord;
                 }
 
                 (State::InDoubleQuote, '\\') => {
@@ -242,7 +264,7 @@ impl<'a> Tokenizer<'a> {
                         quote: QuoteType::Single,
                     }));
                     parts.clear();
-                    state = State::Default;
+                    state = State::InWord;
                 }
 
                 (State::InSingleQuote, c) => {
@@ -267,7 +289,12 @@ impl<'a> Tokenizer<'a> {
         Ok(tokens)
     }
 
-    fn read_until_matching(&mut self, start: &str, end: &str, buffer: &mut String) -> Result<(), ShellError> {
+    fn read_until_matching(
+        &mut self,
+        start: &str,
+        end: &str,
+        buffer: &mut String,
+    ) -> Result<(), ShellError> {
         let start_len = start.len();
         let end_len = end.len();
         let mut depth = 1;
@@ -298,9 +325,9 @@ impl<'a> Tokenizer<'a> {
             }
         }
 
-        if depth == 0{
+        if depth == 0 {
             Ok(())
-        }else {
+        } else {
             Err(ShellError::Syntax(format!("unclosed {}", start)))
         }
     }
