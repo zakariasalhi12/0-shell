@@ -1,4 +1,4 @@
-use crate::ast::ArithmeticExpr;
+use crate::parser::types::ArithmeticExpr;
 use crate::env::ShellEnv;
 use crate::error::ShellError;
 

@@ -1,5 +1,7 @@
 // src/ast.rs
 
+use crate::lexer::types::Word;
+
 // Arithmetic expression AST
 #[derive(Debug, Clone)]
 pub enum ArithmeticExpr {
@@ -73,9 +75,10 @@ pub struct Redirect {
 // Main AST Node
 #[derive(Debug, Clone)]
 pub enum AstNode {
-    SimpleCommand {
+    Command {
+        cmd: Word,
+        args : Vec<Word>,
         assignments: Vec<(String, String)>,
-        words: Vec<String>,
         redirects: Vec<Redirect>,
     },
 
