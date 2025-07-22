@@ -1,0 +1,21 @@
+known errors : 
+    cursor position (when the buffer has multi lines in the term):
+        solution : 
+            left button case : 
+                Calcul_lines()
+                if cursor_position_x == 1 && lines > 1 && current_line != 0:
+                    cursor_position_y + 1
+                    cursor_position_x = the end of the term  
+            right button case : 
+                Calcul_lines()
+                if cursor_position_x == the end of the term && lines > 1 && current_line != last_line :
+                    cursor_position_y - 1
+                    cursor_position _x = 1
+
+    reminder : Save Cursor x and y postion in case the user want to browse history 
+
+    cursor position (when editing the buffer content "multi lines case"):
+        todo()
+    cursor position (when deleting the buffer content "multi lines case"):
+        todo()
+    
