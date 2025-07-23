@@ -17,6 +17,7 @@ pub mod commands {
 }
 use std::env;
 use std::io::{Stdout, Write};
+use std::path::PathBuf;
 use termion::raw::RawTerminal;
 
 use crate::events_handler::print_out;
@@ -52,7 +53,10 @@ pub fn get_current_directory() -> Result<String, String> {
             Some(name) => Ok(name.to_string_lossy().to_string()),
             None => Ok("/".to_string()),
         },
-        Err(e) => Err(e.to_string()),
+        Err(e) => match redirect_to_home() {
+            Ok(val) => Ok(val),
+            Err(e) => Err(e.to_string()),
+        },
     }
 }
 
@@ -60,22 +64,27 @@ pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
     let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print_out(stdout, &format!("{}", prompt.to_ansi()));
-    // match stdout {
-    //     Some(raw_stdout) => {
-    //         write!(raw_stdout, "{}", prompt.to_ansi()).unwrap();
-    //         raw_stdout.flush().unwrap();
-    //     }
-    //     None => {
-    //         let mut std = std::io::stdout();
-    //         write!(std, "{}", prompt.to_ansi()).unwrap();
-    //         std.flush().unwrap();
-    //     }
-    // }
 }
 
 pub fn promt_len() -> usize {
     let current_directory: String = get_current_directory().unwrap();
     format!("➜ {} ", current_directory).chars().count()
+}
+
+pub fn redirect_to_home() -> std::io::Result<String> {
+    let home = env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/"));
+
+    env::set_current_dir(&home)?;
+
+    let dir_name = home
+        .file_name()
+        .and_then(|os_str| os_str.to_str())
+        .unwrap_or("/")
+        .to_string();
+
+    Ok(dir_name)
 }
 
 pub trait ShellCommand {
