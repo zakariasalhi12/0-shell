@@ -18,6 +18,8 @@ pub mod commands {
 use std::env;
 use std::io::{Stdout, Write};
 use termion::raw::RawTerminal;
+
+use crate::events_handler::print_out;
 pub mod features {
     pub mod history;
 }
@@ -57,18 +59,18 @@ pub fn get_current_directory() -> Result<String, String> {
 pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
     let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
-
-    match stdout {
-        Some(raw_stdout) => {
-            write!(raw_stdout, "{}", prompt.to_ansi()).unwrap();
-            raw_stdout.flush().unwrap();
-        }
-        None => {
-            let mut std = std::io::stdout();
-            write!(std, "{}", prompt.to_ansi()).unwrap();
-            std.flush().unwrap();
-        }
-    }
+    print_out(stdout, &format!("{}", prompt.to_ansi()));
+    // match stdout {
+    //     Some(raw_stdout) => {
+    //         write!(raw_stdout, "{}", prompt.to_ansi()).unwrap();
+    //         raw_stdout.flush().unwrap();
+    //     }
+    //     None => {
+    //         let mut std = std::io::stdout();
+    //         write!(std, "{}", prompt.to_ansi()).unwrap();
+    //         std.flush().unwrap();
+    //     }
+    // }
 }
 
 pub fn promt_len() -> usize {
