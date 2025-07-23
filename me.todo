@@ -1,0 +1,6 @@
+- deleting parent directory (cause error in diplay prompt) //Done
+- deleting write-protected file (chmod -w) should ask user before deleting
+- execution
+- piping (cat commande)
+- handle all signals
+- 
