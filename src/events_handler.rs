@@ -355,15 +355,21 @@ impl Shell {
 }
 
 pub fn print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
-    match w {
-        Some(raw_stdout) => {
-            write!(raw_stdout, "{}", input).unwrap();
-            raw_stdout.flush().unwrap();
-        }
+    let write_result = match w {
+        Some(raw_stdout) => write!(raw_stdout, "{}", input).and_then(|_| raw_stdout.flush()),
         None => {
             let mut std = std::io::stdout();
-            write!(std, "{}", input).unwrap();
-            std.flush().unwrap();
+            write!(std, "{}", input).and_then(|_| std.flush())
+        }
+    };
+
+    if let Err(e) = write_result {
+        if e.kind() == std::io::ErrorKind::BrokenPipe {
+            eprintln!("Write error: {}", e);
+            std::process::exit(0);
+        } else {
+            eprintln!("Write error: {}", e);
+            std::process::exit(1);
         }
     }
 }
