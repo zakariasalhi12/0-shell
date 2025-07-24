@@ -110,21 +110,16 @@ pub fn parse_command(input: &str, exec_type: ExecType) -> Option<Commande> {
 
     let name = tokens[0];
     let cmd_type = matcher(name)?;
+    // println!("{}", tokens[1..].join(" "));
 
     let mut option: Vec<String> = vec![];
     let mut args = vec![];
 
     for token in &tokens[1..] {
         if token.starts_with("-") {
-            // option.push_str(token);
-            // option.push(' ');
             option.push((token).to_string());
         } else {
-            let words = match parse_word(token.to_string()) {
-                Ok(val) => val,
-                Err(..) => return None,
-            };
-            args.push(words);
+            args.push(token.to_string());
         }
     }
 
