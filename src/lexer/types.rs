@@ -8,9 +8,12 @@ pub struct Word {
 pub enum Token {
     Word(Word),
     Pipe,
+    RedirectIn,           
     RedirectOut,
-    RedirectAppend,
-    RedirectIn,
+    RedirectAppend,       
+    RedirectInFd(u64),    
+    RedirectOutFd(u64),  
+    RedirectAppendFd(u64),
     RedirectHereDoc,
     Semicolon,
     Ampersand,
@@ -43,4 +46,8 @@ pub enum State {
     InSingleQuote,
     MaybeRedirectOut2,
     MaybeRedirectIn2,
+    MaybeRedirectOut2Fd(u64),
+    MaybeRedirectIn2Fd(u64),
+
+
 }

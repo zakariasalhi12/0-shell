@@ -38,14 +38,12 @@ impl<'a> Tokenizer<'a> {
                     }
                     state = State::Default;
                 }
-
                 (State::InDoubleQuote | State::Default | State::InWord, '$') => {
                     self.chars.next();
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
                         buffer.clear();
                     }
-
                     if let Some(c) = self.chars.peek() {
                         match *c {
                             '{' => {
@@ -56,7 +54,7 @@ impl<'a> Tokenizer<'a> {
                             }
                             '(' => {
                                 self.chars.next();
-                                if let Some(&'(') = self.chars.peek() {
+                                if let Some('(') = self.chars.peek() {
                                     self.chars.next();
                                     let mut expr = String::new();
                                     self.read_until_matching("((", "))", &mut expr)?;
@@ -85,7 +83,6 @@ impl<'a> Tokenizer<'a> {
                         buffer.push('$');
                     }
                 }
-
                 (State::InWord, '"') | (State::Default, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -101,7 +98,6 @@ impl<'a> Tokenizer<'a> {
                     }
                     state = State::InDoubleQuote;
                 }
-
                 (State::InWord, '\'') | (State::Default, '\'') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -117,7 +113,6 @@ impl<'a> Tokenizer<'a> {
                     }
                     state = State::InSingleQuote;
                 }
-
                 (State::Default, '#') => {
                     self.chars.next();
                     while let Some(c) = self.chars.next() {
@@ -126,78 +121,66 @@ impl<'a> Tokenizer<'a> {
                         }
                     }
                 }
-
                 (State::Default, '&') => {
                     self.chars.next();
-                    if let Some(&'&') = self.chars.peek() {
+                    if let Some('&') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalAnd);
                     } else {
                         tokens.push(Token::Ampersand);
                     }
                 }
-
                 (State::Default, '|') => {
                     self.chars.next();
-                    if let Some(&'|') = self.chars.peek() {
+                    if let Some('|') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalOr);
                     } else {
                         tokens.push(Token::Pipe);
                     }
                 }
-
                 (State::Default, '!') => {
                     self.chars.next();
                     tokens.push(Token::LogicalNot);
                 }
-
                 (State::Default, '>') => {
                     self.chars.next();
                     state = State::MaybeRedirectOut2;
                 }
-
                 (State::MaybeRedirectOut2, '&') => {
                     buffer.push('&');
                     self.chars.next();
                     tokens.push(Token::RedirectOut);
                     state = State::InWord;
                 }
-
                 (State::MaybeRedirectOut2, '>') => {
                     self.chars.next();
                     tokens.push(Token::RedirectAppend);
                     state = State::Default;
                 }
-
                 (State::MaybeRedirectOut2, _) => {
                     tokens.push(Token::RedirectOut);
                     state = State::Default;
                 }
-
                 (State::Default, '<') => {
                     self.chars.next();
                     state = State::MaybeRedirectIn2;
                 }
-
                 (State::MaybeRedirectIn2, '&') => {
                     buffer.push('&');
                     self.chars.next();
                     tokens.push(Token::RedirectIn);
                     state = State::InWord;
                 }
-
                 (State::MaybeRedirectIn2, '<') => {
                     self.chars.next();
                     tokens.push(Token::RedirectHereDoc);
                     state = State::Default;
                 }
-
                 (State::MaybeRedirectIn2, _) => {
                     tokens.push(Token::RedirectIn);
                     state = State::Default;
                 }
-
                 (State::Default, ';') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -214,14 +197,12 @@ impl<'a> Tokenizer<'a> {
                     tokens.push(Token::Semicolon);
                     state = State::Default;
                 }
-
                 (State::Default, _) => {
                     self.chars.next();
                     buffer.push(c);
                     state = State::InWord;
                 }
-
-                (State::InWord, ' ' | '\t' | '\n' | '|' | '>' | '<' | ';' | '&' | '!') => {
+                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&' | '!') => {
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
                         buffer.clear();
@@ -235,12 +216,82 @@ impl<'a> Tokenizer<'a> {
                     }
                     state = State::Default;
                 }
-
+                (State::InWord, '>') => {
+                    self.chars.next();
+                    if buffer.chars().all(|ch| ch.is_ascii_digit()) && !buffer.is_empty() {
+                        match buffer.parse::<u64>() {
+                            Ok(fd_num) => {
+                                buffer.clear();
+                                state = State::MaybeRedirectOut2Fd(fd_num);
+                            }
+                            Err(_) => {
+                                parts.push(WordPart::Literal(buffer.clone()));
+                                buffer.clear();
+                                if !parts.is_empty() {
+                                    tokens.push(Token::Word(Word {
+                                        parts: parts.clone(),
+                                        quote: QuoteType::None,
+                                    }));
+                                    parts.clear();
+                                }
+                                state = State::MaybeRedirectOut2;
+                            }
+                        }
+                    } else {
+                        if !buffer.is_empty() {
+                            parts.push(WordPart::Literal(buffer.clone()));
+                            buffer.clear();
+                        }
+                        if !parts.is_empty() {
+                            tokens.push(Token::Word(Word {
+                                parts: parts.clone(),
+                                quote: QuoteType::None,
+                            }));
+                            parts.clear();
+                        }
+                        state = State::MaybeRedirectOut2;
+                    }
+                }
+                (State::InWord, '<') => {
+                    self.chars.next();
+                    if buffer.chars().all(|ch| ch.is_ascii_digit()) && !buffer.is_empty() {
+                        match buffer.parse::<u64>() {
+                            Ok(fd_num) => {
+                                buffer.clear();
+                                state = State::MaybeRedirectIn2Fd(fd_num);
+                            }
+                            Err(_) => {
+                                parts.push(WordPart::Literal(buffer.clone()));
+                                buffer.clear();
+                                if !parts.is_empty() {
+                                    tokens.push(Token::Word(Word {
+                                        parts: parts.clone(),
+                                        quote: QuoteType::None,
+                                    }));
+                                    parts.clear();
+                                }
+                                state = State::MaybeRedirectIn2;
+                            }
+                        }
+                    } else {
+                        if !buffer.is_empty() {
+                            parts.push(WordPart::Literal(buffer.clone()));
+                            buffer.clear();
+                        }
+                        if !parts.is_empty() {
+                            tokens.push(Token::Word(Word {
+                                parts: parts.clone(),
+                                quote: QuoteType::None,
+                            }));
+                            parts.clear();
+                        }
+                        state = State::MaybeRedirectIn2;
+                    }
+                }
                 (State::InWord, c) => {
                     self.chars.next();
                     buffer.push(c);
                 }
-
                 (State::InDoubleQuote, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -254,19 +305,16 @@ impl<'a> Tokenizer<'a> {
                     parts.clear();
                     state = State::InWord;
                 }
-
                 (State::InDoubleQuote, '\\') => {
                     self.chars.next();
                     if let Some(next) = self.chars.next() {
                         buffer.push(next);
                     }
                 }
-
                 (State::InDoubleQuote, c) => {
                     self.chars.next();
                     buffer.push(c);
                 }
-
                 (State::InSingleQuote, '\'') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -280,10 +328,39 @@ impl<'a> Tokenizer<'a> {
                     parts.clear();
                     state = State::InWord;
                 }
-
                 (State::InSingleQuote, c) => {
                     self.chars.next();
                     buffer.push(c);
+                }
+                (State::MaybeRedirectOut2Fd(fd_num), '&') => {
+                    buffer.push('&');
+                    self.chars.next();
+                    tokens.push(Token::RedirectOutFd(*fd_num));
+                    state = State::InWord;
+                }
+                (State::MaybeRedirectOut2Fd(fd_num), '>') => {
+                    self.chars.next();
+                    tokens.push(Token::RedirectAppendFd(*fd_num));
+                    state = State::Default;
+                }
+                (State::MaybeRedirectOut2Fd(fd_num), _) => {
+                    tokens.push(Token::RedirectOutFd(*fd_num));
+                    state = State::Default;
+                }
+                (State::MaybeRedirectIn2Fd(fd_num), '&') => {
+                    buffer.push('&');
+                    self.chars.next();
+                    tokens.push(Token::RedirectInFd(*fd_num));
+                    state = State::InWord;
+                }
+                (State::MaybeRedirectIn2Fd(fd_num), '<') => {
+                    self.chars.next();
+                    tokens.push(Token::RedirectHereDoc);
+                    state = State::Default;
+                }
+                (State::MaybeRedirectIn2Fd(fd_num), _) => {
+                    tokens.push(Token::RedirectInFd(*fd_num));
+                    state = State::Default;
                 }
             }
         }
@@ -291,14 +368,12 @@ impl<'a> Tokenizer<'a> {
         if !buffer.is_empty() {
             parts.push(WordPart::Literal(buffer));
         }
-
         if !parts.is_empty() {
             tokens.push(Token::Word(Word {
                 parts,
                 quote: QuoteType::None,
             }));
         }
-
         tokens.push(Token::Eof);
         Ok(tokens)
     }
@@ -312,7 +387,6 @@ impl<'a> Tokenizer<'a> {
         let start_len = start.len();
         let end_len = end.len();
         let mut depth = 1;
-
         while let Some(_) = self.chars.peek() {
             if self.peek_matches(start) {
                 for _ in 0..start_len {
@@ -321,7 +395,6 @@ impl<'a> Tokenizer<'a> {
                 depth += 1;
                 continue;
             }
-
             if self.peek_matches(end) {
                 for _ in 0..end_len {
                     self.chars.next();
@@ -333,12 +406,10 @@ impl<'a> Tokenizer<'a> {
                 buffer.push_str(end);
                 continue;
             }
-
             if let Some(c) = self.chars.next() {
                 buffer.push(c);
             }
         }
-
         if depth == 0 {
             Ok(())
         } else {
