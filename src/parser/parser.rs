@@ -187,7 +187,7 @@ impl Parser {
                     Ok(Some((2, redirect)))
                 } else {
                     Err(ShellError::Parse(
-                        "Expected filename, file descriptor, or '-' after redirection operator '>>...'".into(),
+                        "Expected filename or '-' after redirection operator '>>...'".into(),
                     ))
                 }
             }
