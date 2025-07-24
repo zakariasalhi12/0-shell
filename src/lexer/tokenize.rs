@@ -157,6 +157,13 @@ impl<'a> Tokenizer<'a> {
                     state = State::MaybeRedirectOut2;
                 }
 
+                (State::MaybeRedirectOut2, '&') => {
+                    buffer.push('&');
+                    self.chars.next();
+                    tokens.push(Token::RedirectOut);
+                    state = State::InWord;
+                }
+
                 (State::MaybeRedirectOut2, '>') => {
                     self.chars.next();
                     tokens.push(Token::RedirectAppend);
@@ -171,6 +178,13 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, '<') => {
                     self.chars.next();
                     state = State::MaybeRedirectIn2;
+                }
+
+                (State::MaybeRedirectIn2, '&') => {
+                    buffer.push('&');
+                    self.chars.next();
+                    tokens.push(Token::RedirectIn);
+                    state = State::InWord;
                 }
 
                 (State::MaybeRedirectIn2, '<') => {
