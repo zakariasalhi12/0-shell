@@ -66,26 +66,13 @@ pub enum RedirectOp {
     HereDoc,
     /// `<>`: open file for read and write
     ReadWrite,
-    /// `>&`: redirect stdout to another FD
-    DupWrite, // e.g., `2>&1`
-    /// `<&`: redirect stdin from another FD
-    DupRead, // e.g., `0<&1`
-    /// `>&-` or `<&-`: close FD
-    CloseFd,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum RedirectTarget {
-    File(Word),      // Regular file target
-    Fd(u64),         // File descriptor target (e.g., &1, &2)
-    Close,           // Close file descriptor target (&-)
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Redirect{
     pub fd : Option<u64>,
     pub kind: RedirectOp,
-    pub target : RedirectTarget,
+    pub target : Word,
 }
 
 #[derive(Debug, Clone)]
