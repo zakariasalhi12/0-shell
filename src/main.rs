@@ -1,4 +1,3 @@
-use core::error;
 use shell::events_handler::*;
 
 fn main() {
@@ -6,6 +5,5 @@ fn main() {
         Ok(val) => val,
         Err(e) => return,
     };
-
     shell.run();
 }
