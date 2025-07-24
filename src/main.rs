@@ -42,7 +42,7 @@ fn main() {
                 }
 
                 println!("{}", "== Parsing AST ==".bold().bright_green());
-                match Parser::new(&res).parse() {
+                match Parser::new(res).parse() {
                     Ok(ast) => {
                         println!("{}", "== AST Output ==".bold().bright_yellow());
                         println!("{:#?}", ast);
