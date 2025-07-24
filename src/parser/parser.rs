@@ -30,9 +30,8 @@ impl Parser {
         self.tokens.len().saturating_sub(self.pos)
     }
 
-    pub fn parse(&mut self) -> Result<AstNode, ShellError> {
+    pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
         self.parse_command()
-            .ok_or_else(|| ShellError::Parse("Unexpected token or end of input".into()))
     }
 
     fn try_parse_assignment_at(&self, pos: usize) -> Option<(usize, (String, Vec<WordPart>))> {
@@ -64,21 +63,6 @@ impl Parser {
         None
     }
 
-    fn parse_redirect_target(word: &Word) -> RedirectTarget {
-        if let Some(WordPart::Literal(part)) = word.parts.get(0) {
-            if part.starts_with('&') {
-                let fd_str = &part[1..];
-                if fd_str == "-" {
-                    return RedirectTarget::Close;
-                }
-                if let Ok(fd_num) = fd_str.parse::<u64>() {
-                    return RedirectTarget::Fd(fd_num);
-                }
-            }
-        }
-        RedirectTarget::File(word.clone())
-    }
-
     fn try_parse_redirection_at(&self, pos: usize) -> Result<Option<(usize, Redirect)>, ShellError> {
         let current_token = self.tokens.get(pos).ok_or_else(|| {
             ShellError::Parse(
@@ -91,18 +75,11 @@ impl Parser {
                 let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
                     ShellError::Parse("Expected target after '>'".into())
                 })?;
-                if let Token::Word(target_word) = target_token {
-                    let target = Self::parse_redirect_target(target_word);
-                    let (kind, final_target) = match target {
-                        RedirectTarget::Fd(_) | RedirectTarget::Close => {
-                            (RedirectOp::DupWrite, target)
-                        }
-                        RedirectTarget::File(_) => (RedirectOp::Write, target),
-                    };
+                if let Token::Word(target) = target_token {
                     let redirect = Redirect {
                         fd: None,
-                        target: final_target,
-                        kind,
+                        target: target.clone(),
+                        kind : RedirectOp::Write,
                     };
                     Ok(Some((2, redirect)))
                 } else {
@@ -115,18 +92,12 @@ impl Parser {
                 let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
                     ShellError::Parse("Expected target after '<'".into())
                 })?;
-                if let Token::Word(target_word) = target_token {
-                    let target = Self::parse_redirect_target(target_word);
-                    let (kind, final_target) = match target {
-                        RedirectTarget::Fd(_) | RedirectTarget::Close => {
-                            (RedirectOp::DupRead, target)
-                        }
-                        RedirectTarget::File(_) => (RedirectOp::Read, target),
-                    };
+                if let Token::Word(target) = target_token {
+                   
                     let redirect = Redirect {
                         fd: None,
-                        target: final_target,
-                        kind,
+                        target : target.clone(),
+                        kind : RedirectOp::Write,
                     };
                     Ok(Some((2, redirect)))
                 } else {
@@ -139,13 +110,11 @@ impl Parser {
                 let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
                     ShellError::Parse("Expected target after '>>'".into())
                 })?;
-                if let Token::Word(target_word) = target_token {
-                    let target = Self::parse_redirect_target(target_word);
-                    let kind = RedirectOp::Append;
+                if let Token::Word(target) = target_token {
                     let redirect = Redirect {
                         fd: None,
-                        target,
-                        kind,
+                        target : target.clone(),
+                        kind : RedirectOp::Append,
                     };
                     Ok(Some((2, redirect)))
                 } else {
@@ -158,11 +127,10 @@ impl Parser {
                 let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
                     ShellError::Parse("Expected delimiter after '<<'".into())
                 })?;
-                if let Token::Word(target_word) = target_token {
-                    let target = RedirectTarget::File(target_word.clone());
+                if let Token::Word(target) = target_token {
                     let redirect = Redirect {
                         fd: None,
-                        target,
+                        target : target.clone(),
                         kind: RedirectOp::HereDoc,
                     };
                     Ok(Some((2, redirect)))
@@ -172,91 +140,55 @@ impl Parser {
                     ))
                 }
             }
-            Token::Word(word) if word.quote == QuoteType::None => {
-                if let Some(WordPart::Literal(part)) = word.parts.get(0) {
-                    if let Ok(fd_num) = part.parse::<u64>() {
-                        let operator_token = self.tokens.get(pos + 1).ok_or_else(|| {
-                            ShellError::Parse(format!(
-                                "Expected redirection operator after file descriptor '{}'",
-                                fd_num
-                            ))
-                        })?;
-                        match operator_token {
-                            Token::RedirectOut => {
-                                let target_token = self.tokens.get(pos + 2).ok_or_else(|| {
-                                    ShellError::Parse("Expected target after '>...'".into())
-                                })?;
-                                if let Token::Word(target_word) = target_token {
-                                    let target = Self::parse_redirect_target(target_word);
-                                    let (kind, final_target) = match target {
-                                        RedirectTarget::Fd(_) | RedirectTarget::Close => {
-                                            (RedirectOp::DupWrite, target)
-                                        }
-                                        RedirectTarget::File(_) => (RedirectOp::Write, target),
-                                    };
-                                    let redirect = Redirect {
-                                        fd: Some(fd_num),
-                                        target: final_target,
-                                        kind,
-                                    };
-                                    Ok(Some((3, redirect)))
-                                } else {
-                                     Err(ShellError::Parse(
-                                        "Expected filename, file descriptor, or '-' after redirection operator '>&' or '>...'".into(),
-                                    ))
-                                }
-                            }
-                            Token::RedirectIn => {
-                                let target_token = self.tokens.get(pos + 2).ok_or_else(|| {
-                                    ShellError::Parse("Expected target after '<...'".into())
-                                })?;
-                                if let Token::Word(target_word) = target_token {
-                                    let target = Self::parse_redirect_target(target_word);
-                                    let (kind, final_target) = match target {
-                                        RedirectTarget::Fd(_) | RedirectTarget::Close => {
-                                            (RedirectOp::DupRead, target)
-                                        }
-                                        RedirectTarget::File(_) => (RedirectOp::Read, target),
-                                    };
-                                    let redirect = Redirect {
-                                        fd: Some(fd_num),
-                                        target: final_target,
-                                        kind,
-                                    };
-                                    Ok(Some((3, redirect)))
-                                } else {
-                                     Err(ShellError::Parse(
-                                        "Expected filename, file descriptor, or '-' after redirection operator '<&' or '<...'".into(),
-                                    ))
-                                }
-                            }
-                            Token::RedirectAppend => {
-                                let target_token = self.tokens.get(pos + 2).ok_or_else(|| {
-                                    ShellError::Parse("Expected target after '>>...'".into())
-                                })?;
-                                if let Token::Word(target_word) = target_token {
-                                    let target = Self::parse_redirect_target(target_word);
-                                    let redirect = Redirect {
-                                        fd: Some(fd_num),
-                                        target,
-                                        kind: RedirectOp::Append,
-                                    };
-                                    Ok(Some((3, redirect)))
-                                } else {
-                                     Err(ShellError::Parse(
-                                        "Expected filename, file descriptor, or '-' after redirection operator '>>&' or '>>...'".into(),
-                                    ))
-                                }
-                            }
-                            _ => {
-                                Ok(None)
-                            }
-                        }
-                    } else {
-                         Ok(None)
-                    }
+            Token::RedirectOutFd(fd_num) => {
+                let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
+                    ShellError::Parse("Expected target after '>...'".into())
+                })?;
+                if let Token::Word(target) = target_token {
+                    let redirect = Redirect {
+                        fd: Some(*fd_num),
+                        target: target.clone(),
+                        kind: RedirectOp::Write,
+                    };
+                    Ok(Some((2, redirect)))
                 } else {
-                     Ok(None)
+                    Err(ShellError::Parse(
+                        "Expected filename, file descriptor, or '-' after redirection operator '>...'".into(),
+                    ))
+                }
+            }
+            Token::RedirectInFd(fd_num) => {
+                let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
+                    ShellError::Parse("Expected target after '<...'".into())
+                })?;
+                if let Token::Word(target) = target_token {
+                    let redirect = Redirect {
+                        fd: Some(*fd_num),
+                        target: target.clone(),
+                        kind : RedirectOp::Write,
+                    };
+                    Ok(Some((2, redirect)))
+                } else {
+                    Err(ShellError::Parse(
+                        "Expected filename, file descriptor, or '-' after redirection operator '<...'".into(),
+                    ))
+                }
+            }
+            Token::RedirectAppendFd(fd_num) => {
+                let target_token = self.tokens.get(pos + 1).ok_or_else(|| {
+                    ShellError::Parse("Expected target after '>>...'".into())
+                })?;
+                if let Token::Word(target) = target_token {
+                    let redirect = Redirect {
+                        fd: Some(*fd_num),
+                        target: target.clone(),
+                        kind : RedirectOp::Append,
+                    };
+                    Ok(Some((2, redirect)))
+                } else {
+                    Err(ShellError::Parse(
+                        "Expected filename, file descriptor, or '-' after redirection operator '>>...'".into(),
+                    ))
                 }
             }
             _ => {
@@ -265,10 +197,10 @@ impl Parser {
         }
     }
 
-    pub fn parse_command(&mut self) -> Option<AstNode> {
+    pub fn parse_command(&mut self) -> Result<Option<AstNode>, ShellError> {
         let mut assignments = Vec::new();
         let mut current_pos = self.pos;
-        
+
         loop {
             match self.try_parse_assignment_at(current_pos) {
                 Some((advance_by, assignment)) => {
@@ -278,7 +210,6 @@ impl Parser {
                 None => break,
             }
         }
-        
         self.pos = current_pos;
 
         let cmd_word = match self.current() {
@@ -287,8 +218,7 @@ impl Parser {
                 self.advance();
                 word
             }
-            _ if !assignments.is_empty() => return None,
-            _ => return None,
+            _ => return Ok(None),
         };
 
         let mut args = Vec::new();
@@ -305,8 +235,8 @@ impl Parser {
                 }
                 Ok(None) => {
                 }
-                Err(_) => {
-                    return None;
+                Err(e) => {
+                    return Err(e)
                 }
             }
 
@@ -319,11 +249,11 @@ impl Parser {
             }
         }
 
-        Some(AstNode::Command {
+        Ok(Some(AstNode::Command {
             cmd: cmd_word,
             assignments,
             args,
             redirects,
-        })
+        }))
     }
 }
