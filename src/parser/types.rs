@@ -54,25 +54,40 @@ pub enum BinaryOperator {
 }
 
 // I/O Redirection support
-#[derive(Debug, Clone)]
-pub enum RedirectKind {
-    Input,              // <
-    Output,             // >
-    Append,             // >>
-    HereDoc,            // <<
-    HereString,         // <<<
-    DupInput,           // <&n
-    DupOutput,          // >&n
+#[derive(Debug, Clone, PartialEq)]
+pub enum RedirectOp {
+    /// `>`: redirect stdout to a file (overwrite)
+    Write,
+    /// `>>`: redirect stdout to a file (append)
+    Append,
+    /// `<`: redirect stdin from a file
+    Read,
+    /// `<<`: here-document
+    HereDoc,
+    /// `<>`: open file for read and write
+    ReadWrite,
+    /// `>&`: redirect stdout to another FD
+    DupWrite, // e.g., `2>&1`
+    /// `<&`: redirect stdin from another FD
+    DupRead, // e.g., `0<&1`
+    /// `>&-` or `<&-`: close FD
+    CloseFd,
 }
 
-#[derive(Debug, Clone)]
-pub struct Redirect {
-    pub fd: Option<u8>,
-    pub kind: RedirectKind,
-    pub target: String,
+#[derive(Debug, Clone, PartialEq)]
+pub enum RedirectTarget {
+    File(Word),      // Regular file target
+    Fd(u64),         // File descriptor target (e.g., &1, &2)
+    Close,           // Close file descriptor target (&-)
 }
 
-// Main AST Node
+#[derive(Debug, Clone, PartialEq)]
+pub struct Redirect{
+    pub fd : Option<u64>,
+    pub kind: RedirectOp,
+    pub target : RedirectTarget,
+}
+
 #[derive(Debug, Clone)]
 pub enum AstNode {
     Command {
