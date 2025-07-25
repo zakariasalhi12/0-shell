@@ -308,19 +308,7 @@ impl Parser {
 
         while let Some(token) = self.current() {
             match token {
-                Token::LogicalOr => {
-                    self.advance();
-                    let right = match self.parse_command()? {
-                        Some(command) => command,
-                        None => {
-                            return Err(ShellError::Parse(String::from(
-                                "Expected command after ||",
-                            )));
-                        }
-                    };
-                    left = AstNode::Or(Box::new(left), Box::new(right));
-                }
-                Token::LogicalAnd => {
+                  Token::LogicalAnd => {
                     self.advance();
                     let right = match self.parse_command()? {
                         Some(command) => command,
@@ -332,6 +320,20 @@ impl Parser {
                     };
                     left = AstNode::And(Box::new(left), Box::new(right));
                 }
+
+                Token::LogicalOr => {
+                    self.advance();
+                    let right = match self.parse_op()? {
+                        Some(command) => command,
+                        None => {
+                            return Err(ShellError::Parse(String::from(
+                                "Expected command after ||",
+                            )));
+                        }
+                    };
+                    left = AstNode::Or(Box::new(left), Box::new(right));
+                }
+              
                 _ => break,
             }
         }
