@@ -83,6 +83,15 @@ impl<'a> Tokenizer<'a> {
                         buffer.push('$');
                     }
                 }
+
+                (State::Default, '{') => {
+                    self.chars.next(); 
+                    let mut group_content = String::new();
+                    self.read_until_matching("{", "}", &mut group_content)?;
+                    tokens.push(Token::Group(group_content));
+                    state = State::Default;
+                }
+
                 (State::InWord, '"') | (State::Default, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
