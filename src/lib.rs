@@ -16,7 +16,7 @@ pub mod commands {
     pub mod rm;
 }
 use std::env;
-use std::io::{Stdout, Write};
+use std::io::{Stdout};
 use std::path::PathBuf;
 use termion::raw::RawTerminal;
 
