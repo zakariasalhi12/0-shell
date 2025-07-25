@@ -1,6 +1,6 @@
-use std::io::{Error, stdout};
+use std::io::{Error};
 
-use crate::{ShellCommand, events_handler::print_out};
+use crate::{ShellCommand};
 pub struct Echo {
     args: Vec<String>,
 }
