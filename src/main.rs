@@ -40,12 +40,12 @@ fn main() {
                 for token in &res {
                     println!("{:#?}", token);
                 }
-
-                println!("{}", "== Parsing AST ==".bold().bright_green());
                 match Parser::new(res).parse() {
                     Ok(ast) => {
                         println!("{}", "== AST Output ==".bold().bright_yellow());
-                        println!("{:#?}", ast);
+                        if ast.is_some(){
+                            println!("{}", ast.expect("ss"));
+                        }
                     }
                     Err(e) => {
                         eprintln!("{}", "== AST Parse Error ==".bold().red());

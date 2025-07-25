@@ -7,6 +7,7 @@ pub struct Word {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(Word),
+    Group(String),
     Pipe,
     RedirectIn,           
     RedirectOut,
