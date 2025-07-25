@@ -20,6 +20,7 @@ pub struct Shell {
     pub cursor_position_y: u16,
     pub buffer_lines: u16,
     pub need_to_up: bool,
+    pub free_lines: u16,
 }
 
 impl Shell {
@@ -41,6 +42,7 @@ impl Shell {
             cursor_position_y: 0,
             buffer_lines: 0,
             need_to_up: false,
+            free_lines: 0,
         })
     }
 
@@ -53,36 +55,26 @@ impl Shell {
         stdout: &mut Option<RawTerminal<Stdout>>,
         old_buffer: &mut String,
         new_buffer: String,
+        free_lines: u16
     ) {
         if old_buffer.is_empty() || new_buffer.is_empty() {
             return;
         }
-
         let (x, y) = stdout.as_mut().unwrap().cursor_pos().unwrap(); // get current cursor position
-        let (width, height) = termion::terminal_size().unwrap(); // get terminal size
+        let (_, height) = termion::terminal_size().unwrap(); // get terminal size
 
-        print_out(stdout, &format!("{}", Goto(1, height))); // move the cursor to the last line
+        print_out(stdout, &format!("{}", Goto(1, height -free_lines))); // move the cursor to the last line
 
-        for i in 0..Shell::calc_termlines_in_buffer(&stdout, old_buffer.len()) {
+        for i in 0..calc_termlines_in_buffer( old_buffer.len()) {
             // clear all buffer lines
             if i > 0 {
                 print_out(stdout, &format!("{}", Up(1)));
             }
-            Shell::clear_current_line(stdout);
+            clear_current_line(stdout);
         }
-        display_promt(stdout);
         old_buffer.clear();
-        print_out(
-            stdout,
-            &format!(
-                "{}{}",
-                new_buffer,
-                Goto(
-                    x,
-                    y + Shell::calc_termlines_in_buffer(stdout, new_buffer.len()) - 1
-                )
-            ),
-        ); // restore the old cursor position
+        display_promt(stdout);
+        print_out(stdout, &format!("{}{}", new_buffer, Goto(x, y))); // restore the old cursor position
     }
 
     pub fn pop_from_buffer(
@@ -104,6 +96,7 @@ impl Shell {
         character: char,
         buffer: &mut String,
         cursor_position_x: i16,
+        free_lines: u16
     ) {
         let mut remove: i16 = 0;
         if character == '\0' {
@@ -120,7 +113,8 @@ impl Shell {
             }
             res.push(c);
         }
-        Shell::re_render(stdout, buffer, res.clone());
+        Shell::re_render(stdout, buffer, res.clone() , free_lines);
+        buffer.clear();
         if remove == -1 {
             print_out(stdout, &format!("{}", Left(1)));
         } else {
@@ -168,14 +162,16 @@ impl Shell {
         stdout: &mut Option<RawTerminal<Stdout>>,
         buffer: &mut String,
         history: &mut History,
+        free_lines: &mut u16,
     ) {
         let prev_history = history.prev();
         if !prev_history.is_empty() {
-            for i in 0..Shell::calc_termlines_in_buffer(&stdout, buffer.len()) {
+            for i in 0..calc_termlines_in_buffer( buffer.len()) {
                 if i > 0 {
+                    *free_lines += 1;
                     print_out(stdout, &format!("{}", Up(1)));
                 }
-                Shell::clear_current_line(stdout);
+                clear_current_line(stdout);
             }
             buffer.clear();
             display_promt(stdout);
@@ -188,29 +184,22 @@ impl Shell {
         stdout: &mut Option<RawTerminal<Stdout>>,
         buffer: &mut String,
         history: &mut History,
+        free_lines: &mut u16
     ) {
         let next_history = history.next();
         if !next_history.is_empty() {
-            for i in 0..Shell::calc_termlines_in_buffer(&stdout, buffer.len()) {
+            for i in 0..calc_termlines_in_buffer(buffer.len()) {
                 if i > 0 {
+                    *free_lines += 1;
                     print_out(stdout, &format!("{}", Up(1)));
                 }
-                Shell::clear_current_line(stdout);
+                clear_current_line(stdout);
             }
             buffer.clear();
             display_promt(stdout);
             print_out(stdout, &next_history);
             buffer.push_str(&next_history);
         }
-    }
-
-    fn calc_termlines_in_buffer(stdout: &Option<RawTerminal<Stdout>>, buffer_size: usize) -> u16 {
-        let (width, height) = termion::terminal_size().unwrap();
-        (width + ((buffer_size + promt_len()) as u16 - 1)) / width
-    }
-
-    fn clear_current_line(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
-        print_out(stdout, &format!("{}\r", clear::CurrentLine));
     }
 
     pub fn run(&mut self) {
@@ -223,6 +212,9 @@ impl Shell {
                 // Parse Input
                 termion::event::Key::Char('\n') => {
                     self.cursor_position_x = 0;
+                    self.cursor_position_y = 0;
+                    self.need_to_up = false;
+                    self.free_lines = 0;
                     Shell::parse_and_exec(&mut self.stdout, &mut self.buffer, &mut self.history);
                 }
 
@@ -237,6 +229,7 @@ impl Shell {
                             c,
                             &mut self.buffer,
                             self.cursor_position_x,
+                            self.free_lines
                         );
                     } else {
                         Shell::push_to_buffer(&mut self.stdout, c, &mut self.buffer);
@@ -251,6 +244,7 @@ impl Shell {
                             '\0',
                             &mut self.buffer,
                             self.cursor_position_x,
+                            self.free_lines
                         );
                     } else {
                         Shell::pop_from_buffer(&mut self.stdout, &mut self.buffer, 1);
@@ -259,66 +253,68 @@ impl Shell {
 
                 // Get prev history
                 termion::event::Key::Up => {
-                    Shell::history_prev(&mut self.stdout, &mut self.buffer, &mut self.history);
+                    self.free_lines = 0;
+                    Shell::history_prev(&mut self.stdout, &mut self.buffer, &mut self.history , &mut self.free_lines);
+                    self.need_to_up = false;
+                    self.cursor_position_y = 0;
+                    self.cursor_position_x = 0;
                 }
 
                 // Get next history
                 termion::event::Key::Down => {
-                    Shell::history_next(&mut self.stdout, &mut self.buffer, &mut self.history);
+                    self.free_lines = 0;
+                    Shell::history_next(&mut self.stdout, &mut self.buffer, &mut self.history , &mut self.free_lines);
+                    self.need_to_up = false;
+                    self.cursor_position_y = 0;
+                    self.cursor_position_x = 0;
                 }
 
                 // Move the cursor to the right
                 termion::event::Key::Left => {
-                    let (x, y) = self.stdout.as_mut().unwrap().cursor_pos().unwrap();
-
-                    if x == 1
-                        && self.need_to_up
-                        && self.buffer_lines != self.cursor_position_y as u16
-                    {
-                        let (width, height) = termion::terminal_size().unwrap();
-                        self.cursor_position_y += 1;
-                        print_out(&mut self.stdout, &format!("{}{}", Up(1), Right(width)));
-                    } else {
-                        if self.cursor_position_x < self.buffer.len() as i16 {
-                            self.cursor_position_x += 1;
-                            print_out(&mut self.stdout, &format!("{}", Left(1)));
-                        }
+                    if self.cursor_position_x < self.buffer.len() as i16 {
+                        self.cursor_position_x += 1;
+                        print_out(&mut self.stdout, &format!("{}", Left(1)));
                     }
 
-                    if x == 1 && !self.need_to_up {
+                    let (x, _) = self.stdout.as_mut().unwrap().cursor_pos().unwrap();
+
+                    if x == 1 && self.need_to_up && self.buffer_lines > self.cursor_position_y {
+                        let (width, _) = termion::terminal_size().unwrap();
+                        self.cursor_position_y += 1;
+                        self.cursor_position_x += 1;
+                        print_out(&mut self.stdout, &format!("{}{}", Up(1), Right(width)));
+                    }
+
+                    if x == 1
+                        && !self.need_to_up
+                        && calc_termlines_in_buffer(self.buffer.len()) > 1
+                    {
                         self.cursor_position_y = 0;
                         self.need_to_up = true;
-                        self.buffer_lines =
-                            Shell::calc_termlines_in_buffer(&self.stdout, self.buffer.len());
+                        self.buffer_lines = calc_termlines_in_buffer(self.buffer.len());
                     }
                 }
 
                 // Move the cursor to the left
                 termion::event::Key::Right => {
-                    let (x, y) = self.stdout.as_mut().unwrap().cursor_pos().unwrap();
+                    if self.cursor_position_x > 0 {
+                        self.cursor_position_x -= 1;
+                        print_out(&mut self.stdout, &format!("{}", Right(1)));
+                    }
 
+                    let (x, y) = self.stdout.as_mut().unwrap().cursor_pos().unwrap();
                     let (width, height) = termion::terminal_size().unwrap();
 
-                    if x == width
-                        && self.buffer_lines > 1
-                        && self.cursor_position_y != self.buffer_lines
-                    {
+                    if x == width && self.buffer_lines > 1 && self.cursor_position_y != 0 {
                         print_out(&mut self.stdout, &format!("{}{}", Down(1), Left(width)));
                         self.cursor_position_y -= 1;
-                    } else {
-                        if self.cursor_position_x > 0 {
-                            self.cursor_position_x -= 1;
-                            print_out(&mut self.stdout, &format!("{}", Right(1)));
-                        }
+                        self.cursor_position_y -= 1;
                     }
 
-                    if self.cursor_position_y == 0 && self.need_to_up {
-                        self.need_to_up = false;
-                    }
-
-                    // if ()
+                    // if self.cursor_position_y == 0 && self.need_to_up {
+                    //     self.need_to_up = false;
+                    // }
                 }
-
                 // Clear terminal
                 termion::event::Key::Ctrl('l') => {
                     self.cursor_position_x = 0;
@@ -354,22 +350,32 @@ impl Shell {
     }
 }
 
-pub fn print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
-    let write_result = match w {
-        Some(raw_stdout) => write!(raw_stdout, "{}", input).and_then(|_| raw_stdout.flush()),
+fn calc_termlines_in_buffer(
+    buffer_size: usize
+) -> u16 {
+    let (width, _) = termion::terminal_size().unwrap();
+    (width + ((buffer_size + promt_len()) as u16 - 1)) / width
+}
+
+fn clear_current_line(
+    stdout: &mut Option<RawTerminal<Stdout>>
+) {
+    print_out(stdout, &format!("{}\r", clear::CurrentLine));
+}
+
+pub fn print_out(
+    w: &mut Option<RawTerminal<Stdout>>,
+    input: &str
+) {
+    match w {
+        Some(raw_stdout) => {
+            write!(raw_stdout, "{}", input).unwrap();
+            raw_stdout.flush().unwrap();
+        }
         None => {
             let mut std = std::io::stdout();
-            write!(std, "{}", input).and_then(|_| std.flush())
-        }
-    };
-
-    if let Err(e) = write_result {
-        if e.kind() == std::io::ErrorKind::BrokenPipe {
-            eprintln!("Write error: {}", e);
-            std::process::exit(0);
-        } else {
-            eprintln!("Write error: {}", e);
-            std::process::exit(1);
+            write!(std, "{}", input).unwrap();
+            std.flush().unwrap();
         }
     }
 }

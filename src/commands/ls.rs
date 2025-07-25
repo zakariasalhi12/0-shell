@@ -1,5 +1,5 @@
 use crate::ShellCommand;
-use std::fs::{DirEntry, FileType, Metadata};
+use std::fs::{FileType, Metadata};
 use std::fs::{read_dir, symlink_metadata};
 use std::io::Error;
 use std::io::{ErrorKind, Result};
@@ -8,7 +8,7 @@ use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
-use std::{self, env, fs};
+use std::{self, fs};
 use users::{get_group_by_gid, get_user_by_uid};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -18,7 +18,7 @@ pub struct Ls {
     pub all: bool,
     pub classify: bool,
     pub format: bool,
-    pub Valid_opts: bool,
+    pub valid_opts: bool,
 }
 
 struct EntryInfo {
@@ -35,7 +35,7 @@ impl Ls {
             all: false,
             classify: false,
             format: false,
-            Valid_opts: true,
+            valid_opts: true,
         };
         res.parse_flags();
         res
@@ -50,13 +50,13 @@ impl Ls {
                         'F' => self.classify = true,
                         'l' => self.format = true,
                         _ => {
-                            self.Valid_opts = false;
+                            self.valid_opts = false;
                             return;
                         }
                     }
                 }
             } else {
-                self.Valid_opts = false;
+                self.valid_opts = false;
                 return;
             }
         }
@@ -173,7 +173,7 @@ impl Ls {
 
 impl ShellCommand for Ls {
     fn execute(&self) -> Result<()> {
-        if !self.Valid_opts {
+        if !self.valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
         }
 
