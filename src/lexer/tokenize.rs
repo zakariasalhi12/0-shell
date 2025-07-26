@@ -24,6 +24,9 @@ impl<'a> Tokenizer<'a> {
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
                 (State::Default, ' ' | '\t' | '\n') => {
+                    if c == '\n'{
+                        tokens.push(Token::Newline);
+                    }
                     self.chars.next();
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
@@ -85,11 +88,44 @@ impl<'a> Tokenizer<'a> {
                 }
 
                 (State::Default, '{') => {
-                    self.chars.next(); 
-                    let mut group_content = String::new();
-                    self.read_until_matching("{", "}", &mut group_content)?;
-                    tokens.push(Token::Group(group_content));
-                    state = State::Default;
+                    self.chars.next();
+                    match self.chars.peek() {
+                        Some(c) if c.is_whitespace() || *c == ';'|| *c == '|'|| *c == '&'|| *c == '\n' => {
+                            tokens.push(Token::OpenBrace);
+                            state = State::Default;
+                        }
+                        Some(_) => {
+                            buffer.push('{');
+                            state = State::InWord;
+                        }
+                        None => {
+                            buffer.push('{');
+                            state = State::InWord;
+                        }
+                    }
+                }
+
+                (State::Default, '}') => {
+                    self.chars.next();
+                    let next_is_delimiter = match self.chars.peek() {
+                        Some(c) => c.is_whitespace() 
+                            || *c == ';' 
+                            || *c == '|' 
+                            || *c == '&' 
+                            || *c == '\n'
+                            || *c == ')'  
+                            || *c == '#'  
+                            || *c == '(',
+                        None => true,
+                    };
+
+                    if next_is_delimiter {
+                        tokens.push(Token::CloseBrace);
+                        state = State::Default;
+                    } else {
+                        buffer.push('}');
+                        state = State::InWord;
+                    }
                 }
 
                 (State::InWord, '"') | (State::Default, '"') => {
