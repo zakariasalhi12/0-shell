@@ -206,6 +206,12 @@ impl Parser {
     }
 
     pub fn parse_command(&mut self) -> Result<Option<AstNode>, ShellError> {
+        if let Ok(group) = self.parse_group() {
+            if let Some(_) = group {
+                return Ok(group);
+            }
+        }
+
         let mut assignments = Vec::new();
         let mut current_pos = self.pos;
 
@@ -220,30 +226,22 @@ impl Parser {
         }
         self.pos = current_pos;
 
-        let group_content = match self.current() {
-            Some(Token::Group(content)) => Some(content.clone()), 
-            _ => None,
-        };
-
-        if let Some(content) = group_content {
-            self.advance();
-            let group_tokens = Tokenizer::new(&content).tokenize()?;
-            let mut group_parser = Parser::new(group_tokens);
-            let group_ast = group_parser.parse()?;
-
-            return match group_ast {
-                Some(ast) => Ok(Some(AstNode::Group(Box::new(ast)))),
-                None => Err(ShellError::Parse("Empty group".into())),
-            };
-        }
-
         let cmd_word = match self.current() {
             Some(Token::Word(word)) => {
                 let word = (*word).clone();
                 self.advance();
                 word
             }
-            _ => return Ok(None),
+            _ => {
+                if !assignments.is_empty() {
+                    Word {
+                        parts: vec![],
+                        quote: QuoteType::None,
+                    }
+                } else {
+                    return Ok(None);
+                }
+            }
         };
 
         let mut args = Vec::new();
@@ -308,7 +306,7 @@ impl Parser {
 
         while let Some(token) = self.current() {
             match token {
-                  Token::LogicalAnd => {
+                Token::LogicalAnd => {
                     self.advance();
                     let right = match self.parse_command()? {
                         Some(command) => command,
@@ -333,11 +331,64 @@ impl Parser {
                     };
                     left = AstNode::Or(Box::new(left), Box::new(right));
                 }
-              
+
+                _ => break,
+            }
+        }
+        Ok(Some(left))
+    }
+
+    pub fn parse_group(&mut self) -> Result<Option<AstNode>, ShellError> {
+        if !matches!(self.current(), Some(Token::OpenBrace)) {
+            return Ok(None);
+        }
+        self.advance();
+
+        while let Some(token) = self.current() {
+            match token {
+                Token::Newline | Token::Semicolon => {
+                    self.advance();
+                }
                 _ => break,
             }
         }
 
-        Ok(Some(left))
+        let mut commands = Vec::new();
+
+        loop {
+            match self.current() {
+                Some(Token::CloseBrace) => break,
+                None => return Err(ShellError::Parse("Unexpected EOF in command group".into())),
+                _ => {}
+            }
+
+            if let Some(cmd) = self.parse_pipeline()? {
+                commands.push(cmd);
+            } else {
+                return Err(ShellError::Parse("Expected command in group".into()));
+            }
+
+            match self.current() {
+                Some(Token::Semicolon) | Some(Token::Newline) => {
+                    self.advance();
+                }
+                // Some(Token::CloseBrace) => {
+                
+                // }
+                Some(_) => {
+                    return Err(ShellError::Parse(
+                        "Expected `;`, `&`, or newline before `}`".into(),
+                    ));
+                }
+                None => return Err(ShellError::Parse("Unexpected EOF".into())),
+            }
+        }
+
+        self.advance();
+
+        if commands.is_empty() {
+            return Err(ShellError::Parse("Empty command group".into()));
+        }
+        return Ok(Some(AstNode::Group(commands)));
     }
 }

@@ -92,7 +92,7 @@ pub enum AstNode {
     Background(Box<AstNode>),
 
     Subshell(Box<AstNode>),
-    Group(Box<AstNode>),
+    Group(Vec<AstNode>),
 
     If {
         condition: Box<AstNode>,
