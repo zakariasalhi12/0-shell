@@ -21,6 +21,9 @@ pub enum Token {
     LogicalAnd,
     LogicalOr,
     LogicalNot,
+    OpenBrace,
+    CloseBrace,
+    Newline,
     Eof,
 }
 
