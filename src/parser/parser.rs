@@ -233,6 +233,7 @@ impl Parser {
                 word
             }
             _ => {
+                // if there is no command its an assignement command !!!! So command will be None. In execution if we Command that have None cmd field we check assignement and assign them to the shell enviroment not just in command context
                 if !assignments.is_empty() {
                     Word {
                         parts: vec![],
