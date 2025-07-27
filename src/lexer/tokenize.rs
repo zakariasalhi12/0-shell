@@ -128,6 +128,19 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
+                (State::Default, '(') =>{
+                    
+                    self.chars.next();
+                    tokens.push(Token::OpenParen);
+                    state = State::Default;
+                }
+
+                (State::Default, ')') =>{
+                    self.chars.next();
+                    tokens.push(Token::CloseParen);
+                    state = State::Default;
+                }
+
                 (State::InWord, '"') | (State::Default, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
@@ -247,7 +260,7 @@ impl<'a> Tokenizer<'a> {
                     buffer.push(c);
                     state = State::InWord;
                 }
-                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&' | '!') => {
+                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&' | '!' | '(' | ')' ) => {
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
                         buffer.clear();

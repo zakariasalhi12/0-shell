@@ -23,6 +23,8 @@ pub enum Token {
     LogicalNot,
     OpenBrace,
     CloseBrace,
+    OpenParen,
+    CloseParen,
     Newline,
     Eof,
 }

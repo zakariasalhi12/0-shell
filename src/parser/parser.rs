@@ -452,5 +452,5 @@ impl Parser {
     }
 }
 
-    // pub fn parse_sequence()
+    // pub fn parse_function()
 }
