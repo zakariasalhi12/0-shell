@@ -1,11 +1,18 @@
-build:
-	docker build -t 0-shell .
+SHELL_BIN=bin/0shell
+CAT_BIN=bin/cat
 
-run: build
-	docker run -it --rm 0-shell
+all: $(SHELL_BIN) $(CAT_BIN)
+
+$(SHELL_BIN):
+	cargo build --release --manifest-path=shell/Cargo.toml
+	cp shell/target/release/shell $(SHELL_BIN)
+
+$(CAT_BIN):
+	cargo build --release --manifest-path=cat/Cargo.toml
+	cp cat/target/release/cat $(CAT_BIN)
 
 clean:
-	docker rmi 0-shell || true
-	cargo clean
+	rm -f bin/*
 
-.PHONY: build run clean
+run:clean  all
+	./$(SHELL_BIN)
