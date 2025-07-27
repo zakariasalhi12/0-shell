@@ -92,7 +92,10 @@ pub enum AstNode {
     Background(Box<AstNode>),
 
     Subshell(Box<AstNode>),
-    Group(Vec<AstNode>),
+    Group{
+        commands : Vec<AstNode>,
+        redirects : Vec<Redirect>
+    },
 
     If {
         condition: Box<AstNode>,

@@ -1,3 +1,5 @@
+use std::thread::current;
+
 use crate::error::ShellError;
 use crate::lexer::tokenize::Tokenizer;
 use crate::lexer::types::{QuoteType, Token, Word, WordPart};
@@ -32,7 +34,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
-        self.parse_pipeline()
+        self.parse_sequence()
     }
 
     fn try_parse_assignment_at(&self, pos: usize) -> Option<(usize, (String, Vec<WordPart>))> {
@@ -374,7 +376,7 @@ impl Parser {
                     self.advance();
                 }
                 // Some(Token::CloseBrace) => {
-                
+
                 // }
                 Some(_) => {
                     return Err(ShellError::Parse(
@@ -390,6 +392,65 @@ impl Parser {
         if commands.is_empty() {
             return Err(ShellError::Parse("Empty command group".into()));
         }
-        return Ok(Some(AstNode::Group(commands)));
+
+        let mut redirects: Vec<Redirect> = vec![];
+        let mut current_pos = self.pos;
+
+        while self.current().is_some() {
+            match self.try_parse_redirection_at(current_pos) {
+                Ok(Some((advance_by, redirect))) => {
+                    redirects.push(redirect);
+                    current_pos += advance_by;
+                    self.pos = current_pos;
+                    continue;
+                }
+                Ok(None) => {
+                    break;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        return Ok(Some(AstNode::Group {
+            commands,
+            redirects,
+        }));
     }
+
+    pub fn parse_sequence(&mut self) -> Result<Option<AstNode>, ShellError> {
+    let mut commands = Vec::new();
+
+    loop {
+        if let Some(cmd) = self.parse_pipeline()? {
+            commands.push(cmd);
+        } else {
+            break;
+        }
+
+        match self.current() {
+            Some(Token::Semicolon) => {
+                self.advance();
+            }
+            Some(Token::Newline) => {
+                self.advance();
+            }
+            Some(Token::Ampersand) => {
+                self.advance();
+                let last = commands.pop().unwrap();
+                commands.push(AstNode::Background(Box::new(last)));
+            }
+            _ => break,
+        }
+    }
+
+    if commands.is_empty() {
+        Ok(None)
+    } else if commands.len() == 1 {
+        Ok(Some(commands.into_iter().next().unwrap()))
+    } else {
+        Ok(Some(AstNode::Sequence(commands)))
+    }
+}
+
+    // pub fn parse_sequence()
 }
