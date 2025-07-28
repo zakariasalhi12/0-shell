@@ -30,10 +30,10 @@ fn main() {
 
         match lexer::tokenize::Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
             Ok(res) => {
-                // println!("{}", "== Tokens ==".bold().bright_blue());
-                // for token in &res {
-                //     println!("{:#?}", token);
-                // }
+                println!("{}", "== Tokens ==".bold().bright_blue());
+                for token in &res {
+                    println!("{:#?}", token);
+                }
                 match Parser::new(res).parse() {
                     Ok(ast) => {
                         println!("{}", "== AST Output ==".bold().bright_yellow());
