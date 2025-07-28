@@ -36,7 +36,7 @@ impl<'a> Tokenizer<'a> {
                         }));
                         parts.clear();
                     }
-                    if c == '\n'{
+                    if c == '\n' {
                         tokens.push(Token::Newline);
                     }
                     state = State::Default;
@@ -90,7 +90,13 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, '{') => {
                     self.chars.next();
                     match self.chars.peek() {
-                        Some(c) if c.is_whitespace() || *c == ';'|| *c == '|'|| *c == '&'|| *c == '\n' => {
+                        Some(c)
+                            if c.is_whitespace()
+                                || *c == ';'
+                                || *c == '|'
+                                || *c == '&'
+                                || *c == '\n' =>
+                        {
                             tokens.push(Token::OpenBrace);
                             state = State::Default;
                         }
@@ -108,14 +114,16 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, '}') => {
                     self.chars.next();
                     let next_is_delimiter = match self.chars.peek() {
-                        Some(c) => c.is_whitespace() 
-                            || *c == ';' 
-                            || *c == '|' 
-                            || *c == '&' 
-                            || *c == '\n'
-                            || *c == ')'  
-                            || *c == '#'  
-                            || *c == '(',
+                        Some(c) => {
+                            c.is_whitespace()
+                                || *c == ';'
+                                || *c == '|'
+                                || *c == '&'
+                                || *c == '\n'
+                                || *c == ')'
+                                || *c == '#'
+                                || *c == '('
+                        }
                         None => true,
                     };
 
@@ -128,14 +136,13 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                (State::Default, '(') =>{
-                    
+                (State::Default, '(') => {
                     self.chars.next();
                     tokens.push(Token::OpenParen);
                     state = State::Default;
                 }
 
-                (State::Default, ')') =>{
+                (State::Default, ')') => {
                     self.chars.next();
                     tokens.push(Token::CloseParen);
                     state = State::Default;
@@ -199,6 +206,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::Default, '!') => {
                     self.chars.next();
+
                     tokens.push(Token::LogicalNot);
                 }
                 (State::Default, '>') => {
@@ -260,7 +268,7 @@ impl<'a> Tokenizer<'a> {
                     buffer.push(c);
                     state = State::InWord;
                 }
-                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&' | '!' | '(' | ')' ) => {
+                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&'  | '(' | ')') => {
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
                         buffer.clear();
@@ -276,7 +284,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::InWord, '>') => {
                     self.chars.next();
-                    if buffer.chars().all(|ch| ch.is_ascii_digit()) && !buffer.is_empty() {
+                    if !buffer.is_empty() && buffer.chars().all(|ch| ch.is_ascii_digit()){
                         match buffer.parse::<u64>() {
                             Ok(fd_num) => {
                                 buffer.clear();
@@ -425,6 +433,7 @@ impl<'a> Tokenizer<'a> {
 
         if !buffer.is_empty() {
             parts.push(WordPart::Literal(buffer));
+            // state = State::Default;
         }
         if !parts.is_empty() {
             tokens.push(Token::Word(Word {
@@ -432,6 +441,23 @@ impl<'a> Tokenizer<'a> {
                 quote: QuoteType::None,
             }));
         }
+
+        match state {
+            State::MaybeRedirectOut2 => {
+                tokens.push(Token::RedirectOut);
+            }
+            State::MaybeRedirectIn2 => {
+                tokens.push(Token::RedirectIn);
+            }
+            State::MaybeRedirectOut2Fd(fd) => {
+                tokens.push(Token::RedirectOutFd(fd));
+            }
+            State::MaybeRedirectIn2Fd(fd) => {
+                tokens.push(Token::RedirectInFd(fd));
+            }
+            _ => {}
+        }
+
         tokens.push(Token::Eof);
         Ok(tokens)
     }
