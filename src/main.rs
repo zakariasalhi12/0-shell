@@ -2,14 +2,16 @@ pub use parser::Parser;
 use shell::*;
 pub mod config;
 use colored::*;
-
+use shell::env::ShellEnv;
+use shell::exec::execute;
 // pub mod executer;
-mod parser;
+// mod parser;
 use config::*;
 use std::io::{self, Write};
 
 fn main() {
     let mut buffer = String::new();
+    let mut env = ShellEnv::new();
     {
         let map = ENV.lock().unwrap();
 
@@ -17,7 +19,6 @@ fn main() {
             println!("{} : {}", k, v);
         }
     }
-
 
     print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
@@ -36,11 +37,15 @@ fn main() {
                 }
                 match Parser::new(res).parse() {
                     Ok(ast) => {
-                        println!("{}", "== AST Output ==".bold().bright_yellow());
+                        // println!("{}", "== AST Output ==".bold().bright_yellow());
                         match ast {
-                            Some(ast) => println!("{}", ast),
-                            None => println!("empty AST")
-                        };
+                            Some(ast) => {
+                                // println!("{}", ast); // Optionally keep for debugging
+                                let exit_code = execute(&ast, &mut env).unwrap_or(1);
+                                println!("[exit code: {}]", exit_code);
+                            }
+                            None => println!("empty AST"),
+                        }
                     }
                     Err(e) => {
                         eprintln!("{}", "== AST Parse Error ==".bold().red());
