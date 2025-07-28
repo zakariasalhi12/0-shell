@@ -411,7 +411,7 @@ impl<'a> Tokenizer<'a> {
                     tokens.push(Token::RedirectInFd(*fd_num));
                     state = State::InWord;
                 }
-                (State::MaybeRedirectIn2Fd(fd_num), '<') => {
+                (State::MaybeRedirectIn2Fd(_), '<') => {
                     self.chars.next();
                     tokens.push(Token::RedirectHereDoc);
                     state = State::Default;
