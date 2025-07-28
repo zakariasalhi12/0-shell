@@ -37,10 +37,10 @@ fn main() {
                 }
                 match Parser::new(res).parse() {
                     Ok(ast) => {
-                        // println!("{}", "== AST Output ==".bold().bright_yellow());
+                        println!("{}", "== AST Output ==".bold().bright_yellow());
                         match ast {
                             Some(ast) => {
-                                // println!("{}", ast); // Optionally keep for debugging
+                                println!("{}", ast); // Optionally keep for debugging
                                 let exit_code = execute(&ast, &mut env).unwrap_or(1);
                                 println!("[exit code: {}]", exit_code);
                             }
