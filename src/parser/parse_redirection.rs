@@ -1,13 +1,10 @@
 use crate::error::ShellError;
 use crate::lexer::types::Token;
-use crate::parser::types::*;
 use crate::parser::Parser;
+use crate::parser::types::*;
 
 impl Parser {
-      pub fn parse_redirection(
-        &self,
-        pos: usize,
-    ) -> Result<Option<(usize, Redirect)>, ShellError> {
+    pub fn parse_redirection(&self, pos: usize) -> Result<Option<(usize, Redirect)>, ShellError> {
         let current_token = self.tokens.get(pos).ok_or_else(|| {
             ShellError::Parse("Unexpected end of input while parsing redirection".into())
         })?;
