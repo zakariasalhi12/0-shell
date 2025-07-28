@@ -1,4 +1,4 @@
-use shell::parser::parser::Parser;
+pub use parser::Parser;
 use shell::*;
 pub mod config;
 use colored::*;
@@ -6,7 +6,6 @@ use colored::*;
 // pub mod executer;
 mod parser;
 use config::*;
-pub use parser::*;
 use std::io::{self, Write};
 
 fn main() {
@@ -22,7 +21,6 @@ fn main() {
 
     print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
-        println!("loop");
         distplay_promt();
         io::stdout().flush().unwrap();
         buffer.clear();
@@ -32,10 +30,10 @@ fn main() {
 
         match lexer::tokenize::Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
             Ok(res) => {
-                println!("{}", "== Tokens ==".bold().bright_blue());
-                for token in &res {
-                    println!("{:#?}", token);
-                }
+                // println!("{}", "== Tokens ==".bold().bright_blue());
+                // for token in &res {
+                //     println!("{:#?}", token);
+                // }
                 match Parser::new(res).parse() {
                     Ok(ast) => {
                         println!("{}", "== AST Output ==".bold().bright_yellow());
