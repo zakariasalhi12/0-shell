@@ -5,10 +5,26 @@ use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_op(&mut self) -> Result<Option<AstNode>, ShellError> {
+
+        let should_negate = match self.current() {
+            Some(Token::LogicalNot) =>{
+                self.advance();
+                true
+            },
+            _ => false
+        };
+        
         let mut left = match self.parse_command()? {
-            Some(command) => command,
+            Some(command) =>{
+                if should_negate{
+                    AstNode::Not(Box::new(command))
+                }else{
+                    command
+                }
+            },
             None => return Ok(None),
         };
+
 
         while let Some(token) = self.current() {
             match token {
