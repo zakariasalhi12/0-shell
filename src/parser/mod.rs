@@ -44,6 +44,19 @@ impl Parser {
         }
     }
 
+    pub fn is_command_end(&self, token: &Token) -> bool {
+        matches!(
+            token,
+            Token::Eof
+            | Token::Newline
+            | Token::Semicolon
+            | Token::Ampersand
+            | Token::LogicalAnd
+            | Token::LogicalOr
+            | Token::Pipe
+        )
+    }
+
     pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
         let ast = self.parse_sequence();
         if !self.is_eof() {

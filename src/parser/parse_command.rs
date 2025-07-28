@@ -1,5 +1,5 @@
 use crate::error::ShellError;
-use crate::lexer::types::{QuoteType, Token, Word};
+use crate::lexer::types::{QuoteType, Token, Word, WordPart};
 use crate::parser::Parser;
 use crate::parser::types::*;
 
@@ -52,7 +52,7 @@ impl Parser {
         let mut redirects = Vec::new();
         let mut current_pos = self.pos;
 
-        while self.current().is_some() {
+        while let Some(token) = self.current() {
             match self.parse_redirection(current_pos) {
                 Ok(Some((advance_by, redirect))) => {
                     redirects.push(redirect);
@@ -64,12 +64,30 @@ impl Parser {
                 Err(e) => return Err(e),
             }
 
-            if let Some(Token::Word(word)) = self.current() {
-                args.push((*word).clone());
-                self.advance();
-                current_pos = self.pos;
-            } else {
+            if self.is_command_end(token) {
                 break;
+            };
+
+            match token {
+                Token::Word(word) => {
+                    args.push((*word).clone());
+                    self.advance();
+                    current_pos = self.pos;
+                }
+                Token::LogicalNot => {
+                    if cmd_word.parts.len() != 0 {
+                        args.push(Word {
+                            parts: vec![WordPart::Literal(String::from("!"))],
+                            quote: QuoteType::None,
+                        });
+                        self.advance();
+                    }else{
+                        break;
+                    }
+                }
+                _ => {
+                    break;
+                }
             }
         }
 
