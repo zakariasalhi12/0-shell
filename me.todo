@@ -4,7 +4,8 @@
 - execution
 - piping (cat commande)
 - handle all signals
-- known Error in moving right and left logic
+- Change Cursor Position after deleting using backspace (same logic as left & right)
+- Check if the free lines filled or not
 
 // saved
 
