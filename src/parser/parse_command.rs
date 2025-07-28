@@ -5,6 +5,10 @@ use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_command(&mut self) -> Result<Option<AstNode>, ShellError> {
+
+        if let Some(Token::LogicalNot) = self.current(){
+            
+        }
         if let Some(func) = self.parse_function()? {
             return Ok(Some(func));
         }

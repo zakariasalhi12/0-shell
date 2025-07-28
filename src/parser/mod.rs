@@ -6,6 +6,7 @@ pub mod parse_op;
 pub mod parse_pipeline;
 pub mod parse_redirection;
 pub mod parse_sequence;
+pub mod parse_if;
 pub mod types;
 
 use crate::error::ShellError;
