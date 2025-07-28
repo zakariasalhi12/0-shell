@@ -1,7 +1,7 @@
 use crate::error::ShellError;
 use crate::lexer::types::Token;
-use crate::parser::types::*;
 use crate::parser::Parser;
+use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_group(&mut self) -> Result<Option<AstNode>, ShellError> {

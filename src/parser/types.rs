@@ -1,6 +1,5 @@
-// src/ast.rs
-use std::fmt;
 use crate::lexer::types::{Word, WordPart};
+use std::fmt;
 
 // Arithmetic expression AST
 #[derive(Debug, Clone)]
@@ -24,24 +23,24 @@ pub enum ArithmeticExpr {
 
 #[derive(Debug, Clone, Copy)]
 pub enum UnaryOperator {
-    Negate,     // -x
-    Not,        // !x
-    BitNot,     // ~x
+    Negate, // -x
+    Not,    // !x
+    BitNot, // ~x
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinaryOperator {
-    Add,        // +
-    Sub,        // -
-    Mul,        // *
-    Div,        // /
-    Mod,        // %
-    Eq,         // ==
-    Neq,        // !=
-    Lt,         // <
-    Gt,         // >
-    Le,         // <=
-    Ge,         // >=
+    Add, // +
+    Sub, // -
+    Mul, // *
+    Div, // /
+    Mod, // %
+    Eq,  // ==
+    Neq, // !=
+    Lt,  // <
+    Gt,  // >
+    Le,  // <=
+    Ge,  // >=
 
     BitAnd,     // &
     BitOr,      // |
@@ -69,17 +68,17 @@ pub enum RedirectOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Redirect{
-    pub fd : Option<u64>,
+pub struct Redirect {
+    pub fd: Option<u64>,
     pub kind: RedirectOp,
-    pub target : Word,
+    pub target: Word,
 }
 
 #[derive(Debug, Clone)]
 pub enum AstNode {
     Command {
         cmd: Word,
-        args : Vec<Word>,
+        args: Vec<Word>,
         assignments: Vec<(String, Vec<WordPart>)>,
         redirects: Vec<Redirect>,
     },
@@ -92,9 +91,9 @@ pub enum AstNode {
     Background(Box<AstNode>),
 
     Subshell(Box<AstNode>),
-    Group{
-        commands : Vec<AstNode>,
-        redirects : Vec<Redirect>
+    Group {
+        commands: Vec<AstNode>,
+        redirects: Vec<Redirect>,
     },
 
     If {
@@ -127,7 +126,6 @@ pub enum AstNode {
     ArithmeticCommand(ArithmeticExpr),
 }
 
-
 impl fmt::Display for AstNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_with_indent(f, 0)
@@ -137,26 +135,31 @@ impl fmt::Display for AstNode {
 impl AstNode {
     pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
         let spaces = "  ".repeat(indent);
-        
+
         match self {
-            AstNode::Command { cmd, args, assignments, redirects } => {
+            AstNode::Command {
+                cmd,
+                args,
+                assignments,
+                redirects,
+            } => {
                 writeln!(f, "{}Command", spaces)?;
                 writeln!(f, "{}  cmd: {:?}", spaces, cmd)?;
-                
+
                 if !assignments.is_empty() {
                     writeln!(f, "{}  assignments:", spaces)?;
                     for (key, parts) in assignments {
                         writeln!(f, "{}    {} = {:?}", spaces, key, parts)?;
                     }
                 }
-                
+
                 if !args.is_empty() {
                     writeln!(f, "{}  args:", spaces)?;
                     for arg in args {
                         writeln!(f, "{}    {:?}", spaces, arg)?;
                     }
                 }
-                
+
                 if !redirects.is_empty() {
                     writeln!(f, "{}  redirects:", spaces)?;
                     for redirect in redirects {
@@ -164,7 +167,7 @@ impl AstNode {
                     }
                 }
             }
-            
+
             AstNode::Pipeline(commands) => {
                 writeln!(f, "{}Pipeline", spaces)?;
                 for (i, cmd) in commands.iter().enumerate() {
@@ -172,7 +175,7 @@ impl AstNode {
                     cmd.fmt_with_indent(f, indent + 2)?;
                 }
             }
-            
+
             AstNode::And(left, right) => {
                 writeln!(f, "{}And (&&)", spaces)?;
                 writeln!(f, "{}  left:", spaces)?;
@@ -180,7 +183,7 @@ impl AstNode {
                 writeln!(f, "{}  right:", spaces)?;
                 right.fmt_with_indent(f, indent + 2)?;
             }
-            
+
             AstNode::Or(left, right) => {
                 writeln!(f, "{}Or (||)", spaces)?;
                 writeln!(f, "{}  left:", spaces)?;
@@ -188,7 +191,7 @@ impl AstNode {
                 writeln!(f, "{}  right:", spaces)?;
                 right.fmt_with_indent(f, indent + 2)?;
             }
-            
+
             _ => {
                 writeln!(f, "{}{:?}", spaces, self)?;
             }
@@ -199,7 +202,10 @@ impl AstNode {
 
 impl fmt::Display for Redirect {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Redirect(fd: {:?}, kind: {:?}, target: {:?})", 
-               self.fd, self.kind, self.target)
+        write!(
+            f,
+            "Redirect(fd: {:?}, kind: {:?}, target: {:?})",
+            self.fd, self.kind, self.target
+        )
     }
 }
