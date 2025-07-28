@@ -120,7 +120,7 @@ pub enum AstNode {
         arms: Vec<(Vec<String>, AstNode)>,
     },
     FunctionDef {
-        name: String,
+        name: Word,
         body: Box<AstNode>,
     },
 
