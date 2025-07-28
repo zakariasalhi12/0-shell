@@ -1,7 +1,7 @@
 use crate::error::ShellError;
 use crate::lexer::types::{QuoteType, Token, Word, WordPart};
-use crate::parser::types::*;
 use crate::parser::Parser;
+use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_function(&mut self) -> Result<Option<AstNode>, ShellError> {
@@ -26,12 +26,10 @@ impl Parser {
         self.advance();
 
         let body = match self.current() {
-            Some(Token::OpenBrace) => {
-                match self.parse_group()? {
-                    Some(body) => body,
-                    None => return Err(ShellError::Parse("Empty function body1".into())),
-                }
-            }
+            Some(Token::OpenBrace) => match self.parse_group()? {
+                Some(body) => body,
+                None => return Err(ShellError::Parse("Empty function body1".into())),
+            },
             Some(Token::Word(word)) => {
                 if let Some(WordPart::Literal(content)) = word.parts.get(0) {
                     if content.starts_with('{') {
@@ -42,7 +40,8 @@ impl Parser {
                                 quote: QuoteType::None,
                             };
                             self.tokens[self.pos] = Token::OpenBrace;
-                            self.tokens.insert(self.pos +1 , Token::Word(remaining_word));
+                            self.tokens
+                                .insert(self.pos + 1, Token::Word(remaining_word));
                         }
                         match self.parse_group()? {
                             Some(body) => body,

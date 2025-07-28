@@ -1,10 +1,10 @@
 use crate::error::ShellError;
 use crate::lexer::types::Token;
-use crate::parser::types::*;
 use crate::parser::Parser;
+use crate::parser::types::*;
 
 impl Parser {
-     pub fn parse_op(&mut self) -> Result<Option<AstNode>, ShellError> {
+    pub fn parse_op(&mut self) -> Result<Option<AstNode>, ShellError> {
         let mut left = match self.parse_command()? {
             Some(command) => command,
             None => return Ok(None),
