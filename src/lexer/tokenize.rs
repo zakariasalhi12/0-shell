@@ -24,9 +24,6 @@ impl<'a> Tokenizer<'a> {
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
                 (State::Default, ' ' | '\t' | '\n') => {
-                    if c == '\n'{
-                        tokens.push(Token::Newline);
-                    }
                     self.chars.next();
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
@@ -38,6 +35,9 @@ impl<'a> Tokenizer<'a> {
                             quote: QuoteType::None,
                         }));
                         parts.clear();
+                    }
+                    if c == '\n'{
+                        tokens.push(Token::Newline);
                     }
                     state = State::Default;
                 }
