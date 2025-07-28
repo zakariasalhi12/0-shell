@@ -1,15 +1,12 @@
-use shell::commands::{cd, echo};
 use shell::parser::parser::Parser;
 use shell::*;
 pub mod config;
 use colored::*;
-use shell::{features::history, *};
 
 // pub mod executer;
 mod parser;
 use config::*;
 pub use parser::*;
-use std::env;
 use std::io::{self, Write};
 
 fn main() {
@@ -22,7 +19,6 @@ fn main() {
         }
     }
 
-    let mut history = history::History::new();
 
     print!("\x1B[2J\x1B[H"); //clear terminal
     loop {
@@ -43,9 +39,10 @@ fn main() {
                 match Parser::new(res).parse() {
                     Ok(ast) => {
                         println!("{}", "== AST Output ==".bold().bright_yellow());
-                        if ast.is_some(){
-                            println!("{}", ast.expect("ss"));
-                        }
+                        match ast {
+                            Some(ast) => println!("{}", ast),
+                            None => println!("empty AST")
+                        };
                     }
                     Err(e) => {
                         eprintln!("{}", "== AST Parse Error ==".bold().red());

@@ -1,7 +1,4 @@
-use std::thread::current;
-
 use crate::error::ShellError;
-use crate::lexer::tokenize::Tokenizer;
 use crate::lexer::types::{QuoteType, Token, Word, WordPart};
 use crate::parser::types::*;
 
@@ -33,8 +30,20 @@ impl Parser {
         self.tokens.len().saturating_sub(self.pos)
     }
 
+    pub fn is_eof(&self) -> bool{
+        match self.current(){
+            Some(Token::Eof) => true,
+            None => true,
+            _ => false
+        }
+    }
+
     pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
-        self.parse_sequence()
+        let ast = self.parse_sequence();
+        if !self.is_eof(){
+            return Err(ShellError::Parse(format!("unexpected token at end of tokens{:#?}", self.current())))
+        }
+        return ast;
     }
 
     fn try_parse_assignment_at(&self, pos: usize) -> Option<(usize, (String, Vec<WordPart>))> {
@@ -379,9 +388,6 @@ impl Parser {
                 Some(Token::Semicolon) | Some(Token::Newline) => {
                     self.advance();
                 }
-                // Some(Token::CloseBrace) => {
-
-                // }
                 Some(_) => {
                     return Err(ShellError::Parse(
                         "Expected `;`, `&`, or newline before `}`".into(),
@@ -479,7 +485,6 @@ impl Parser {
 
         let body = match self.current() {
             Some(Token::OpenBrace) => {
-                // self.advance();
                 match self.parse_group()? {
                     Some(body) => body,
                     None => return Err(ShellError::Parse("Empty function body1".into())),
