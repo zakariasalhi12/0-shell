@@ -30,7 +30,7 @@ fn main() {
 
         println!("{}", buffer);
 
-        match lexer::tokenize::Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
+        match lexer::tokenize::Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
             Ok(res) => {
                 println!("{}", "== Tokens ==".bold().bright_blue());
                 for token in &res {
