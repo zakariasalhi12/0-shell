@@ -89,7 +89,7 @@ fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
                 // fs::copy(&entry_path, &dest_path)?;
                 try_rename_or_copy(&entry_path, &dest_path)?;
             } else {
-                println!("Skipping {:?}", entry_path);
+                println!("Skipping {:?}\r", entry_path);
             }
         }
     } else if src.is_file() {

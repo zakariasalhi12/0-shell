@@ -1,10 +1,5 @@
-use std::cell::RefCell;
 use std::{fs, path::PathBuf};
-
 use crate::ShellCommand;
-use std::io;
-use std::io::{Error, ErrorKind};
-use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mkdir {

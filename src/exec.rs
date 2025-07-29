@@ -1,8 +1,13 @@
-use crate::parser::types::*;
-use crate::env::ShellEnv;
-use crate::error::ShellError;
+use crate::ShellCommand;
 use crate::builtins::try_builtin;
+use crate::commands::{
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
+    rm::Rm,
+};
+use crate::envirement::ShellEnv;
+use crate::error::ShellError;
 use crate::expansion::expand;
+use crate::parser::types::*;
 use std::process::Command as ExternalCommand;
 
 fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
@@ -25,10 +30,20 @@ fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     match ast {
-        AstNode::Command { cmd, args, assignments, redirects } => {
+        AstNode::Command {
+            cmd,
+            args,
+            assignments,
+            redirects,
+        } => {
             // 1. Expand command and args
             let cmd_str = word_to_string(cmd, env);
             let arg_strs: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
+            let opts: Vec<String> = arg_strs
+                .iter()
+                .filter(|v| v.contains('-'))
+                .cloned()
+                .collect();
 
             // 2. Handle assignments (TODO)
             if !assignments.is_empty() {
@@ -42,10 +57,16 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             // 4. Check for built-in
-            let mut all_args = vec![cmd_str.clone()];
-            all_args.extend(arg_strs.clone());
-            if let Some(status) = try_builtin(&all_args, env) {
-                return Ok(status);
+            let command = build_command(&cmd_str, arg_strs.clone(), opts);
+            match command {
+                Some(val) => {
+                    let res = val.execute();
+                    match res {
+                        Ok(_) => {}
+                        Err(e) => println!("{e}\r"),
+                    }
+                }
+                None => panic!(),
             }
 
             // 5. Try to run as external command
@@ -94,12 +115,19 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             println!("[exec] Subshell");
             Ok(0)
         }
-        AstNode::Group { commands, redirects } => {
+        AstNode::Group {
+            commands,
+            redirects,
+        } => {
             // TODO: Execute group of commands, handle redirects
             println!("[exec] Group: {} commands", commands.len());
             Ok(0)
         }
-        AstNode::If { condition, then_branch, else_branch } => {
+        AstNode::If {
+            condition,
+            then_branch,
+            else_branch,
+        } => {
             // TODO: Execute condition, then then_branch or else_branch
             println!("[exec] If");
             Ok(0)
@@ -134,5 +162,28 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             println!("[exec] ArithmeticCommand");
             Ok(0)
         }
+    }
+}
+
+pub fn build_command(
+    cmd: &String,
+    args: Vec<String>,
+    opts: Vec<String>,
+) -> Option<Box<dyn ShellCommand>> {
+    match cmd.as_str() {
+        "echo" => Some(Box::new(Echo::new(args))),
+        "cd" => Some(Box::new(Cd::new(args))),
+        "ls" => Some(Box::new(Ls::new(args, opts))),
+        "pwd" => Some(Box::new(Pwd::new(args))),
+        "cat" => Some(Box::new(Cat::new(args))),
+        "cp" => Some(Box::new(Cp::new(args, opts))),
+        "rm" => Some(Box::new(Rm::new(args, opts))),
+        "mv" => Some(Box::new(Mv::new(args))),
+        "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
+        "export" => Some(Box::new(Export::new(args))),
+        "exit" => {
+            std::process::exit(0);
+        }
+        _ => None,
     }
 }

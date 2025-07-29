@@ -1,5 +1,8 @@
 pub mod config;
-
+pub mod events_handler;
+pub use parser::*;
+pub mod envirement;
+pub mod exec;
 pub mod commands {
     pub mod cat;
     pub mod cd;
@@ -12,21 +15,24 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
 }
+use envirement as v;
+use std::env;
+use std::io::Stdout;
+use std::path::PathBuf;
+use termion::raw::RawTerminal;
 
+use crate::events_handler::print_out;
 pub mod features {
     pub mod history;
 }
 
-
+pub mod builtins;
 pub mod error;
 pub mod eval;
+pub mod expansion;
+pub mod jobs;
 pub mod lexer;
 pub mod parser;
-pub mod jobs;
-pub mod exec;
-pub mod env;
-pub mod builtins;
-pub mod expansion;
 // pub mod config;
 enum Colors {
     // WHITE(String),
@@ -56,14 +62,38 @@ pub fn get_current_directory() -> Result<String, String> {
             Some(name) => Ok(name.to_string_lossy().to_string()),
             None => Ok("/".to_string()),
         },
-        Err(e) => Err(e.to_string()),
+        Err(e) => match redirect_to_home() {
+            Ok(val) => Ok(val),
+            Err(e) => Err(e.to_string()),
+        },
     }
 }
 
-pub fn distplay_promt() {
-    let current_directory = get_current_directory().unwrap();
+pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
+    let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
-    print!("{}", prompt.to_ansi());
+    print_out(stdout, &format!("{}", prompt.to_ansi()));
+}
+
+pub fn promt_len() -> usize {
+    let current_directory: String = get_current_directory().unwrap();
+    format!("➜ {} ", current_directory).chars().count()
+}
+
+pub fn redirect_to_home() -> std::io::Result<String> {
+    let home = env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/"));
+
+    env::set_current_dir(&home)?;
+
+    let dir_name = home
+        .file_name()
+        .and_then(|os_str| os_str.to_str())
+        .unwrap_or("/")
+        .to_string();
+
+    Ok(dir_name)
 }
 
 pub trait ShellCommand {
