@@ -38,10 +38,17 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
         } => {
             // 1. Expand command and args
             let cmd_str = word_to_string(cmd, env);
-            let arg_strs: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
-            let opts: Vec<String> = arg_strs
+            let all_args: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
+
+            let opts: Vec<String> = all_args
                 .iter()
-                .filter(|v| v.contains('-'))
+                .filter(|v| v.starts_with('-'))
+                .cloned()
+                .collect();
+
+            let arg_strs: Vec<String> = all_args
+                .iter()
+                .filter(|v| !v.starts_with('-'))
                 .cloned()
                 .collect();
 
@@ -62,23 +69,26 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 Some(val) => {
                     let res = val.execute();
                     match res {
-                        Ok(_) => {}
-                        Err(e) => println!("{e}\r"),
+                        Ok(_) => Ok((0)),
+                        Err(e) => {
+                            println!("{e}\r");
+                            Ok(1)
+                        }
                     }
                 }
-                None => panic!(),
+                None => Ok(127),
             }
 
             // 5. Try to run as external command
-            let mut child = match ExternalCommand::new(&cmd_str).args(&arg_strs).spawn() {
-                Ok(child) => child,
-                Err(e) => {
-                    eprintln!("{}: command not found or failed to execute: {}", cmd_str, e);
-                    return Ok(127); // Common shell code for command not found
-                }
-            };
-            let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-            Ok(status)
+            // let mut child = match ExternalCommand::new(&cmd_str).args(&arg_strs).spawn() {
+            //     Ok(child) => child,
+            //     Err(e) => {
+            //         eprintln!("{}: command not found or failed to execute: {}", cmd_str, e);
+            //         return Ok(127); // Common shell code for command not found
+            //     }
+            // };
+            // let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+            // Ok(status)
         }
         AstNode::Pipeline(nodes) => {
             // TODO: Execute each node in the pipeline, connect their input/output

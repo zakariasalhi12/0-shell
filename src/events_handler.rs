@@ -403,9 +403,9 @@ pub fn Parse_input(buffer: &str, mut env: &mut ShellEnv) {
                     // println!("{}", "== AST Output ==".bold().bright_yellow());
                     match ast {
                         Some(ast) => {
-                            println!("{}", ast); // Optionally keep for debugging
+                            // println!("{}", ast); // Optionally keep for debugging
                             let exit_code = execute(&ast, &mut env).unwrap_or(1);
-                            println!("[exit code: {}]", exit_code);
+                            println!("[exit code: {}]\r", exit_code);
                         }
                         None => println!("empty AST"),
                     }
