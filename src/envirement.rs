@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use crate::parser::types::AstNode;
 use crate::jobs::Job;
+use crate::parser::types::AstNode;
 
 /// Represents the current shell environment.
 pub struct ShellEnv {
@@ -42,7 +42,9 @@ impl ShellEnv {
         };
 
         // Example default vars if missing
-        env.variables.entry("PATH".to_string()).or_insert_with(|| "/usr/bin:/bin".to_string());
+        env.variables
+            .entry("PATH".to_string())
+            .or_insert_with(|| "/usr/bin:/bin".to_string());
         env
     }
 

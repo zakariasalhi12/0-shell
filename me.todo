@@ -1,0 +1,73 @@
+- deleting parent directory (cause error in diplay prompt) //Done
+- deleting write-protected file (chmod -w) should ask user before deleting
+- correct formating qotes in echo //Done
+- execution
+- piping (cat commande)
+- handle all signals
+- known Error in moving right and left logic
+
+// saved
+
+pub fn calculate_cursor_xy(
+    stdout: &mut Option<RawTerminal<Stdout>>,
+    buffer_len: usize,
+) -> (u16, u16) {
+    let (width, _) = termion::terminal_size().unwrap_or((80, 24));
+    let (_, y) = stdout.as_mut().unwrap().cursor_pos().unwrap_or((1, 1));
+
+    if width >= (buffer_len + promt_len()) as u16 {
+        return ((buffer_len + promt_len() + 1) as u16, y);
+    }
+
+    let mut x = (buffer_len + promt_len()) as u16 % width;
+    let y = y + (buffer_len + promt_len()) as u16 / width + 1;
+
+    if (buffer_len + promt_len()) as u16 / width + 1 > 1 {
+        x += 1;
+    }
+
+    (x, y)
+}
+
+    pub fn re_render(
+        stdout: &mut Option<RawTerminal<Stdout>>,
+        old_buffer: &mut String,
+        new_buffer: String,
+        cursor_position: &mut CursorPosition,
+        save_cursor_position: bool,
+    ) {
+        let (width, height) = termion::terminal_size().unwrap_or((80, 24));
+        let old_lines = calc_termlines_in_buffer(&stdout, old_buffer.len());
+
+        // Move cursor to bottom of terminal
+        print_out(stdout, &format!("{}", Goto(1, height)));
+
+        if old_lines == 1 {
+            // If there are no old lines, just clear the current line
+            print_out(stdout, &format!("{}", clear::CurrentLine));
+        } else {
+            clear_current_line(stdout);
+            for _ in 0..old_lines - 1 {
+                print_out(stdout, &format!("{}{}", Up(1), clear::CurrentLine));
+            }
+        }
+
+        if save_cursor_position {
+            print_out(stdout, &format!("{}", Save));
+        }
+
+        display_promt(stdout);
+        print_out(stdout, &format!("{}", new_buffer));
+
+        if save_cursor_position {
+            print_out(stdout, &format!("{}", Restore));
+        } else {
+            // Move cursor to end of new buffer
+            let new_lines = calc_termlines_in_buffer(&stdout, new_buffer.len());
+            let (x, y) = calculate_cursor_xy(stdout, new_buffer.len());
+            *cursor_position = CursorPosition(x, y);
+            print_out(stdout, &format!("{}", Goto(x, y)));
+        }
+        old_buffer.clear();
+        *old_buffer = new_buffer;
+    }

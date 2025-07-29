@@ -15,7 +15,7 @@ impl Rm {
     }
 
     pub fn is_recursive(&self) -> bool {
-        self.opts.iter().any(|f| f == "-r")
+        self.opts.iter().all(|f| f == "-r")
     }
 }
 
@@ -47,11 +47,20 @@ impl ShellCommand for Rm {
         }
 
         let recursive = self.is_recursive();
+        if self.opts.len() != 0 && !recursive {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("{}: Invalid flag", self.opts[0]),
+            ));
+        }
 
         for target in &self.args {
             let path = PathBuf::from(target);
             if !path.exists() {
-                eprintln!("rm: cannot remove '{}': No such file or directory", target);
+                eprintln!(
+                    "rm: cannot remove '{}': No such file or directory\r",
+                    target
+                );
                 continue;
             }
 
@@ -59,7 +68,7 @@ impl ShellCommand for Rm {
                 if recursive {
                     delete_recursive(&path)?;
                 } else {
-                    eprintln!("rm: cannot remove '{}': Is a directory", target);
+                    eprintln!("rm: cannot remove '{}': Is a directory\r", target);
                 }
             } else {
                 fs::remove_file(&path)?;
