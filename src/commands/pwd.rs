@@ -19,7 +19,7 @@ impl ShellCommand for Pwd {
     fn execute(&self) -> std::io::Result<()> {
         let current = env::current_dir()?;
         println!(
-            "{}",
+            "{}\r",
             current
                 .as_path()
                 .to_str()
