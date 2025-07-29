@@ -176,7 +176,7 @@ impl ShellCommand for Ls {
         if !self.valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
         }
-
+        println!("{:?}", self.args);
         let targets = if self.args.is_empty() {
             vec![".".to_string()]
         } else {
