@@ -39,6 +39,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
+            // println!("{}", ast);
             // 1. Expand command and args
             let cmd_str = word_to_string(cmd, env);
             let all_args: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
@@ -76,43 +77,50 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             // 4. Check for built-in
-            let command = build_command(&cmd_str, arg_strs.clone(), opts);
-            match command {
-                Some(val) => {
-                    let res = val.execute();
-                    match res {
-                        Ok(_) => {
-                            env.set_last_status(0);
-                            Ok(0)
-                        }
-                        Err(e) => {
-                            eprintln!("{e}");
-                            env.set_last_status(1);
-                            Ok(1)
+            if !cmd_str.is_empty() {
+                let command = build_command(&cmd_str, arg_strs.clone(), opts);
+                match command {
+                    Some(val) => {
+                        let res = val.execute();
+                        match res {
+                            Ok(_) => {
+                                env.set_last_status(0);
+                                Ok(0)
+                            }
+                            Err(e) => {
+                                eprintln!("{e}");
+                                env.set_last_status(1);
+                                Ok(1)
+                            }
                         }
                     }
-                }
-                None => {
-                    // 5. Try to run as external command
-                    let mut child = match ExternalCommand::new(&cmd_str)
-                        .args(&arg_strs)
-                        .stdin(Stdio::inherit())
-                        .stdout(Stdio::inherit())
-                        .stderr(Stdio::inherit())
-                        .spawn()
-                    {
-                        Ok(child) => child,
-                        Err(e) => {
-                            eprintln!("{}: command not found or failed to execute: {}", cmd_str, e);
-                            env.set_last_status(127);
-                            return Ok(127); // Common shell code for command not found
-                        }
-                    };
+                    None => {
+                        // 5. Try to run as external command
+                        let mut child = match ExternalCommand::new(&cmd_str)
+                            .args(&arg_strs)
+                            .stdin(Stdio::inherit())
+                            .stdout(Stdio::inherit())
+                            .stderr(Stdio::inherit())
+                            .spawn()
+                        {
+                            Ok(child) => child,
+                            Err(e) => {
+                                eprintln!(
+                                    "{}: command not found or failed to execute: {}",
+                                    cmd_str, e
+                                );
+                                env.set_last_status(127);
+                                return Ok(127); // Common shell code for command not found
+                            }
+                        };
 
-                    let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                    env.set_last_status(status);
-                    Ok(status)
+                        let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                        env.set_last_status(status);
+                        Ok(status)
+                    }
                 }
+            } else {
+                Ok(0)
             }
         }
         AstNode::Pipeline(nodes) => {
