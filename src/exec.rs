@@ -4,6 +4,7 @@ use crate::commands::{
     cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
     rm::Rm,
 };
+use crate::config::ENV;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::expansion::expand;
@@ -96,27 +97,45 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     }
                     None => {
                         // 5. Try to run as external command
-                        let mut child = match ExternalCommand::new(&cmd_str)
-                            .args(&arg_strs)
-                            .stdin(Stdio::inherit())
-                            .stdout(Stdio::inherit())
-                            .stderr(Stdio::inherit())
-                            .spawn()
-                        {
-                            Ok(child) => child,
-                            Err(e) => {
-                                eprintln!(
-                                    "{}: command not found or failed to execute: {}",
-                                    cmd_str, e
-                                );
-                                env.set_last_status(127);
-                                return Ok(127); // Common shell code for command not found
-                            }
-                        };
+                        let env_result = ENV.lock();
+                        if let Ok(mut env_map) = env_result {
+                            // Get the full path from your environment map
+                            if let Some(full_path) = env_map.get(&cmd_str) {
+                                println!("Found command at: {}", full_path);
 
-                        let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                        env.set_last_status(status);
-                        Ok(status)
+                                // Use the full path instead of just the command name
+                                let mut child =
+                                    match ExternalCommand::new(full_path) // Use full_path here
+                                        .args(&arg_strs)
+                                        .stdin(Stdio::inherit())
+                                        .stdout(Stdio::inherit())
+                                        .stderr(Stdio::inherit())
+                                        .spawn()
+                                    {
+                                        Ok(child) => child,
+                                        Err(e) => {
+                                            eprintln!(
+                                                "{}: command failed to execute: {}",
+                                                full_path, e
+                                            );
+                                            env.set_last_status(127);
+                                            return Ok(127);
+                                        }
+                                    };
+
+                                let status =
+                                    child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                                env.set_last_status(status);
+                                Ok(status)
+                            } else {
+                                // Command not found in your environment map
+                                eprintln!("{}: command not found", cmd_str);
+                                env.set_last_status(127);
+                                return Ok(127);
+                            }
+                        } else {
+                            return Err(ShellError::Exec(cmd_str));
+                        }
                     }
                 }
             } else {
