@@ -31,11 +31,9 @@ impl ShellCommand for Export {
             let env_result = ENV.lock();
             if let Ok(mut env_map) = env_result {
                 env_map.insert(key.to_string(), value.to_string());
+                println!("{:?}", env_map);
             } else {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Failed to acquire ENV lock",
-                ));
+                return Err(Error::new(ErrorKind::Other, "Failed to acquire ENV lock"));
             }
         }
 
