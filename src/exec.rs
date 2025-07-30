@@ -7,8 +7,11 @@ use crate::commands::{
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::expansion::expand;
+use crate::lexer::types::Word;
 use crate::parser::types::*;
+use std::io::{self, Read, Write};
 use std::process::Command as ExternalCommand;
+use std::process::Stdio;
 
 fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
     // Expand and join all parts (for now, just join literals)
@@ -52,14 +55,23 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 .cloned()
                 .collect();
 
-            // 2. Handle assignments (TODO)
+            // 2. Handle assignments
             if !assignments.is_empty() {
-                // Placeholder: print assignments
-                println!("[exec] Assignments: {:?}", assignments);
+                for ass in assignments.clone() {
+                    let value = word_to_string(
+                        &Word {
+                            parts: ass.1,
+                            quote: crate::lexer::types::QuoteType::None,
+                        },
+                        env,
+                    );
+                    env.set_var(&ass.0, &value);
+                }
             }
 
-            // 3. Handle redirects (TODO)
+            // 3. Handle redirects (basic implementation)
             if !redirects.is_empty() {
+                // For now, just log redirects - full implementation would require file handling
                 println!("[exec] Redirects: {:?}", redirects);
             }
 
@@ -69,107 +81,266 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 Some(val) => {
                     let res = val.execute();
                     match res {
-                        Ok(_) => Ok((0)),
+                        Ok(_) => {
+                            env.set_last_status(0);
+                            Ok(0)
+                        }
                         Err(e) => {
-                            println!("{e}\r");
+                            eprintln!("{e}");
+                            env.set_last_status(1);
                             Ok(1)
                         }
                     }
                 }
-                None => Ok(127),
-            }
+                None => {
+                    // 5. Try to run as external command
+                    let mut child = match ExternalCommand::new(&cmd_str)
+                        .args(&arg_strs)
+                        .stdin(Stdio::inherit())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit())
+                        .spawn()
+                    {
+                        Ok(child) => child,
+                        Err(e) => {
+                            eprintln!("{}: command not found or failed to execute: {}", cmd_str, e);
+                            env.set_last_status(127);
+                            return Ok(127); // Common shell code for command not found
+                        }
+                    };
 
-            // 5. Try to run as external command
-            // let mut child = match ExternalCommand::new(&cmd_str).args(&arg_strs).spawn() {
-            //     Ok(child) => child,
-            //     Err(e) => {
-            //         eprintln!("{}: command not found or failed to execute: {}", cmd_str, e);
-            //         return Ok(127); // Common shell code for command not found
-            //     }
-            // };
-            // let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-            // Ok(status)
+                    let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                    env.set_last_status(status);
+                    Ok(status)
+                }
+            }
         }
         AstNode::Pipeline(nodes) => {
-            // TODO: Execute each node in the pipeline, connect their input/output
-            println!("[exec] Pipeline: {} commands", nodes.len());
-            Ok(0)
+            if nodes.is_empty() {
+                return Ok(0);
+            }
+
+            let mut last_status = 0;
+            // let mut input: Option<_> = None;
+
+            for (i, node) in nodes.iter().enumerate() {
+                let is_last = i == nodes.len() - 1;
+
+                // Execute the command
+                let status = execute(node, env)?;
+                last_status = status;
+
+                // For now, we'll just execute sequentially
+                // A full pipeline implementation would require:
+                // - Creating pipes between commands
+                // - Managing stdin/stdout for each command
+                // - Running commands in parallel where possible
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::Sequence(nodes) => {
-            // TODO: Execute each node in sequence
-            println!("[exec] Sequence: {} commands", nodes.len());
-            Ok(0)
+            let mut last_status = 0;
+
+            for node in nodes {
+                last_status = execute(node, env)?;
+                // Continue execution even if a command fails
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::And(left, right) => {
-            // TODO: Execute left, if success then right
-            println!("[exec] And (&&)");
-            Ok(0)
+            // Execute left, if success then right
+            let left_status = execute(left, env)?;
+            if left_status == 0 {
+                let right_status = execute(right, env)?;
+                env.set_last_status(right_status);
+                Ok(right_status)
+            } else {
+                env.set_last_status(left_status);
+                Ok(left_status)
+            }
         }
         AstNode::Or(left, right) => {
-            // TODO: Execute left, if fail then right
-            println!("[exec] Or (||)");
-            Ok(0)
+            // Execute left, if fail then right
+            let left_status = execute(left, env)?;
+            if left_status != 0 {
+                let right_status = execute(right, env)?;
+                env.set_last_status(right_status);
+                Ok(right_status)
+            } else {
+                env.set_last_status(left_status);
+                Ok(left_status)
+            }
         }
         AstNode::Not(node) => {
-            // TODO: Execute node, invert status
-            println!("[exec] Not (!)");
-            Ok(0)
+            // Execute node, invert status
+            let status = execute(node, env)?;
+            let inverted_status = if status == 0 { 1 } else { 0 };
+            env.set_last_status(inverted_status);
+            Ok(inverted_status)
         }
         AstNode::Background(node) => {
-            // TODO: Execute node in background (job control)
-            println!("[exec] Background (&)");
-            Ok(0)
+            // Execute node in background (basic implementation)
+            // In a full implementation, this would:
+            // - Fork the process
+            // - Add to job control
+            // - Return immediately
+            let status = execute(node, env)?;
+            env.set_last_status(status);
+            Ok(status)
         }
         AstNode::Subshell(node) => {
-            // TODO: Execute node in a subshell (forked environment)
-            println!("[exec] Subshell");
-            Ok(0)
+            // Execute node in a subshell (basic implementation)
+            // In a full implementation, this would:
+            // - Fork the process
+            // - Create a new environment
+            // - Execute the node
+            // - Return the status
+            let status = execute(node, env)?;
+            env.set_last_status(status);
+            Ok(status)
         }
         AstNode::Group {
             commands,
             redirects,
         } => {
-            // TODO: Execute group of commands, handle redirects
-            println!("[exec] Group: {} commands", commands.len());
-            Ok(0)
+            // Execute group of commands, handle redirects
+            let mut last_status = 0;
+
+            for command in commands {
+                last_status = execute(command, env)?;
+            }
+
+            // Handle redirects (basic implementation)
+            if !redirects.is_empty() {
+                println!("[exec] Group redirects: {:?}", redirects);
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::If {
             condition,
             then_branch,
             else_branch,
         } => {
-            // TODO: Execute condition, then then_branch or else_branch
-            println!("[exec] If");
-            Ok(0)
+            // Execute condition, then then_branch or else_branch
+            let condition_status = execute(condition, env)?;
+
+            if condition_status == 0 {
+                // Condition succeeded, execute then branch
+                let status = execute(then_branch, env)?;
+                env.set_last_status(status);
+                Ok(status)
+            } else {
+                // Condition failed, execute else branch if it exists
+                match else_branch {
+                    Some(else_node) => {
+                        let status = execute(else_node, env)?;
+                        env.set_last_status(status);
+                        Ok(status)
+                    }
+                    None => {
+                        env.set_last_status(condition_status);
+                        Ok(condition_status)
+                    }
+                }
+            }
         }
         AstNode::While { condition, body } => {
-            // TODO: Execute while loop
-            println!("[exec] While");
-            Ok(0)
+            // Execute while loop
+            let mut last_status = 0;
+
+            loop {
+                let condition_status = execute(condition, env)?;
+                if condition_status != 0 {
+                    // Condition failed, exit loop
+                    break;
+                }
+
+                last_status = execute(body, env)?;
+                // Continue loop regardless of body status
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::Until { condition, body } => {
-            // TODO: Execute until loop
-            println!("[exec] Until");
-            Ok(0)
+            // Execute until loop (opposite of while)
+            let mut last_status = 0;
+
+            loop {
+                let condition_status = execute(condition, env)?;
+                if condition_status == 0 {
+                    // Condition succeeded, exit loop
+                    break;
+                }
+
+                last_status = execute(body, env)?;
+                // Continue loop regardless of body status
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::For { var, values, body } => {
-            // TODO: Execute for loop
-            println!("[exec] For");
-            Ok(0)
+            // Execute for loop
+            let mut last_status = 0;
+
+            for value in values {
+                // Set the loop variable
+                env.set_var(var, value);
+
+                last_status = execute(body, env)?;
+                // Continue loop regardless of body status
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::Case { word, arms } => {
-            // TODO: Execute case statement
-            println!("[exec] Case");
-            Ok(0)
+            // Execute case statement
+            let word_value = word_to_string(
+                &Word {
+                    parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
+                    quote: crate::lexer::types::QuoteType::None,
+                },
+                env,
+            );
+            let mut last_status = 0;
+            let mut matched = false;
+
+            for (patterns, body) in arms {
+                for pattern in patterns {
+                    if pattern == &word_value {
+                        last_status = execute(body, env)?;
+                        matched = true;
+                        break;
+                    }
+                }
+                if matched {
+                    break;
+                }
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
         }
         AstNode::FunctionDef { name, body } => {
-            // TODO: Register function in environment
-            println!("[exec] FunctionDef");
+            // Register function in environment
+            let func_name = word_to_string(name, env);
+            env.functions.insert(func_name, body.as_ref().clone());
+            env.set_last_status(0);
             Ok(0)
         }
         AstNode::ArithmeticCommand(expr) => {
-            // TODO: Evaluate arithmetic expression
-            println!("[exec] ArithmeticCommand");
+            // Evaluate arithmetic expression
+            // For now, return 0 - full implementation would evaluate the expression
+            println!("[exec] ArithmeticCommand: {:?}", expr);
+            env.set_last_status(0);
             Ok(0)
         }
     }
