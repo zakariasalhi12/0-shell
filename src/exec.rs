@@ -106,7 +106,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                                 // Use the full path instead of just the command name
                                 let mut child =
                                     match ExternalCommand::new(full_path) // Use full_path here
-                                        .args(&arg_strs)
+                                        .args(&all_args)
                                         .stdin(Stdio::inherit())
                                         .stdout(Stdio::inherit())
                                         .stderr(Stdio::inherit())
