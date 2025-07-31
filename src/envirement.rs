@@ -96,4 +96,14 @@ impl ShellEnv {
     pub fn get_last_status(&self) -> i32 {
         self.last_status
     }
+
+    /// Set Function into functions var
+    pub fn set_func(&mut self, name: String, function: AstNode) {
+        self.functions.insert(name, function);
+    }
+
+    /// get Function into functions var
+    pub fn get_func(&mut self, name: &str) -> Option<&AstNode> {
+        self.functions.get(name)
+    }
 }

@@ -79,6 +79,14 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
             // 4. Check for built-in
             if !cmd_str.is_empty() {
+                // Check if a function in envirement functions
+                if let Some(func) = env.get_func(&cmd_str) {
+                    let body = func.clone(); // <- Clone here
+                    let status = execute(&body, env)?; // <- Now safe to mutably borrow env
+                    env.set_last_status(status);
+                    return Ok(status);
+                }
+
                 let command = build_command(&cmd_str, arg_strs.clone(), opts);
                 match command {
                     Some(val) => {
@@ -359,7 +367,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
         AstNode::FunctionDef { name, body } => {
             // Register function in environment
             let func_name = word_to_string(name, env);
-            env.functions.insert(func_name, body.as_ref().clone());
+            env.set_func(func_name, body.as_ref().clone());
             env.set_last_status(0);
             Ok(0)
         }
