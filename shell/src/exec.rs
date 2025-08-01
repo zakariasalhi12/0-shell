@@ -11,6 +11,7 @@ use crate::expansion::expand;
 use crate::lexer::types::Word;
 use crate::parser::types::*;
 use std::io::{self, Read, Write};
+use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
 
@@ -155,23 +156,87 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 return Ok(0);
             }
 
-            let mut last_status = 0;
-            // let mut input: Option<_> = None;
-
-            for (i, node) in nodes.iter().enumerate() {
-                let is_last = i == nodes.len() - 1;
-
-                // Execute the command
-                let status = execute(node, env)?;
-                last_status = status;
-
-                // For now, we'll just execute sequentially
-                // A full pipeline implementation would require:
-                // - Creating pipes between commands
-                // - Managing stdin/stdout for each command
-                // - Running commands in parallel where possible
+            if nodes.len() == 1 {
+                // Single command, not really a pipeline
+                return execute(&nodes[0], env);
             }
 
+            let mut children: Vec<Child> = Vec::new();
+            let mut prev_stdout: Option<std::process::ChildStdout> = None;
+
+            for (i, node) in nodes.iter().enumerate() {
+                let is_first = i == 0;
+                let is_last = i == nodes.len() - 1;
+
+                // Extract command info from the node
+                if let AstNode::Command {
+                    cmd,
+                    args,
+                    redirects,
+                    ..
+                } = node
+                {
+                    let cmd_str = word_to_string(cmd, env);
+                    let all_args: Vec<String> =
+                        args.iter().map(|w| word_to_string(w, env)).collect();
+
+                    // Setup stdio for this command in the pipeline
+                    let stdin = if is_first {
+                        Stdio::inherit()
+                    } else {
+                        match prev_stdout.take() {
+                            Some(stdout) => Stdio::from(stdout),
+                            None => {
+                                return Err(ShellError::Exec(
+                                    "Pipeline broken: missing stdout".to_string(),
+                                ));
+                            }
+                        }
+                    };
+
+                    let stdout = if is_last {
+                        Stdio::inherit()
+                    } else {
+                        Stdio::piped()
+                    };
+
+                    let stderr = Stdio::inherit();
+                    // Force external execution for pipeline-compatible commands
+                    let use_external = should_use_external_for_pipeline(&cmd_str);
+                    let mut child = execute_command_with_stdio(
+                        &cmd_str,
+                        &all_args,
+                        stdin,
+                        stdout,
+                        stderr,
+                        env,
+                        use_external,
+                    )?;
+                    if let Some(ref stdin) = child.stdout {
+                        println!("{i}");
+                        let fd = stdin.as_raw_fd();
+                        println!("stdin: {}", detect_fd_type(fd));
+                    }
+                    // println!("{:?} {:?} {:?}", &stdin, stdout, stderr);
+                    // Capture stdout for the next command if not the last
+                    if !is_last {
+                        prev_stdout = child.stdout.take();
+                    }
+
+                    children.push(child);
+                } else {
+                    return Err(ShellError::Exec(
+                        "Pipeline can only contain commands".to_string(),
+                    ));
+                }
+            }
+
+            // Wait for all children and get the status of the last one
+            let mut last_status = 0;
+            for mut child in children {
+                let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                last_status = status; // In bash, pipeline status is the status of the last command
+            }
             env.set_last_status(last_status);
             Ok(last_status)
         }
@@ -401,5 +466,68 @@ pub fn build_command(
             std::process::exit(0);
         }
         _ => None,
+    }
+}
+
+fn execute_command_with_stdio(
+    cmd_str: &str,
+    args: &[String],
+    stdin: Stdio,
+    stdout: Stdio,
+    stderr: Stdio,
+    env: &mut ShellEnv,
+    use_external: bool,
+) -> Result<Child, ShellError> {
+    let env_result = ENV.lock();
+    if let Ok(env_map) = env_result {
+        if let Some(full_path) = env_map.get(cmd_str) {
+            let child = match ExternalCommand::new(full_path)
+                .args(args)
+                .stdin(stdin)
+                .stdout(stdout)
+                .stderr(stderr)
+                .spawn()
+                .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)))
+            {
+                Ok(val) => val,
+                Err(e) => {
+                    println!("{:?}", e);
+                    return Err(e);
+                }
+            };
+            return Ok(child);
+        }
+    }
+    return Err(ShellError::Exec(format!(
+        "External command not found: {}",
+        cmd_str
+    )));
+}
+
+fn should_use_external_for_pipeline(cmd: &str) -> bool {
+    matches!(cmd, "ls" | "cat" | "grep" | "sort" | "head" | "tail" | "wc")
+}
+
+//////////////////////////////////////
+use libc::{S_IFCHR, S_IFIFO, S_IFMT, fstat, isatty, stat};
+use std::os::unix::io::AsRawFd;
+use std::process::Command;
+
+fn detect_fd_type(fd: i32) -> &'static str {
+    let mut statbuf: stat = unsafe { std::mem::zeroed() };
+    if unsafe { fstat(fd, &mut statbuf) } != 0 {
+        return "Unknown";
+    }
+    let file_type = statbuf.st_mode & S_IFMT;
+    match file_type {
+        S_IFIFO => "Pipe",
+        S_IFCHR => {
+            if unsafe { isatty(fd) } == 1 {
+                "TTY"
+            } else {
+                "Char Device (non-TTY)"
+            }
+        }
+        _ => "Other",
     }
 }
