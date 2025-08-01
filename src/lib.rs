@@ -60,13 +60,13 @@ pub fn get_current_directory() -> Result<String, String> {
     }
 }
 
-pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
+pub fn display_prompt(stdout: &mut Option<RawTerminal<Stdout>>) {
     let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print_out(stdout, &format!("{}", prompt.to_ansi()));
 }
 
-pub fn promt_len() -> usize {
+pub fn prompt_len() -> usize {
     let current_directory: String = get_current_directory().unwrap();
     format!("➜ {} ", current_directory).chars().count()
 }
