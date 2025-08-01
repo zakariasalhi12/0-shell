@@ -30,7 +30,7 @@ impl Ls {
 
 impl ShellCommand for Ls {
     fn execute(&self) -> Result<()> {
-        let mut child = ExternalCommand::new("/home/yhajjaou/Desktop/0-shell/bin/ls") // Use full_path here
+        let mut child = ExternalCommand::new("/home/yhajjaou/0-shell/bin/ls") // Use full_path here
             .args(&self.args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())
