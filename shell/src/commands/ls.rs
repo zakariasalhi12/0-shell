@@ -17,66 +17,20 @@ use users::{get_group_by_gid, get_user_by_uid};
 pub struct Ls {
     pub args: Vec<String>,
     pub opts: Vec<String>,
-    pub all: bool,
-    pub classify: bool,
-    pub format: bool,
-    pub valid_opts: bool,
 }
 
 impl Ls {
-    pub fn new(args: Vec<String>, opts: Vec<String>) -> Self {
-        let mut res = Ls {
-            args,
-            opts,
-            all: false,
-            classify: false,
-            format: false,
-            valid_opts: true,
-        };
-        res.parse_flags();
+    pub fn new(mut args: Vec<String>, opts: Vec<String>) -> Self {
+        args.extend(opts.iter().cloned()); // or just opts.clone()
+        let res = Ls { args, opts };
+        // res.parse_flags();
         res
-    }
-
-    pub fn parse_flags(&mut self) {
-        for f in &self.opts {
-            if f.starts_with('-') && f.len() > 1 {
-                for ch in f.chars().skip(1) {
-                    match ch {
-                        'a' => self.all = true,
-                        'F' => self.classify = true,
-                        'l' => self.format = true,
-                        _ => {
-                            self.valid_opts = false;
-                            return;
-                        }
-                    }
-                }
-            } else {
-                self.valid_opts = false;
-                return;
-            }
-        }
     }
 }
 
 impl ShellCommand for Ls {
     fn execute(&self) -> Result<()> {
-        // let mut command = Command::new("/home/youzar-boot/0-shell/bin/ls");
-        // for arg in &self.args {
-        //     command.arg(arg);
-        // }
-
-        // match command.spawn().and_then(|mut child| child.wait()) {
-        //     Ok(status) => {
-        //         if !status.success() {
-        //             Err(Error::new(ErrorKind::InvalidInput, "Error invalid"))
-        //         } else {
-        //             Ok(())
-        //         }
-        //     }
-        //     Err(e) => Err(Error::new(ErrorKind::InvalidInput, "Error invalid")),
-        // }
-        let mut child = ExternalCommand::new("/home/youzar-boot/0-shell/bin/ls") // Use full_path here
+        let mut child = ExternalCommand::new("/home/yhajjaou/Desktop/0-shell/bin/ls") // Use full_path here
             .args(&self.args)
             .stdin(Stdio::inherit())
             .stdout(Stdio::inherit())

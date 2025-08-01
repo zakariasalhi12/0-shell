@@ -18,7 +18,7 @@ impl Cat {
 
 impl ShellCommand for Cat {
     fn execute(&self) -> std::io::Result<()> {
-        let mut command = Command::new("/home/youzar-boot/0-shell/bin/cat");
+        let mut command = Command::new("/home/yhajjaou/Desktop/0-shell/bin/cat");
         for arg in &self.args {
             command.arg(arg);
         }
