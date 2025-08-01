@@ -14,11 +14,11 @@ use users::{get_group_by_gid, get_user_by_uid};
 #[derive(Debug, PartialEq, Eq)]
 pub struct Ls {
     pub args: Vec<String>,
-    pub opts: Vec<String>,
     pub all: bool,
     pub classify: bool,
     pub format: bool,
     pub valid_opts: bool,
+    pub folders: Vec<String>,
 }
 
 struct EntryInfo {
@@ -28,22 +28,26 @@ struct EntryInfo {
 }
 
 impl Ls {
-    pub fn new(args: Vec<String>, opts: Vec<String>) -> Self {
+    pub fn new(args: Vec<String>) -> Self {
         let mut res = Ls {
-            args,
-            opts,
+            args: args.clone(),
             all: false,
             classify: false,
             format: false,
             valid_opts: true,
+            folders: args
+                .iter()
+                .filter(|f| !f.starts_with('-'))
+                .cloned()
+                .collect(),
         };
         res.parse_flags();
         res
     }
 
     pub fn parse_flags(&mut self) {
-        for f in &self.opts {
-            if f.starts_with('-') && f.len() > 1 {
+        for f in &self.args {
+            if f.starts_with('-') {
                 for ch in f.chars().skip(1) {
                     match ch {
                         'a' => self.all = true,
@@ -55,9 +59,6 @@ impl Ls {
                         }
                     }
                 }
-            } else {
-                self.valid_opts = false;
-                return;
             }
         }
     }
@@ -172,8 +173,8 @@ impl Ls {
         if !self.valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
         }
-        println!("{:?}", self.args);
-        let targets = if self.args.is_empty() {
+        // println!("{:?}", self);
+        let targets = if self.folders.is_empty() {
             vec![".".to_string()]
         } else {
             self.args.clone()
