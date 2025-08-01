@@ -93,7 +93,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     return Ok(status);
                 }
 
-                let command = build_command(&cmd_str, arg_strs.clone(), opts);
+                let command = build_command(&cmd_str, arg_strs.clone(), opts, None);
                 match command {
                     Some(val) => {
                         let res = val.execute();
@@ -210,8 +210,14 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         env,
                         use_external,
                     )?;
-
-                    children.push(child);
+                    let pid = match child {
+                        CommandResult::Child(val) => val,
+                        CommandResult::Builtin => {
+                            prev_read = read_end;
+                            continue;
+                        }
+                    };
+                    children.push(pid);
                     prev_read = read_end; // becomes stdin for next command
                 } else {
                     return Err(ShellError::Exec(
@@ -440,9 +446,10 @@ pub fn build_command(
     cmd: &String,
     args: Vec<String>,
     opts: Vec<String>,
+    stdout: Option<OwnedFd>,
 ) -> Option<Box<dyn ShellCommand>> {
     match cmd.as_str() {
-        "echo" => Some(Box::new(Echo::new(args))),
+        "echo" => Some(Box::new(Echo::new(args, stdout))),
         "cd" => Some(Box::new(Cd::new(args))),
         "ls" => Some(Box::new(Ls::new(args, opts))),
         "pwd" => Some(Box::new(Pwd::new(args))),
@@ -458,6 +465,10 @@ pub fn build_command(
         _ => None,
     }
 }
+pub enum CommandResult {
+    Child(Child),
+    Builtin,
+}
 
 fn execute_command_with_stdio(
     cmd_str: &str,
@@ -469,43 +480,53 @@ fn execute_command_with_stdio(
     _is_last: bool,
     env: &mut ShellEnv,
     use_external: bool,
-) -> Result<Child, ShellError> {
+) -> Result<CommandResult, ShellError> {
     if use_external {
-
         let env_result = ENV.lock();
         if let Ok(env_map) = env_result {
             if let Some(full_path) = env_map.get(cmd_str) {
                 let mut command = ExternalCommand::new(full_path);
                 command.args(args);
-    
+
                 if let Some(ref fd) = stdin {
                     let new_fd = dup(fd.as_raw_fd()).unwrap();
                     command.stdin(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
                 } else {
                     command.stdin(Stdio::inherit());
                 }
-    
+
                 if let Some(ref fd) = stdout {
                     let new_fd = dup(fd.as_raw_fd()).unwrap();
                     command.stdout(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
                 } else {
                     command.stdout(Stdio::inherit());
                 }
-    
+
                 command.stderr(stderr);
-    
+
                 return command
                     .spawn()
+                    .map(|child| CommandResult::Child(child))
                     .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)));
             }
         }
-    }else {
-        
+    } else {
+        let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], stdout);
+        match com {
+            Some(val) => {
+                val.execute()?;
+                return Ok(CommandResult::Builtin);
+            }
+            None => {
+                return Err(ShellError::Exec(format!(
+                    "Internal command not found: {}",
+                    cmd_str
+                )));
+            }
+        }
     }
-    Err(ShellError::Exec(format!(
-        "External command not found: {}",
-        cmd_str
-    )))
+
+    Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
 }
 
 fn should_use_external_for_pipeline(cmd: &str) -> bool {
