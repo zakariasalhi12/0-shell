@@ -15,49 +15,31 @@ impl Cat {
     }
     pub fn execute(&self) -> std::io::Result<()> {
         println!("args {:?}", self.args.clone());
-        if self.args.len() != 1 {
-            for file in &self.args[1..] {
+        if self.args.len() != 0 {
+            for file in &self.args {
                 // println!("{:?}", file);
                 let file_path = canonicalize(file)?;
                 let mut file_handle = File::open(&file_path)?;
                 let content = read_to_string(&mut file_handle)?;
-                // println!("{}\r", content);
+                println!("{}\r", content);
                 // println!("{:?}", content);
             }
         } else {
-            // let stdin = stdin();
-            // let mut stdout = stdout().into_raw_mode().unwrap();
-            // let mut buffer = String::new();
-            // for key in stdin.keys() {
-            //     match key.unwrap() {
-            //         // Parse Input
-            //         termion::event::Key::Char('\n') => {
-            //             writeln!(stdout, "\r").unwrap();
-            //             writeln!(stdout, "{}\r", buffer).unwrap();
-            //             stdout.flush().unwrap();
-            //             buffer = String::new();
-            //             continue;
-            //         }
+            let stdin = std::io::stdin();
+            let mut stdout = std::io::stdout();
 
-            //         termion::event::Key::Char(c) => {
-            //             write!(stdout, "{}", c).unwrap();
-            //             stdout.flush().unwrap();
-            //             buffer.push(c);
-            //         }
+            let mut buffer = String::new();
+            let stdin_lock = stdin.lock();
 
-            //         termion::event::Key::Ctrl('d') => {
-            //             write!(stdout, "\r").unwrap();
-            //             stdout.flush().unwrap();
-            //             return Ok(());
-            //         }
+            for line in stdin_lock.lines() {
+                let line = line?;
+                buffer = line.clone();
 
-            //         termion::event::Key::Ctrl('c') => {
-            //             return Ok(());
-            //         }
-            //         _ => {}
-            //     }
-            //     stdout.flush().unwrap();
-            // }
+                writeln!(stdout, "{}\r", buffer)?;
+                stdout.flush()?;
+
+                buffer.clear();
+            }
         }
         Ok(())
     }
