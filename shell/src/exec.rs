@@ -7,7 +7,6 @@ use crate::commands::{
 use crate::config::ENV;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
-use crate::expansion::expand;
 use crate::lexer::types::Word;
 use crate::parser::types::*;
 use std::io::{self, Read, Write};
@@ -15,36 +14,31 @@ use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
 
-fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
-    // Expand and join all parts (for now, just join literals)
-    let mut result = String::new();
-    for part in &word.parts {
-        match part {
-            crate::lexer::types::WordPart::Literal(s) => result.push_str(s),
-            crate::lexer::types::WordPart::VariableSubstitution(var) => {
-                if let Some(val) = env.get_var(var) {
-                    result.push_str(val);
-                }
-            }
-            // TODO: handle ArithmeticSubstitution, CommandSubstitution
-            _ => {}
-        }
-    }
-    result
-}
+// fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
+//     // Expand and join all parts (for now, just join literals)
+//     let mut result = String::new();
+//     for part in &word.parts {
+//         match part {
+//             crate::lexer::types::WordPart::Literal(s) => result.push_str(s),
+//             crate::lexer::types::WordPart::VariableSubstitution(var) => {
+//                 if let Some(val) = env.get_var(var) {
+//                     result.push_str(val);
+//                 }
+//             }
+//             // TODO: handle ArithmeticSubstitution, CommandSubstitution
+//             _ => {}
+//         }
+//     }
+//     result
+// }
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     match ast {
-        AstNode::Command {
-            cmd,
-            args,
-            assignments,
-            redirects,
-        } => {
+        AstNode::Command {cmd,args,assignments,redirects} => {
             // println!("{}", ast);
             // 1. Expand command and args
-            let cmd_str = word_to_string(cmd, env);
-            let all_args: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
+            let cmd_str = cmd.expand(env);
+            let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
 
             let opts: Vec<String> = all_args
                 .iter()
@@ -61,14 +55,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             // 2. Handle assignments
             if !assignments.is_empty() {
                 for ass in assignments.clone() {
-                    let value = word_to_string(
-                        &Word {
-                            parts: ass.1,
-                            quote: crate::lexer::types::QuoteType::None,
-                        },
-                        env,
-                    );
-                    env.set_var(&ass.0, &value);
+                   env.set_env_var(&ass.0, &ass.1.expand(&env));
                 }
             }
 
@@ -176,9 +163,9 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ..
                 } = node
                 {
-                    let cmd_str = word_to_string(cmd, env);
+                    let cmd_str: String = cmd.expand(&env);
                     let all_args: Vec<String> =
-                        args.iter().map(|w| word_to_string(w, env)).collect();
+                        args.iter().map(|w| w.expand(env)).collect();
 
                     // Setup stdio for this command in the pipeline
                     let stdin = if is_first {
@@ -392,7 +379,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
             for value in values {
                 // Set the loop variable
-                env.set_var(var, value);
+                // env.set_var(var, value);
 
                 last_status = execute(body, env)?;
                 // Continue loop regardless of body status
@@ -400,49 +387,52 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
             env.set_last_status(last_status);
             Ok(last_status)
-        }
-        AstNode::Case { word, arms } => {
-            // Execute case statement
-            let word_value = word_to_string(
-                &Word {
-                    parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
-                    quote: crate::lexer::types::QuoteType::None,
-                },
-                env,
-            );
-            let mut last_status = 0;
-            let mut matched = false;
-
-            for (patterns, body) in arms {
-                for pattern in patterns {
-                    if pattern == &word_value {
-                        last_status = execute(body, env)?;
-                        matched = true;
-                        break;
-                    }
-                }
-                if matched {
-                    break;
-                }
-            }
-
-            env.set_last_status(last_status);
-            Ok(last_status)
-        }
-        AstNode::FunctionDef { name, body } => {
-            // Register function in environment
-            let func_name = word_to_string(name, env);
-            env.set_func(func_name, body.as_ref().clone());
-            env.set_last_status(0);
+        },
+        _ =>{
             Ok(0)
         }
-        AstNode::ArithmeticCommand(expr) => {
-            // Evaluate arithmetic expression
-            // For now, return 0 - full implementation would evaluate the expression
-            println!("[exec] ArithmeticCommand: {:?}", expr);
-            env.set_last_status(0);
-            Ok(0)
-        }
+        // AstNode::Case { word, arms } => {
+        //     // Execute case statement
+        //     let word_value = word_to_string(
+        //         &Word {
+        //             parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
+        //             quote: crate::lexer::types::QuoteType::None,
+        //         },
+        //         env,
+        //     );
+        //     let mut last_status = 0;
+        //     let mut matched = false;
+
+        //     for (patterns, body) in arms {
+        //         for pattern in patterns {
+        //             if pattern == &word_value {
+        //                 last_status = execute(body, env)?;
+        //                 matched = true;
+        //                 break;
+        //             }
+        //         }
+        //         if matched {
+        //             break;
+        //         }
+        //     }
+
+        //     env.set_last_status(last_status);
+        //     Ok(last_status)
+        // }
+        // AstNode::FunctionDef { name, body } => {
+        //     // Register function in environment
+        //     let func_name = word_to_string(name, env);
+        //     env.set_func(func_name, body.as_ref().clone());
+        //     env.set_last_status(0);
+        //     Ok(0)
+        // }
+        // AstNode::ArithmeticCommand(expr) => {
+        //     // Evaluate arithmetic expression
+        //     // For now, return 0 - full implementation would evaluate the expression
+        //     println!("[exec] ArithmeticCommand: {:?}", expr);
+        //     env.set_last_status(0);
+        //     Ok(0)
+        // }
     }
 }
 

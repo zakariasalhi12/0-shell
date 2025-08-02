@@ -41,8 +41,8 @@ lazy_static! {
         }
 
         //ls and cat
-        map.insert("ls".to_string(), "/home/yhajjaou/Desktop/0-shell/bin/ls".to_string());
-        map.insert("cat".to_string(), "/home/yhajjaou/Desktop/0-shell/bin/ls".to_string());
+        map.insert("ls".to_string(), "/home/aelhadda/0-shell/bin/ls".to_string());
+        map.insert("cat".to_string(), "/home/aelhadda/0-shell/bin/ls".to_string());
 
         // $0 (program name / shell binary)
         let mut args = env::args();
