@@ -5,14 +5,17 @@ use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_pipeline(&mut self) -> Result<Option<AstNode>, ShellError> {
-        let mut left = match self.parse_op()? {
+        let mut commands = Vec::new();
+
+        let first_command = match self.parse_op()? {
             Some(command) => command,
             None => return Ok(None),
         };
+        commands.push(first_command);
 
         while let Some(Token::Pipe) = self.current() {
             self.advance();
-            let right = match self.parse_op()? {
+            let next_command = match self.parse_op()? {
                 Some(command) => command,
                 None => {
                     return Err(ShellError::Parse(String::from(
@@ -20,8 +23,8 @@ impl Parser {
                     )));
                 }
             };
-            left = AstNode::Pipeline(vec![left, right]);
+            commands.push(next_command);
         }
-        Ok(Some(left))
+        Ok(Some(AstNode::Pipeline(commands)))
     }
 }
