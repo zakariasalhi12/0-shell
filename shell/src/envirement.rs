@@ -7,7 +7,7 @@ use crate::parser::types::AstNode;
 /// Represents the current shell environment.
 pub struct ShellEnv {
     /// Shell variables (like $PATH, $HOME)
-    pub variables: HashMap<String, String>,
+    pub variables: HashMap<String, (String, bool)>,
 
     /// Arithmetic variables used in $((...)) and `let`-style expressions
     pub arith_vars: HashMap<String, i64>,
@@ -32,7 +32,7 @@ impl ShellEnv {
     /// Create a new default shell environment.
     pub fn new() -> Self {
         let mut env = ShellEnv {
-            variables: std::env::vars().collect(),
+            variables: std::env::vars().map(|k, | (k.0,(k.1, true))).collect(),
             arith_vars: HashMap::new(),
             functions: HashMap::new(),
             jobs: HashMap::new(),
@@ -42,31 +42,32 @@ impl ShellEnv {
         };
 
         // Example default vars if missing
-        env.variables
-            .entry("PATH".to_string())
-            .or_insert_with(|| "/usr/bin:/bin".to_string());
+        // env.variables
+        //     .entry("PATH".to_string())
+        //     .or_insert_with(|| "/usr/bin:/bin".to_string());
         env
     }
 
     /// Set a shell variable
-    pub fn set_var(&mut self, key: &str, value: &str) {
-        self.variables.insert(key.to_string(), value.to_string());
+    pub fn set_local_var(&mut self, key: &str, value: &str) {
+        self.variables.insert(key.to_string(), (value.to_string(), false));
     }
+
+    pub fn set_env_var(&mut self, key: &str, value: &str) {
+        self.variables.insert(key.to_string(), (value.to_string(), true));
+    }
+
 
     /// Get a shell variable
-    pub fn get_var(&self, key: &str) -> Option<&String> {
-        self.variables.get(key)
+    pub fn get(&self, key: &str) -> Option<String> {
+        if let Some(value)= self.variables.get(key){
+            Some(value.0.clone())
+        }else{
+            Some("".to_string())
+        }
     }
 
-    /// Set an arithmetic variable
-    pub fn set_arith(&mut self, key: &str, value: i64) {
-        self.arith_vars.insert(key.to_string(), value);
-    }
-
-    /// Get an arithmetic variable
-    pub fn get_arith(&self, key: &str) -> Option<i64> {
-        self.arith_vars.get(key).cloned()
-    }
+    // pub fn get_env_
 
     /// Add a job and increment job ID
     pub fn add_job(&mut self, mut job: Job) -> usize {
