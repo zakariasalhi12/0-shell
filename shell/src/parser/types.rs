@@ -79,7 +79,7 @@ pub enum AstNode {
     Command {
         cmd: Word,
         args: Vec<Word>,
-        assignments: Vec<(String, Vec<WordPart>)>,
+        assignments: Vec<(String, Word)>,
         redirects: Vec<Redirect>,
     },
 

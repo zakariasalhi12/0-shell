@@ -4,6 +4,38 @@ pub struct Word {
     pub quote: QuoteType,
 }
 
+use crate::{envirement::ShellEnv};
+
+
+impl Word{
+    pub fn expand(&self, env: &ShellEnv) -> String {
+        let mut result = String::new();
+            for part in &self.parts{
+                match (part, self.quote){
+                    (WordPart::CommandSubstitution(expression), QuoteType::Double | QuoteType::None) =>{
+                        // Parser::new(lexer::tokenize::Tokenizer::new(&expression))
+                       if let Some(value) = env.get("0"){
+                            
+                        }
+                        
+
+                    },
+                    (WordPart::VariableSubstitution(var), QuoteType::Double | QuoteType::None) =>{
+                        if let Some(value) = env.get(&var){
+                            result.push_str(&value);
+                        }
+                    },
+                    (WordPart::ArithmeticSubstitution(expression), QuoteType::Double | QuoteType::None)=>{
+                    },
+                    _ =>{
+
+                    }
+                }
+            }
+    return  String::from("");
+}
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Word(Word),
@@ -30,7 +62,7 @@ pub enum Token {
     Eof,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum QuoteType {
     Single,
     Double,
