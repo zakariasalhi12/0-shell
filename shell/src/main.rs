@@ -7,12 +7,23 @@ use shell::exec::execute;
 // pub mod executer;
 // mod parser;
 use config::*;
-use shell::events_handler::Shell;
-use std::io::{self, Write};
+use shell::events_handler::{Shell, ShellMode};
+use std::{env, io::{self, Write}};
+
 fn main() {
-    let mut shell = match Shell::new() {
-        Ok(val) => val,
-        Err(_) => return,
+    let args: Vec<String> = std::env::args().collect();
+    let mode = if let Some(pos) = args.iter().position(|arg| arg == "-c") {
+        if let Some(cmd) = args.get(pos + 1) {
+            ShellMode::Command(cmd.clone())
+        } else {
+            eprintln!("error: -c needs a command string");
+            std::process::exit(1);
+        }
+    } else if atty::is(atty::Stream::Stdin) {
+        ShellMode::Interactive
+    } else {
+        ShellMode::NonInteractive
     };
-    shell.run();
+
+   
 }
