@@ -20,19 +20,28 @@ impl Word{
                         
 
                     },
+                    (WordPart::CommandSubstitution(word), QuoteType::Single) =>{
+                            result.push_str(&word);
+                    },
                     (WordPart::VariableSubstitution(var), QuoteType::Double | QuoteType::None) =>{
                         if let Some(value) = env.get(&var){
                             result.push_str(&value);
                         }
                     },
+                    (WordPart::VariableSubstitution(word), QuoteType::Single) =>{
+                            result.push_str(&word);
+                    },
                     (WordPart::ArithmeticSubstitution(expression), QuoteType::Double | QuoteType::None)=>{
                     },
-                    _ =>{
-
+                    (WordPart::ArithmeticSubstitution(word), QuoteType::Single) =>{
+                            result.push_str(&word);
+                    },
+                    (WordPart::Literal(word), _) =>{
+                       result.push_str(&word);
                     }
                 }
             }
-    return  String::from("");
+    return  result;
 }
 }
 
