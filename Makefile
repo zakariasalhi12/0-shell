@@ -19,5 +19,16 @@ $(LS_BIN):
 clean:
 	rm -f bin/*
 
-run:clean  all
+cargo-clean:
+	cargo clean --manifest-path=shell/Cargo.toml
+	cargo clean --manifest-path=cat/Cargo.toml
+	cargo clean --manifest-path=ls/Cargo.toml
+
+run: clean all
 	./$(SHELL_BIN)
+
+push: cargo-clean clean
+	@read -p "Enter commit message: " msg; \
+	git add .; \
+	git commit -m "$$msg"; \
+	git push

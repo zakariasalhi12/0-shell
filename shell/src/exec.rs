@@ -157,6 +157,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
         }
         AstNode::Pipeline(nodes) => {
+            println!("{}", nodes.len());
             if nodes.is_empty() {
                 return Ok(0);
             }
@@ -530,5 +531,5 @@ fn execute_command_with_stdio(
 }
 
 fn should_use_external_for_pipeline(cmd: &str) -> bool {
-    matches!(cmd, "ls" | "cat")
+    matches!(cmd, "ls" | "cat" | "grep")
 }
