@@ -1,11 +1,12 @@
 use crate::envirement::ShellEnv;
-use crate::exec::*;
 use crate::features::history;
 use crate::features::history::History;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
 use crate::{display_promt, promt_len};
-use std::io::*;
+use crate::{exec::*, parser};
+use std::{clone, io::*};
+use std::io::{self, BufRead};
 use std::{self};
 use termion::cursor::{DetectCursorPos, Left, Up};
 use termion::cursor::{Down, Goto, Right};
@@ -13,6 +14,14 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};
+
+
+#[derive(Clone)]
+pub enum ShellMode {
+    Interactive,
+    NonInteractive,
+    Command(String),
+}
 
 pub struct Shell {
     pub stdout: Option<RawTerminal<Stdout>>,
@@ -25,10 +34,11 @@ pub struct Shell {
     pub need_to_up: bool,
     pub free_lines: u16,
     pub env: ShellEnv,
+    pub mode: ShellMode,
 }
 
 impl Shell {
-    pub fn new() -> std::io::Result<Self> {
+    pub fn new(mode: ShellMode) -> std::io::Result<Self> {
         let stdout = match stdout().into_raw_mode() {
             Ok(raw) => Some(raw),
             Err(_) => {
@@ -48,6 +58,7 @@ impl Shell {
             need_to_up: false,
             free_lines: 0,
             env: ShellEnv::new(),
+            mode,
         })
     }
 
@@ -209,8 +220,17 @@ impl Shell {
     }
 
     pub fn run(&mut self) {
-        display_promt(&mut self.stdout);
+        match &self.mode {
+            ShellMode::Interactive => self.run_interactive_shell(),
+            ShellMode::NonInteractive =>{},
+            //  self.run_non_interactive_stdin()
+            ShellMode::Command(cmd) => {
+                // handle_command(&cmd);
+            }
+        }
+    }
 
+    pub fn run_interactive_shell(&mut self) {
         let stdin = &self.stdin;
 
         for key in stdin.keys() {
@@ -365,6 +385,41 @@ impl Shell {
                 _ => {}
             }
             // self.stdout.flush().unwrap();
+        }
+    }
+
+    pub fn run_non_interactive_stdin(&mut self, env : &mut ShellEnv) {
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.unwrap();
+            match Tokenizer::new(&line).tokenize() {
+                Ok(tokens) => match parser::Parser::new(tokens).parse() {
+                    Ok(ast) => {
+                        match ast {
+                            scoped_env: &ShellEnv = env
+                            Some(tree) =>{
+                                match execute(&tree, env)  {
+                                    Ok(status) =>{
+                                        self.env.last_status = status;
+                                    },
+                                    Err(err)=>{
+                                        eprintln!("{}", err);
+                                    }
+                                } 
+                            },
+                            None =>{
+                                // return;
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("{}", error,)
+                    }
+                },
+                Err(error) => {
+                    eprintln!("{}", error,)
+                }
+            }
         }
     }
 }
