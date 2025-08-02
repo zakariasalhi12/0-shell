@@ -20,6 +20,7 @@ use std::env;
 use std::io::Stdout;
 use std::path::PathBuf;
 use termion::raw::RawTerminal;
+use crate::events_handler::OutputTarget;
 
 use crate::events_handler::print_out;
 pub mod features {
@@ -69,7 +70,7 @@ pub fn get_current_directory() -> Result<String, String> {
     }
 }
 
-pub fn display_promt(stdout: &mut Option<RawTerminal<Stdout>>) {
+pub fn display_promt(stdout: &mut OutputTarget) {
     let current_directory: String = get_current_directory().unwrap();
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print_out(stdout, &format!("{}", prompt.to_ansi()));

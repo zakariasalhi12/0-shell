@@ -25,5 +25,6 @@ fn main() {
         ShellMode::NonInteractive
     };
 
+    events_handler::Shell::new(mode).run();
    
 }
