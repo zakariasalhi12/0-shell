@@ -3,6 +3,7 @@ pub mod events_handler;
 pub use parser::*;
 pub mod envirement;
 pub mod exec;
+pub mod redirection;
 pub mod commands {
     pub mod cat;
     pub mod cd;

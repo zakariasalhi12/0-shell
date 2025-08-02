@@ -1,4 +1,5 @@
 use crate::ShellCommand;
+use crate::redirection::setup_redirections_ownedfds;
 use nix::unistd::dup;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
 
@@ -20,7 +21,7 @@ use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
 
-fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
+pub fn word_to_string(word: &crate::lexer::types::Word, env: &ShellEnv) -> String {
     // Expand and join all parts (for now, just join literals)
     let mut result = String::new();
     for part in &word.parts {
@@ -76,82 +77,102 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     env.set_var(&ass.0, &value);
                 }
             }
-
+            let mut stdin_stdio: Option<OwnedFd> = None;
+            let mut stdout_stdio: Option<OwnedFd> = None;
+            let mut stderr_stdio: Option<OwnedFd> = None;
             // 3. Handle redirects (basic implementation)
             if !redirects.is_empty() {
                 // For now, just log redirects - full implementation would require file handling
+
+                match setup_redirections_ownedfds(redirects, env) {
+                    Ok(val) => (stdin_stdio, stdout_stdio, stderr_stdio) = val,
+                    Err(e) => return Err(e),
+                };
                 println!("[exec] Redirects: {:?}", redirects);
             }
 
             // 4. Check for built-in
             if !cmd_str.is_empty() {
+                execute_command_with_stdio(
+                    &cmd_str,
+                    &all_args,
+                    stdin_stdio,
+                    stdout_stdio,
+                    if let Some(er) = stderr_stdio {
+                        Stdio::from(er)
+                    } else {
+                        Stdio::inherit()
+                    },
+                    should_use_external_for_pipeline(&cmd_str),
+                )?;
+                Ok(0)
                 // Check if a function in envirement functions
-                if let Some(func) = env.get_func(&cmd_str) {
-                    let body = func.clone(); // <- Clone here
-                    let status = execute(&body, env)?; // <- Now safe to mutably borrow env
-                    env.set_last_status(status);
-                    return Ok(status);
-                }
+                // if let Some(func) = env.get_func(&cmd_str) {
+                //     let body = func.clone(); // <- Clone here
+                //     let status = execute(&body, env)?; // <- Now safe to mutably borrow env
+                //     env.set_last_status(status);
+                //     return Ok(status);
+                // }
 
-                let command = build_command(&cmd_str, arg_strs.clone(), opts, None);
-                match command {
-                    Some(val) => {
-                        let res = val.execute();
-                        match res {
-                            Ok(_) => {
-                                env.set_last_status(0);
-                                Ok(0)
-                            }
-                            Err(e) => {
-                                eprintln!("{e}");
-                                env.set_last_status(1);
-                                Ok(1)
-                            }
-                        }
-                    }
-                    None => {
-                        // 5. Try to run as external command
-                        let env_result = ENV.lock();
-                        if let Ok(mut env_map) = env_result {
-                            // Get the full path from your environment map
-                            if let Some(full_path) = env_map.get(&cmd_str) {
-                                println!("Found command at: {}", full_path);
+                // let command = build_command(&cmd_str, arg_strs.clone(), opts, None);
+                // match command {
+                //     Some(val) => {
+                //         let res = val.execute();
+                //         match res {
+                //             Ok(_) => {
+                //                 env.set_last_status(0);
+                //                 Ok(0)
+                //             }
+                //             Err(e) => {
+                //                 eprintln!("{e}");
+                //                 env.set_last_status(1);
+                //                 Ok(1)
+                //             }
+                //         }
+                //     }
+                //     None => {
+                //         // 5. Try to run as external command
+                //         let env_result = ENV.lock();
+                //         if let Ok(mut env_map) = env_result {
+                //             // Get the full path from your environment map
+                //             if let Some(full_path) = env_map.get(&cmd_str) {
+                //                 println!("Found command at: {}", full_path);
 
-                                // Use the full path instead of just the command name
-                                let mut child =
-                                    match ExternalCommand::new(full_path) // Use full_path here
-                                        .args(&all_args)
-                                        .stdin(Stdio::inherit())
-                                        .stdout(Stdio::inherit())
-                                        .stderr(Stdio::inherit())
-                                        .spawn()
-                                    {
-                                        Ok(child) => child,
-                                        Err(e) => {
-                                            eprintln!(
-                                                "{}: command failed to execute: {}",
-                                                full_path, e
-                                            );
-                                            env.set_last_status(127);
-                                            return Ok(127);
-                                        }
-                                    };
+                //                 // Use the full path instead of just the command name
+                //                 let mut child =
+                //                     match ExternalCommand::new(full_path) // Use full_path here
+                //                         .args(&all_args)
+                //                         .stdin(Stdio::inherit())
+                //                         .stdout(Stdio::inherit())
+                //                         .stderr(Stdio::inherit())
+                //                         .spawn()
+                //                     {
+                //                         Ok(child) => child,
+                //                         Err(e) => {
+                //                             eprintln!(
+                //                                 "{}: command failed to execute: {}",
+                //                                 full_path, e
+                //                             );
+                //                             env.set_last_status(127);
+                //                             return Ok(127);
+                //                         }
+                //                     };
 
-                                let status =
-                                    child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                                env.set_last_status(status);
-                                Ok(status)
-                            } else {
-                                // Command not found in your environment map
-                                eprintln!("{}: command not found", cmd_str);
-                                env.set_last_status(127);
-                                return Ok(127);
-                            }
-                        } else {
-                            return Err(ShellError::Exec(cmd_str));
-                        }
-                    }
-                }
+                //                 let status =
+                //                     child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                //                 env.set_last_status(status);
+                //                 Ok(status)
+                //             } else {
+                //                 // Command not found in your environment map
+                //                 eprintln!("{}: command not found", cmd_str);
+                //                 env.set_last_status(127);
+                //                 return Ok(127);
+                //             }
+                //         } else {
+                //             return Err(ShellError::Exec(cmd_str));
+                //         }
+                //     }
+                // }
             } else {
                 Ok(0)
             }
@@ -206,9 +227,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         stdin,
                         write_end,
                         stderr,
-                        i == 0,
-                        is_last,
-                        env,
                         use_external,
                     )?;
                     let pid = match child {
@@ -477,9 +495,6 @@ fn execute_command_with_stdio(
     stdin: Option<OwnedFd>,
     stdout: Option<OwnedFd>,
     stderr: Stdio,
-    _is_first: bool,
-    _is_last: bool,
-    env: &mut ShellEnv,
     use_external: bool,
 ) -> Result<CommandResult, ShellError> {
     if use_external {
