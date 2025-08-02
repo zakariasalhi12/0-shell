@@ -19,6 +19,7 @@ impl Parser {
             }
         }
 
+        
         let mut commands = Vec::new();
 
         loop {

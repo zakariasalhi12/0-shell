@@ -4,11 +4,13 @@ pub struct Word {
     pub quote: QuoteType,
 }
 
+use std::collections::HashMap;
+
 use crate::{envirement::ShellEnv};
 
 
 impl Word{
-    pub fn expand(&self, env: &ShellEnv) -> String {
+    pub fn expand(&self, env: &ShellEnv, scoped_env : &HashMap<String, String>) -> String {
         let mut result = String::new();
             for part in &self.parts{
                 match (part, self.quote){
@@ -24,7 +26,9 @@ impl Word{
                             result.push_str(&word);
                     },
                     (WordPart::VariableSubstitution(var), QuoteType::Double | QuoteType::None) =>{
-                        if let Some(value) = env.get(&var){
+                        if let Some(value) = scoped_env.get(var){
+                            result.push_str(&value);
+                        } else if let Some(value) = env.get(&var){
                             result.push_str(&value);
                         }
                     },
@@ -32,6 +36,7 @@ impl Word{
                             result.push_str(&word);
                     },
                     (WordPart::ArithmeticSubstitution(expression), QuoteType::Double | QuoteType::None)=>{
+                        
                     },
                     (WordPart::ArithmeticSubstitution(word), QuoteType::Single) =>{
                             result.push_str(&word);

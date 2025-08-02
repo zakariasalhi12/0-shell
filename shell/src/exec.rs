@@ -9,6 +9,7 @@ use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::lexer::types::Word;
 use crate::parser::types::*;
+use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::process::Child;
 use std::process::Command as ExternalCommand;
@@ -33,12 +34,13 @@ use std::process::Stdio;
 // }
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    let mut scoped_env :HashMap<String, String> = HashMap::new();
     match ast {
         AstNode::Command {cmd,args,assignments,redirects} => {
             // println!("{}", ast);
             // 1. Expand command and args
-            let cmd_str = cmd.expand(env);
-            let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
+            let cmd_str = cmd.expand(env, &scoped_env);
+            let all_args: Vec<String> = args.iter().map(|w| w.expand(env, &scoped_env)).collect();
 
             let opts: Vec<String> = all_args
                 .iter()
@@ -55,7 +57,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             // 2. Handle assignments
             if !assignments.is_empty() {
                 for ass in assignments.clone() {
-                   env.set_env_var(&ass.0, &ass.1.expand(&env));
+                   scoped_env.insert(ass.0, ass.1.expand(&env, &scoped_env));
                 }
             }
 
@@ -163,9 +165,9 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ..
                 } = node
                 {
-                    let cmd_str: String = cmd.expand(&env);
+                    let cmd_str: String = cmd.expand(&env, &scoped_env);
                     let all_args: Vec<String> =
-                        args.iter().map(|w| w.expand(env)).collect();
+                        args.iter().map(|w| w.expand(env, &scoped_env)).collect();
 
                     // Setup stdio for this command in the pipeline
                     let stdin = if is_first {
