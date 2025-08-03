@@ -82,9 +82,11 @@ impl ShellEnv {
         // positional arguments
         let args = env::args();
         for (i, arg) in args.enumerate() {
-            let key = format!("{}", i);
+            let key: String = format!("{}", i);
+            println!("key: {}, value: {}", key, arg);
             variables.insert(key, (arg, true));
         }
+
 
         return Self {
             variables: std::env::vars().map(|k| (k.0, (k.1, true))).collect(),
@@ -115,6 +117,7 @@ impl ShellEnv {
 
     /// Get a shell variable
     pub fn get(&self, key: &str) -> Option<String> {
+        println!("get: {}", key);
         if let Some(value) = self.variables.get(key) {
             Some(value.0.clone())
         } else {
