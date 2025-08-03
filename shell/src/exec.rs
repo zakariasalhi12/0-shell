@@ -1,6 +1,6 @@
+use crate::PathBuf;
 use crate::ShellCommand;
 use crate::builtins::try_builtin;
-use crate::PathBuf;
 use crate::commands::{
     cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
     rm::Rm,
@@ -35,7 +35,6 @@ use std::process::Stdio;
 // }
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
-    let mut scoped_env: HashMap<String, String> = HashMap::new();
     match ast {
         AstNode::Command {
             cmd,
@@ -43,7 +42,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            // println!("{}", ast);
             // 1. Expand command and args
             let mut all_args: Vec<String> = vec![];
             let mut expanded_command = expand_and_split(cmd, env);
@@ -71,86 +69,74 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 .cloned()
                 .collect();
 
-            // 2. Handle assignments
-            if !assignments.is_empty() {
-                for ass in assignments.clone() {
-                    scoped_env.insert(ass.0, ass.1.expand(&env));
-                }
-            }
-
             // 3. Handle redirects (basic implementation)
             if !redirects.is_empty() {
-                // For now, just log redirects - full implementation would require file handling
                 println!("[exec] Redirects: {:?}", redirects);
             }
 
-            // 4. Check for built-in
             if !cmd_str.is_empty() {
-                // Check if a function in envirement functions
-                if let Some(func) = env.get_func(&cmd_str) {
-                    let body = func.clone(); // <- Clone here
-                    let status = execute(&body, env)?; // <- Now safe to mutably borrow env
-                    env.set_last_status(status);
-                    return Ok(status);
-                }
+                match get_command_type(cmd.expand(env).as_str(), env) {
+                    CommandType::Function(func) => {
+                        let status = execute(&func, env)?;
+                        env.set_last_status(status);
+                        return Ok(status);
+                    }
 
-                let command = build_command(&cmd_str, arg_strs.clone(), opts);
-                match command {
-                    Some(val) => {
-                        let res = val.execute(env);
-                        match res {
-                            Ok(_) => {
-                                env.set_last_status(0);
-                                Ok(0)
+                    CommandType::Builtin => {
+                        if let Some(command) = build_command(&cmd_str, arg_strs.clone(), opts) {
+                            match command.execute(env) {
+                                Ok(_) => {
+                                    env.set_last_status(0);
+                                    return Ok(0);
+                                }
+                                Err(e) => {
+                                    eprintln!("{e}");
+                                    env.set_last_status(1);
+                                    return Ok(1);
+                                }
                             }
-                            Err(e) => {
-                                eprintln!("{e}");
-                                env.set_last_status(1);
-                                Ok(1)
-                            }
+                        } else {
+                            return Ok(0);
                         }
                     }
-                    None => {
-                        // 5. Try to run as external command
-                            // Get the full path from your environment map
-                            if let Some(full_path) = env.get(&cmd_str) {
-                                println!("Found command at: {}", full_path);
 
-                                // Use the full path instead of just the command name
-                                let mut child =
-                                    match ExternalCommand::new(full_path.clone()) // Use full_path here
-                                        .args(&all_args)
-                                        // .envs()
-                                        .stdin(Stdio::inherit())
-                                        .stdout(Stdio::inherit())
-                                        .stderr(Stdio::inherit())
-                                        .spawn()
-                                    {
-                                        Ok(child) => child,
-                                        Err(e) => {
-                                            eprintln!(
-                                                "{}: command failed to execute: {}",
-                                                full_path, e);
-                                            env.set_last_status(127);
-                                            return Ok(127);
-                                        }
-                                    };
-
-                                let status =
-                                    child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                                env.set_last_status(status);
-                                Ok(status)
-                            } else {
-                                // Command not found in your environment map
-                                eprintln!("{}: command not found", cmd_str);
+                    CommandType::External(path) => {
+                        let mut envs = env.get_environment_only();
+                        for ass in assignments.clone() {
+                            envs.insert(ass.0, ass.1.expand(&env));
+                        }
+                        let mut child = match ExternalCommand::new(path.clone())
+                            .args(&all_args)
+                            .envs(envs)
+                            .stdin(Stdio::inherit())
+                            .stdout(Stdio::inherit())
+                            .stderr(Stdio::inherit())
+                            .spawn()
+                        {
+                            Ok(child) => child,
+                            Err(e) => {
+                                eprintln!("{}: command failed to execute: {}", path, e);
                                 env.set_last_status(127);
                                 return Ok(127);
                             }
-                        
+                        };
+
+                        let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+                        env.set_last_status(status);
+                        Ok(status)
+                    }
+                    CommandType::Undefined => {
+                        Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
                     }
                 }
             } else {
-                Ok(0)
+                if !assignments.is_empty() {
+                    for ass in assignments {
+                        env.set_local_var(&ass.0, &ass.1.expand(&env));
+                    }
+                    return Ok(0);
+                }
+                return Ok(0);
             }
         }
         AstNode::Pipeline(nodes) => {
@@ -479,23 +465,23 @@ fn execute_command_with_stdio(
     env: &mut ShellEnv,
     use_external: bool,
 ) -> Result<Child, ShellError> {
-        if let Some(full_path) = env.get(cmd_str) {
-            let child = match ExternalCommand::new(full_path)
-                .args(args)
-                .stdin(stdin)
-                .stdout(stdout)
-                .stderr(stderr)
-                .spawn()
-                .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)))
-            {
-                Ok(val) => val,
-                Err(e) => {
-                    println!("{:?}", e);
-                    return Err(e);
-                }
-            };
-            return Ok(child);
-        }
+    if let Some(full_path) = env.get(cmd_str) {
+        let child = match ExternalCommand::new(full_path)
+            .args(args)
+            .stdin(stdin)
+            .stdout(stdout)
+            .stderr(stderr)
+            .spawn()
+            .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)))
+        {
+            Ok(val) => val,
+            Err(e) => {
+                println!("{:?}", e);
+                return Err(e);
+            }
+        };
+        return Ok(child);
+    }
     return Err(ShellError::Exec(format!(
         "External command not found: {}",
         cmd_str
@@ -537,34 +523,29 @@ pub enum CommandType {
     Undefined,
 }
 
-
 pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     if let Some(func) = env.get_func(&cmd) {
         return CommandType::Function(func.clone());
     }
 
     match cmd {
-        "echo" => CommandType::Builtin,
-        "cd" => CommandType::Builtin,
-        "pwd" => CommandType::Builtin,
-        "cat" => CommandType::Builtin,
-        "cp" => CommandType::Builtin,
-        "rm" => CommandType::Builtin,
-        "mv" => CommandType::Builtin,
-        "mkdir" => CommandType::Builtin,
-        "export" => CommandType::Builtin,
-        "exit" => CommandType::Builtin,
-        _ => {
-            if let Some(bin_path) = env.get("PATH") {
-        let path = PathBuf::from(bin_path);
-        let full_path = path.join(cmd);
-        if full_path.exists() {
-            return CommandType::External(full_path.to_string_lossy().to_string());
-        }else{
-            return  CommandType::Undefined;
+        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" => {
+            CommandType::Builtin
         }
+        _ => match env.get("PATH") {
+            Some(bin_path) => {
+                let paths: Vec<&str> = bin_path.split(':').collect();
+                for path in paths {
+                    let path = PathBuf::from(path);
+                    let full_path = path.join(cmd);
+                    if full_path.exists() {
+                        println!("match: {}\r", full_path.to_string_lossy());
+                        return CommandType::External(full_path.to_string_lossy().to_string());
+                    }
+                }
+                return CommandType::Undefined;
+            }
+            None => return CommandType::Undefined,
+        },
     }
-    CommandType::Undefined
-    }
-}
 }
