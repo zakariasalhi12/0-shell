@@ -26,13 +26,12 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, ' ' | '\t' | '\n') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                         buffer.clear();
                     }
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote: QuoteType::None,
                         }));
                         parts.clear();
                     }
@@ -44,7 +43,7 @@ impl<'a> Tokenizer<'a> {
                 (State::InDoubleQuote | State::Default | State::InWord, '$') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                         buffer.clear();
                     }
                     if let Some(c) = self.chars.peek() {
@@ -147,37 +146,31 @@ impl<'a> Tokenizer<'a> {
                     tokens.push(Token::CloseParen);
                     state = State::Default;
                 }
-
-                (State::InWord, '"') | (State::Default, '"') => {
+                (State::Default, '"') => {
                     self.chars.next();
-                    if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
-                        buffer.clear();
-                    }
-                    if !parts.is_empty() {
-                        tokens.push(Token::Word(Word {
-                            parts: parts.clone(),
-                            quote: QuoteType::None,
-                        }));
-                        parts.clear();
-                    }
                     state = State::InDoubleQuote;
                 }
-                (State::InWord, '\'') | (State::Default, '\'') => {
+
+                (State::InWord, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::Double)));
                         buffer.clear();
                     }
-                    if !parts.is_empty() {
-                        tokens.push(Token::Word(Word {
-                            parts: parts.clone(),
-                            quote: QuoteType::None,
-                        }));
-                        parts.clear();
-                    }
+                }
+
+                (State::Default, '\'') => {
+                    self.chars.next();
                     state = State::InSingleQuote;
                 }
+                (State::InWord, '\'') => {
+                    self.chars.next();
+                    if !buffer.is_empty() {
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::Single)));
+                        buffer.clear();
+                    }
+                }
+
                 (State::Default, '#') => {
                     self.chars.next();
                     while let Some(c) = self.chars.next() {
@@ -250,13 +243,12 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, ';') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                         buffer.clear();
                     }
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote: QuoteType::None,
                         }));
                         parts.clear();
                     }
@@ -268,15 +260,17 @@ impl<'a> Tokenizer<'a> {
                     buffer.push(c);
                     state = State::InWord;
                 }
-                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&'  | '(' | ')') => {
+                (
+                    State::InWord,
+                    ' ' | '\t' | '\n' | '|' | ';' | '&' | '!' | '(' | ')' ,
+                ) => {
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                         buffer.clear();
                     }
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote: QuoteType::None,
                         }));
                         parts.clear();
                     }
@@ -284,19 +278,18 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::InWord, '>') => {
                     self.chars.next();
-                    if !buffer.is_empty() && buffer.chars().all(|ch| ch.is_ascii_digit()){
+                    if !buffer.is_empty() && buffer.chars().all(|ch| ch.is_ascii_digit()) {
                         match buffer.parse::<u64>() {
                             Ok(fd_num) => {
                                 buffer.clear();
                                 state = State::MaybeRedirectOut2Fd(fd_num);
                             }
                             Err(_) => {
-                                parts.push(WordPart::Literal(buffer.clone()));
+                                parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                                 buffer.clear();
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
-                                        quote: QuoteType::None,
                                     }));
                                     parts.clear();
                                 }
@@ -305,13 +298,12 @@ impl<'a> Tokenizer<'a> {
                         }
                     } else {
                         if !buffer.is_empty() {
-                            parts.push(WordPart::Literal(buffer.clone()));
+                            parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                             buffer.clear();
                         }
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
-                                quote: QuoteType::None,
                             }));
                             parts.clear();
                         }
@@ -327,12 +319,11 @@ impl<'a> Tokenizer<'a> {
                                 state = State::MaybeRedirectIn2Fd(fd_num);
                             }
                             Err(_) => {
-                                parts.push(WordPart::Literal(buffer.clone()));
+                                parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                                 buffer.clear();
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
-                                        quote: QuoteType::None,
                                     }));
                                     parts.clear();
                                 }
@@ -341,13 +332,12 @@ impl<'a> Tokenizer<'a> {
                         }
                     } else {
                         if !buffer.is_empty() {
-                            parts.push(WordPart::Literal(buffer.clone()));
+                            parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                             buffer.clear();
                         }
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
-                                quote: QuoteType::None,
                             }));
                             parts.clear();
                         }
@@ -361,12 +351,11 @@ impl<'a> Tokenizer<'a> {
                 (State::InDoubleQuote, '"') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::Double)));
                         buffer.clear();
                     }
                     tokens.push(Token::Word(Word {
                         parts: parts.clone(),
-                        quote: QuoteType::Double,
                     }));
                     parts.clear();
                     state = State::InWord;
@@ -384,14 +373,9 @@ impl<'a> Tokenizer<'a> {
                 (State::InSingleQuote, '\'') => {
                     self.chars.next();
                     if !buffer.is_empty() {
-                        parts.push(WordPart::Literal(buffer.clone()));
+                        parts.push(WordPart::Literal((buffer.clone(), QuoteType::None)));
                         buffer.clear();
                     }
-                    tokens.push(Token::Word(Word {
-                        parts: parts.clone(),
-                        quote: QuoteType::Single,
-                    }));
-                    parts.clear();
                     state = State::InWord;
                 }
                 (State::InSingleQuote, c) => {
@@ -432,14 +416,11 @@ impl<'a> Tokenizer<'a> {
         }
 
         if !buffer.is_empty() {
-            parts.push(WordPart::Literal(buffer));
+            parts.push(WordPart::Literal((buffer, QuoteType::None)));
             // state = State::Default;
         }
         if !parts.is_empty() {
-            tokens.push(Token::Word(Word {
-                parts,
-                quote: QuoteType::None,
-            }));
+            tokens.push(Token::Word(Word { parts }));
         }
 
         match state {
@@ -459,6 +440,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
+        // println!("{:?}", tokens);
         Ok(tokens)
     }
 
