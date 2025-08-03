@@ -30,7 +30,7 @@ impl Parser {
         self.pos = current_pos;
 
         let cmd_word = match self.current() {
-            Some(Token::Word(word)) => {
+            Some(Token::Word(word )) => {
                 let word = (*word).clone();
                 self.advance();
                 word
@@ -40,7 +40,6 @@ impl Parser {
                 if !assignments.is_empty() {
                     Word {
                         parts: vec![],
-                        quote: QuoteType::None,
                     }
                 } else {
                     return Ok(None);
@@ -77,8 +76,7 @@ impl Parser {
                 Token::LogicalNot => {
                     if cmd_word.parts.len() != 0 {
                         args.push(Word {
-                            parts: vec![WordPart::Literal(String::from("!"))],
-                            quote: QuoteType::None,
+                            parts: vec![WordPart::Literal((String::from("!"), QuoteType::None))],
                         });
                         self.advance();
                     }else{

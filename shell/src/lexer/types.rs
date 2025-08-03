@@ -3,7 +3,6 @@ use std::process::Stdio;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Word {
     pub parts: Vec<WordPart>,
-    pub quote: QuoteType,
 }
 
 use crate::envirement::ShellEnv;
@@ -12,11 +11,7 @@ impl Word {
     pub fn expand(&self, env: &ShellEnv) -> String {
         let mut result = String::new();
         for part in &self.parts {
-            match (part, self.quote) {
-                (
-                    WordPart::CommandSubstitution(expression),
-                    QuoteType::Double | QuoteType::None,
-                ) => {
+            match part { WordPart::CommandSubstitution(expression) => {
                     // if let Some(shell_path) = env.get("0") {
                     // println!("shell path: {}", shell_path);
                     let command = Command::new("./bin/0shell")
@@ -45,26 +40,29 @@ impl Word {
 
                     // }
                 }
-                (WordPart::CommandSubstitution(word), QuoteType::Single) => {
-                    result.push_str(&word);
-                }
-                (WordPart::VariableSubstitution(var), QuoteType::Double | QuoteType::None) => {
+                
+                (WordPart::VariableSubstitution(var)) => {
                     if let Some(value) = env.get(&var) {
                         result.push_str(&value);
                     }
                 }
-                (WordPart::VariableSubstitution(word), QuoteType::Single) => {
+               
+                (WordPart::ArithmeticSubstitution(word)) => {
                     result.push_str(&word);
                 }
-                (
-                    WordPart::ArithmeticSubstitution(expression),
-                    QuoteType::Double | QuoteType::None,
-                ) => {}
-                (WordPart::ArithmeticSubstitution(word), QuoteType::Single) => {
-                    result.push_str(&word);
-                }
-                (WordPart::Literal(word), _) => {
-                    result.push_str(&word);
+                (WordPart::Literal(word)) => {
+                    match word.1 {
+                        QuoteType::Double => {
+                            result.push_str(&word.0);
+                        }
+                        QuoteType::Single => {
+                            result.push_str(&word.0);
+                        }
+                        QuoteType::None => {
+                            result.push_str(&word.0);
+                        }
+                        
+                    }
                 }
             }
         }
@@ -107,7 +105,7 @@ pub enum QuoteType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WordPart {
-    Literal(String),
+    Literal((String, QuoteType)),
     VariableSubstitution(String),   // $USER
     ArithmeticSubstitution(String), // $((1 + 2))
     CommandSubstitution(String),    // $(whoami)
