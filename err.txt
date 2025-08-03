@@ -1,0 +1,14 @@
+Dockerfile
+Makefile
+PROJECT_INDEX.md
+README.md
+bin
+cat
+err.txt
+install-docker-rootless.zsh
+ls
+me.todo
+shell
+strace.txt
+target
+ttt.txt

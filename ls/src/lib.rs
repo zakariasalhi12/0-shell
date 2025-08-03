@@ -1,10 +1,12 @@
 // use crate::ShellCommand;
+use std::fs::read_link;
 use std::fs::{FileType, Metadata};
 use std::fs::{read_dir, symlink_metadata};
 use std::io::Error;
 use std::io::{ErrorKind, Result};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
+
 use std::path::Path;
 use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
@@ -72,13 +74,13 @@ impl Ls {
         };
 
         if self.format {
-            self.format_long_entry(&entry.metadata, &display_name)
+            self.format_long_entry(&entry.metadata, &display_name, &entry.path)
         } else {
             format!("{}\r", display_name)
         }
     }
 
-    fn format_long_entry(&self, meta: &Metadata, name: &str) -> String {
+    fn format_long_entry(&self, meta: &Metadata, name: &str, path: &Path) -> String {
         let mode = meta.permissions().mode();
         let file_type = meta.file_type();
         let perm = build_perm_string(mode, &file_type);
@@ -102,6 +104,14 @@ impl Ls {
             .map(|g| g.name().to_string_lossy().to_string())
             .unwrap_or(gid.to_string());
 
+        let mut display_name = name.to_string();
+
+        if file_type.is_symlink() {
+            if let Ok(target) = read_link(path) {
+                display_name = format!("{} -> {}", display_name, target.display());
+            }
+        }
+
         format!(
             "{} {} {} {} {:>5} {} {}\r",
             file_type_char(&file_type) + &perm,
@@ -110,7 +120,7 @@ impl Ls {
             group,
             size,
             datetime,
-            name
+            display_name
         )
     }
 
