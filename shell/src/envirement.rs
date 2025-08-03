@@ -85,7 +85,6 @@ impl ShellEnv {
         let args = env::args();
         for (i, arg) in args.enumerate() {
             let key: String = format!("{}", i);
-            println!("key: {}, value: {}", key, arg);
             variables.insert(key, (arg, true));
         }
 
