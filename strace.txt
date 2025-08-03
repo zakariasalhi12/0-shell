@@ -1,0 +1,8 @@
+rm -f bin/*
+cargo build --release --manifest-path=shell/Cargo.toml
+cp shell/target/release/shell bin/0shell
+cargo build --release --manifest-path=cat/Cargo.toml
+cp cat/target/release/cat bin/cat
+cargo build --release --manifest-path=ls/Cargo.toml
+cp ls/target/release/ls bin/ls
+./bin/0shell

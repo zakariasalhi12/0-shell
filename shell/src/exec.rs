@@ -76,7 +76,14 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     fds_map.as_ref(),
                     should_use_external_for_pipeline(&cmd_str),
                 )?;
-                Ok(0)
+                let pid = match child {
+                    CommandResult::Child(mut val) => {
+                        val.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
+                    }
+                    CommandResult::Builtin => 0,
+                };
+
+                Ok(pid)
             } else {
                 Ok(0)
             }
