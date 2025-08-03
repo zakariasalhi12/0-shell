@@ -1,17 +1,13 @@
 use crate::PathBuf;
 use crate::ShellCommand;
-use crate::builtins::try_builtin;
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, typ::Type,
     rm::Rm,
 };
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::expansion::expand_and_split;
-use crate::lexer::types::Word;
 use crate::parser::types::*;
-use std::collections::HashMap;
-use std::io::{self, Read, Write};
 use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
@@ -449,6 +445,7 @@ pub fn build_command(
         "mv" => Some(Box::new(Mv::new(args))),
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
+        "type" => Some(Box::new(Type::new(args))),
         "exit" => {
             std::process::exit(0);
         }
@@ -529,7 +526,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" => {
+        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
             CommandType::Builtin
         }
         _ => match env.get("PATH") {
@@ -539,7 +536,6 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
                     let path = PathBuf::from(path);
                     let full_path = path.join(cmd);
                     if full_path.exists() {
-                        println!("match: {}\r", full_path.to_string_lossy());
                         return CommandType::External(full_path.to_string_lossy().to_string());
                     }
                 }

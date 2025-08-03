@@ -489,7 +489,9 @@ pub fn Parse_input(buffer: &str, mut env: &mut ShellEnv) {
             Ok(ast) => match ast {
                 Some(ast) => {
                     match execute(&ast, &mut env){
-                        Ok(status) => println!("[exit code: {}]\r", status),
+                        Ok(status) => {
+                            print!("\r");
+                        },
                         Err(e) => eprintln!("{e}\r"),
                     }
                 }

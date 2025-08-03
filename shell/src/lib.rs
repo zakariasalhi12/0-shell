@@ -14,6 +14,7 @@ pub mod commands {
     pub mod mv;
     pub mod pwd;
     pub mod rm;
+    pub mod typ;
 }
 use envirement as v;
 use std::env;
