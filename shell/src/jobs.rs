@@ -9,7 +9,7 @@ pub enum JobStatus {
     Done,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
     pub id: usize,                        // shell job ID, e.g., 1 for %1
     pub pgid: Option<u32>,               // process group ID
