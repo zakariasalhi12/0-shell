@@ -1,5 +1,6 @@
 use crate::ShellCommand;
 use crate::builtins::try_builtin;
+use crate::PathBuf;
 use crate::commands::{
     cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
     rm::Rm,
@@ -527,4 +528,43 @@ fn detect_fd_type(fd: i32) -> &'static str {
         }
         _ => "Other",
     }
+}
+
+pub enum CommandType {
+    Builtin,
+    External(String),
+    Function(AstNode),
+    Undefined,
+}
+
+
+pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
+    if let Some(func) = env.get_func(&cmd) {
+        return CommandType::Function(func.clone());
+    }
+
+    match cmd {
+        "echo" => CommandType::Builtin,
+        "cd" => CommandType::Builtin,
+        "pwd" => CommandType::Builtin,
+        "cat" => CommandType::Builtin,
+        "cp" => CommandType::Builtin,
+        "rm" => CommandType::Builtin,
+        "mv" => CommandType::Builtin,
+        "mkdir" => CommandType::Builtin,
+        "export" => CommandType::Builtin,
+        "exit" => CommandType::Builtin,
+        _ => {
+            if let Some(bin_path) = env.get("PATH") {
+        let path = PathBuf::from(bin_path);
+        let full_path = path.join(cmd);
+        if full_path.exists() {
+            return CommandType::External(full_path.to_string_lossy().to_string());
+        }else{
+            return  CommandType::Undefined;
+        }
+    }
+    CommandType::Undefined
+    }
+}
 }
