@@ -1,6 +1,7 @@
 use std::io::{Error};
 
 use crate::{ShellCommand};
+use crate::envirement::ShellEnv;
 pub struct Echo {
     args: Vec<String>,
 }
@@ -66,7 +67,7 @@ impl Echo {
 }
 
 impl ShellCommand for Echo {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         let text = match self.format_input() {
             Some(val) => val,
             None => {

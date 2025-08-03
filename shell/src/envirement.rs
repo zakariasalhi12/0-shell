@@ -4,6 +4,20 @@ use std::time::SystemTime;
 use crate::jobs::Job;
 use crate::parser::types::AstNode;
 
+use dirs::home_dir;
+use lazy_static::lazy_static;
+use std::fs::read_to_string;
+use std::{env, sync::Mutex};
+use whoami;
+
+fn get_user_shell(username: &str) -> Option<String> {
+    read_to_string("/etc/passwd")
+        .ok()?
+        .lines()
+        .find(|line| line.starts_with(&format!("{}:", username)))
+        .and_then(|line| line.split(':').nth(6).map(String::from))
+}
+
 /// Represents the current shell environment.
 pub struct ShellEnv {
     /// Shell variables (like $PATH, $HOME)
@@ -30,9 +44,50 @@ pub struct ShellEnv {
 
 impl ShellEnv {
     /// Create a new default shell environment.
+
     pub fn new() -> Self {
-        let mut env = ShellEnv {
-            variables: std::env::vars().map(|k, | (k.0,(k.1, true))).collect(),
+        let mut variables: HashMap<String, (String, bool)> = HashMap::new();
+
+        // inherited env vars
+        for env_var in std::env::vars() {
+            variables.insert(env_var.0, (env_var.1, true));
+        }
+
+        let username = whoami::username();
+        variables.insert("USER".to_string(), (username.clone(), true));
+
+        // HOME and ~
+        let home = home_dir()
+            .map(|p| (p.to_string_lossy().into_owned(), true))
+            .or_else(|| env::var("HOME").ok().map(|p| (p, true)))
+            .unwrap_or_else(|| ("/".to_string(), true));
+
+        variables.insert("HOME".to_string(), home.clone());
+        variables.insert("~".to_string(), home);
+
+        // SHELL
+        let shell = get_user_shell(&username).unwrap_or_default();
+        variables.insert("SHELL".to_string(), (shell, true));
+
+        // PWD (current directory)
+        if let Ok(current_dir) = env::current_dir() {
+            variables.insert(
+                "PWD".to_string(),
+                (current_dir.to_string_lossy().into_owned(), true),
+            );
+        } else {
+            eprintln!("Failed to get current working directory\r");
+        }
+
+        // positional arguments
+        let args = env::args();
+        for (i, arg) in args.enumerate() {
+            let key = format!("{}", i);
+            variables.insert(key, (arg, true));
+        }
+
+        return Self {
+            variables: std::env::vars().map(|k| (k.0, (k.1, true))).collect(),
             arith_vars: HashMap::new(),
             functions: HashMap::new(),
             jobs: HashMap::new(),
@@ -45,24 +100,24 @@ impl ShellEnv {
         // env.variables
         //     .entry("PATH".to_string())
         //     .or_insert_with(|| "/usr/bin:/bin".to_string());
-        env
     }
 
     /// Set a shell variable
     pub fn set_local_var(&mut self, key: &str, value: &str) {
-        self.variables.insert(key.to_string(), (value.to_string(), false));
+        self.variables
+            .insert(key.to_string(), (value.to_string(), false));
     }
 
     pub fn set_env_var(&mut self, key: &str, value: &str) {
-        self.variables.insert(key.to_string(), (value.to_string(), true));
+        self.variables
+            .insert(key.to_string(), (value.to_string(), true));
     }
-
 
     /// Get a shell variable
     pub fn get(&self, key: &str) -> Option<String> {
-        if let Some(value)= self.variables.get(key){
+        if let Some(value) = self.variables.get(key) {
             Some(value.0.clone())
-        }else{
+        } else {
             Some("".to_string())
         }
     }

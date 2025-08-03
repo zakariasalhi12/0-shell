@@ -126,6 +126,8 @@ pub enum AstNode {
     ArithmeticCommand(ArithmeticExpr),
 }
 
+
+
 impl fmt::Display for AstNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_with_indent(f, 0)
