@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::ShellCommand;
+use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Rm {
@@ -38,7 +39,7 @@ fn delete_recursive(path: &Path) -> std::io::Result<()> {
 }
 
 impl ShellCommand for Rm {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         if self.args.is_empty() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,

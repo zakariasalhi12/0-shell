@@ -173,11 +173,11 @@ impl Ls {
         if !self.valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
         }
-        // println!("{:?}", self);
+        
         let targets = if self.folders.is_empty() {
             vec![".".to_string()]
         } else {
-            self.args.clone()
+            self.folders.clone()
         };
 
         for target in targets {

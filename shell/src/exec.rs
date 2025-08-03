@@ -4,9 +4,9 @@ use crate::commands::{
     cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
     rm::Rm,
 };
-use crate::config::ENV;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
+use crate::expansion::expand_and_split;
 use crate::lexer::types::Word;
 use crate::parser::types::*;
 use std::collections::HashMap;
@@ -34,13 +34,29 @@ use std::process::Stdio;
 // }
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
-    let mut scoped_env :HashMap<String, String> = HashMap::new();
+    let mut scoped_env: HashMap<String, String> = HashMap::new();
     match ast {
-        AstNode::Command {cmd,args,assignments,redirects} => {
+        AstNode::Command {
+            cmd,
+            args,
+            assignments,
+            redirects,
+        } => {
             // println!("{}", ast);
             // 1. Expand command and args
-            let cmd_str = cmd.expand(env, &scoped_env);
-            let all_args: Vec<String> = args.iter().map(|w| w.expand(env, &scoped_env)).collect();
+            let mut all_args: Vec<String> = vec![];
+            let mut expanded_command = expand_and_split(cmd, env);
+            let cmd_str = if expanded_command.len() >= 1 {
+                expanded_command.remove(0)
+            } else {
+                "".to_string()
+            };
+            all_args.extend(expanded_command);
+
+            for arg in args {
+                let expanded_args = expand_and_split(arg, env);
+                all_args.extend(expanded_args);
+            }
 
             let opts: Vec<String> = all_args
                 .iter()
@@ -57,7 +73,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             // 2. Handle assignments
             if !assignments.is_empty() {
                 for ass in assignments.clone() {
-                   scoped_env.insert(ass.0, ass.1.expand(&env, &scoped_env));
+                    scoped_env.insert(ass.0, ass.1.expand(&env));
                 }
             }
 
@@ -80,7 +96,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 let command = build_command(&cmd_str, arg_strs.clone(), opts);
                 match command {
                     Some(val) => {
-                        let res = val.execute();
+                        let res = val.execute(env);
                         match res {
                             Ok(_) => {
                                 env.set_last_status(0);
@@ -95,16 +111,15 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     }
                     None => {
                         // 5. Try to run as external command
-                        let env_result = ENV.lock();
-                        if let Ok(mut env_map) = env_result {
                             // Get the full path from your environment map
-                            if let Some(full_path) = env_map.get(&cmd_str) {
+                            if let Some(full_path) = env.get(&cmd_str) {
                                 println!("Found command at: {}", full_path);
 
                                 // Use the full path instead of just the command name
                                 let mut child =
-                                    match ExternalCommand::new(full_path) // Use full_path here
+                                    match ExternalCommand::new(full_path.clone()) // Use full_path here
                                         .args(&all_args)
+                                        // .envs()
                                         .stdin(Stdio::inherit())
                                         .stdout(Stdio::inherit())
                                         .stderr(Stdio::inherit())
@@ -114,8 +129,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                                         Err(e) => {
                                             eprintln!(
                                                 "{}: command failed to execute: {}",
-                                                full_path, e
-                                            );
+                                                full_path, e);
                                             env.set_last_status(127);
                                             return Ok(127);
                                         }
@@ -131,9 +145,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                                 env.set_last_status(127);
                                 return Ok(127);
                             }
-                        } else {
-                            return Err(ShellError::Exec(cmd_str));
-                        }
+                        
                     }
                 }
             } else {
@@ -165,9 +177,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ..
                 } = node
                 {
-                    let cmd_str: String = cmd.expand(&env, &scoped_env);
-                    let all_args: Vec<String> =
-                        args.iter().map(|w| w.expand(env, &scoped_env)).collect();
+                    let cmd_str: String = cmd.expand(&env);
+                    let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
 
                     // Setup stdio for this command in the pipeline
                     let stdin = if is_first {
@@ -389,52 +400,49 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
             env.set_last_status(last_status);
             Ok(last_status)
-        },
-        _ =>{
-            Ok(0)
         }
-        // AstNode::Case { word, arms } => {
-        //     // Execute case statement
-        //     let word_value = word_to_string(
-        //         &Word {
-        //             parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
-        //             quote: crate::lexer::types::QuoteType::None,
-        //         },
-        //         env,
-        //     );
-        //     let mut last_status = 0;
-        //     let mut matched = false;
+        _ => Ok(0), // AstNode::Case { word, arms } => {
+                    //     // Execute case statement
+                    //     let word_value = word_to_string(
+                    //         &Word {
+                    //             parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
+                    //             quote: crate::lexer::types::QuoteType::None,
+                    //         },
+                    //         env,
+                    //     );
+                    //     let mut last_status = 0;
+                    //     let mut matched = false;
 
-        //     for (patterns, body) in arms {
-        //         for pattern in patterns {
-        //             if pattern == &word_value {
-        //                 last_status = execute(body, env)?;
-        //                 matched = true;
-        //                 break;
-        //             }
-        //         }
-        //         if matched {
-        //             break;
-        //         }
-        //     }
+                    //     for (patterns, body) in arms {
+                    //         for pattern in patterns {
+                    //             if pattern == &word_value {
+                    //                 last_status = execute(body, env)?;
+                    //                 matched = true;
+                    //                 break;
+                    //             }
+                    //         }
+                    //         if matched {
+                    //             break;
+                    //         }
+                    //     }
 
-        //     env.set_last_status(last_status);
-        //     Ok(last_status)
-        // }
-        // AstNode::FunctionDef { name, body } => {
-        //     // Register function in environment
-        //     let func_name = word_to_string(name, env);
-        //     env.set_func(func_name, body.as_ref().clone());
-        //     env.set_last_status(0);
-        //     Ok(0)
-        // }
-        // AstNode::ArithmeticCommand(expr) => {
-        //     // Evaluate arithmetic expression
-        //     // For now, return 0 - full implementation would evaluate the expression
-        //     println!("[exec] ArithmeticCommand: {:?}", expr);
-        //     env.set_last_status(0);
-        //     Ok(0)
-        // }
+                    //     env.set_last_status(last_status);
+                    //     Ok(last_status)
+                    // }
+                    // AstNode::FunctionDef { name, body } => {
+                    //     // Register function in environment
+                    //     let func_name = word_to_string(name, env);
+                    //     env.set_func(func_name, body.as_ref().clone());
+                    //     env.set_last_status(0);
+                    //     Ok(0)
+                    // }
+                    // AstNode::ArithmeticCommand(expr) => {
+                    //     // Evaluate arithmetic expression
+                    //     // For now, return 0 - full implementation would evaluate the expression
+                    //     println!("[exec] ArithmeticCommand: {:?}", expr);
+                    //     env.set_last_status(0);
+                    //     Ok(0)
+                    // }
     }
 }
 
@@ -470,9 +478,7 @@ fn execute_command_with_stdio(
     env: &mut ShellEnv,
     use_external: bool,
 ) -> Result<Child, ShellError> {
-    let env_result = ENV.lock();
-    if let Ok(env_map) = env_result {
-        if let Some(full_path) = env_map.get(cmd_str) {
+        if let Some(full_path) = env.get(cmd_str) {
             let child = match ExternalCommand::new(full_path)
                 .args(args)
                 .stdin(stdin)
@@ -489,7 +495,6 @@ fn execute_command_with_stdio(
             };
             return Ok(child);
         }
-    }
     return Err(ShellError::Exec(format!(
         "External command not found: {}",
         cmd_str

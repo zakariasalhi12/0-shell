@@ -4,6 +4,7 @@ use std::io::*;
 use std::process::Command;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Cat {
@@ -17,7 +18,7 @@ impl Cat {
 }
 
 impl ShellCommand for Cat {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         let mut command = Command::new("/home/aelhadda/0-shell/bin/cat");
         for arg in &self.args {
             command.arg(arg);

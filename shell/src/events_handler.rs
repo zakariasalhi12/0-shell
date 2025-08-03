@@ -8,6 +8,7 @@ use crate::{exec::*, parser};
 use std::io::{self, BufRead};
 use std::{self};
 use std::{clone, io::*};
+use libc::exit;
 use termion::cursor::{DetectCursorPos, Left, Up};
 use termion::cursor::{Down, Goto, Right};
 use termion::input::TermRead;
@@ -43,13 +44,21 @@ pub struct Shell {
 
 impl Shell {
     pub fn new(mode: ShellMode) -> Self {
+        let stdout = if mode == ShellMode::Interactive {
+           match stdout().into_raw_mode() {
+               Ok(raw) => OutputTarget::Raw(Some(raw)),
+               Err(_) => {
+                   eprintln!("no stdout");
+                   std::process::exit(1);
+               }
+           }
+        } else {
+            OutputTarget::Stdout(stdout())
+        };
+
         Self {
             stdin: stdin(),
-            stdout: if mode == ShellMode::Interactive {
-                OutputTarget::Raw(Some(stdout().into_raw_mode().unwrap()))
-            } else {
-                OutputTarget::Stdout(stdout())
-            },
+            stdout: stdout,
             buffer: String::new(),
             history: history::History::new(),
             cursor_position_x: 0,
@@ -151,8 +160,17 @@ impl Shell {
         history: &mut History,
         shell: &mut ShellEnv,
     ) {
-        print!("\r\x1b[2K");
-        std::io::stdout().flush().unwrap();
+        match stdout {
+            OutputTarget::Raw(raw) => match raw {
+                Some(s) => {
+                    writeln!(s).unwrap();
+                    print!("\r\x1b[2K");
+                    s.flush().unwrap();
+                }
+                None => {}
+            },
+            OutputTarget::Stdout(stdout) => stdout.flush().unwrap(),
+        }
 
         if !buffer.trim().is_empty() {
             history.save(buffer.clone());

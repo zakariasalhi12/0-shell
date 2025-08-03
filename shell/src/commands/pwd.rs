@@ -1,6 +1,7 @@
 use std::env;
 
 use crate::ShellCommand;
+use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
 
@@ -16,7 +17,7 @@ impl Pwd {
 }
 
 impl ShellCommand for Pwd {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         let current = env::current_dir()?;
         println!(
             "{}\r",

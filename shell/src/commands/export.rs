@@ -1,8 +1,7 @@
 use std::io::{Error, ErrorKind, Result};
 
 pub use crate::ShellCommand;
-use crate::config::ENV;
-
+use crate::envirement::ShellEnv;
 pub struct Export {
     pub args: Vec<String>,
 }
@@ -14,7 +13,7 @@ impl Export {
 }
 
 impl ShellCommand for Export {
-    fn execute(&self) -> Result<()> {
+    fn execute(&self, env: &mut ShellEnv) -> Result<()> {
         for arg in &self.args {
             let spliced: Vec<&str> = arg.splitn(2, '=').collect();
 
@@ -28,13 +27,9 @@ impl ShellCommand for Export {
             let key = spliced[0].trim_matches(|c| c == '\'' || c == '"');
             let value = spliced[1].trim_matches(|c| c == '\'' || c == '"');
 
-            let env_result = ENV.lock();
-            if let Ok(mut env_map) = env_result {
-                env_map.insert(key.to_string(), value.to_string());
-                println!("{:?}", env_map);
-            } else {
-                return Err(Error::new(ErrorKind::Other, "Failed to acquire ENV lock"));
-            }
+  
+                env.set_env_var(key, value);
+           
         }
 
         Ok(())
