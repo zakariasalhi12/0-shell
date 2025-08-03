@@ -487,7 +487,10 @@ pub fn Parse_input(buffer: &str, mut env: &mut ShellEnv) {
     match Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
         Ok(res) => match Parser::new(res).parse() {
             Ok(ast) => match ast {
+
                 Some(ast) => {
+                // println!("ast: {:?}", &ast);
+
                     match execute(&ast, &mut env){
                         Ok(status) => {
                             print!("\r");

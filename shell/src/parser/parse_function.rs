@@ -32,12 +32,11 @@ impl Parser {
             },
             Some(Token::Word(word)) => {
                 if let Some(WordPart::Literal(content)) = word.parts.get(0) {
-                    if content.starts_with('{') {
-                        let remaining = &content[1..];
+                    if content.0.starts_with('{') {
+                        let remaining = &content.0[1..];
                         if !remaining.is_empty() {
                             let remaining_word = Word {
-                                parts: vec![WordPart::Literal(remaining.to_string())],
-                                quote: QuoteType::None,
+                                parts: vec![WordPart::Literal((remaining.to_string(), QuoteType::None))],
                             };
                             self.tokens[self.pos] = Token::OpenBrace;
                             self.tokens

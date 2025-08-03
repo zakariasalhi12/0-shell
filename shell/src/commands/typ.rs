@@ -24,23 +24,12 @@ impl ShellCommand for Type {
         }else{
             let cmd = self.args[0].as_str();
         match  get_command_type(cmd, _env){
-            CommandType::Builtin => {
-                println!("{} is a push Builtin\r", cmd);
-                return  Ok(());
-            },
-            CommandType::External(path) => {
-                println!("{} is an external command located at: {}\r", cmd, path);
-                return  Ok(());
-            },
-            CommandType::Function(func) => {
-                println!("{} is a function with definition: {}\r", cmd, func);
-                return  Ok(());
-            },
-            CommandType::Undefined => {
-                println!("{} is not a command\r", cmd);
-                return  Ok(());
-            },
+            CommandType::Builtin => println!("{} is a push Builtin\r", cmd),
+            CommandType::External(path) =>println!("{} is an external command located at: {}\r", cmd, path),
+            CommandType::Function(func) =>  println!("{} is a function with definition: {}\r", cmd, func),
+            CommandType::Undefined => println!("{} is not a command\r", cmd),
         }
+        return  Ok(());
         }
     }
 }

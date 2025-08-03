@@ -8,9 +8,9 @@ impl Parser {
         loop{
             match self.current() {
                 Some(Token::Word(word)) =>{
-                    if word.parts.len() == 1 && word.quote == QuoteType::None{
+                    if word.parts.len() == 1 {
                         if let Some(WordPart::Literal(word)) = word.parts.get(0){
-                            if word == "if"{
+                            if word.0 == "if"{
                                 self.advance();
                                 
                             }else{
