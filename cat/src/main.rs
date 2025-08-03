@@ -5,10 +5,9 @@ use std::io::{self, Write};
 fn main() {
     let args: Vec<String> = env::args().collect();
     let cat = Cat::new(args[1..].to_vec());
-    // println!("Hello, world!");
-    // eprintln!("Hello, world!");
 
-    // io::stderr().write_all(b"Hello, world!\n").unwrap();
-
-    cat.execute();
+    match cat.execute() {
+        Ok(_) => {}
+        Err(e) => eprintln!("{}", e),
+    }
 }

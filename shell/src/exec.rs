@@ -49,18 +49,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             let cmd_str = word_to_string(cmd, env);
             let all_args: Vec<String> = args.iter().map(|w| word_to_string(w, env)).collect();
 
-            let opts: Vec<String> = all_args
-                .iter()
-                .filter(|v| v.starts_with('-'))
-                .cloned()
-                .collect();
-
-            let arg_strs: Vec<String> = all_args
-                .iter()
-                .filter(|v| !v.starts_with('-'))
-                .cloned()
-                .collect();
-
             // 2. Handle assignments
             if !assignments.is_empty() {
                 for ass in assignments.clone() {
@@ -75,17 +63,12 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 }
             }
 
-            // 3. Handle redirects (basic implementation)
-
-            // For now, just log redirects - full implementation would require file handling
-
             let fds_map = if redirects.is_empty() {
                 None
             } else {
                 Some(setup_redirections_ownedfds(&redirects, env)?)
             };
 
-            // 4. Check for built-in
             if !cmd_str.is_empty() {
                 let child = execute_command_with_stdio(
                     &cmd_str,
@@ -426,9 +409,7 @@ fn should_use_external_for_pipeline(cmd: &str) -> bool {
 
 use nix::unistd::{close, dup2};
 use std::collections::HashMap;
-// use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::process::CommandExt;
-// use std::process::{Command as ExternalCommand, Stdio}; // for pre_exec()
 
 pub fn execute_command_with_stdio(
     cmd_str: &str,
