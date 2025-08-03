@@ -3,6 +3,7 @@ use crate::ShellCommand;
 use std::env;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
+use crate::envirement::ShellEnv;
 
 // use std::path::Path;
 
@@ -18,7 +19,7 @@ impl Cd {
 }   
 
 impl ShellCommand for Cd {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         let target_dir: PathBuf;
 
         if self.args.is_empty() {

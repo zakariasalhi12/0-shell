@@ -98,7 +98,5 @@ pub fn redirect_to_home() -> std::io::Result<String> {
 }
 
 pub trait ShellCommand {
-    fn execute(&self) -> std::io::Result<()> {
-        Ok(())
-    }
+    fn execute(&self, env : &mut v::ShellEnv) -> std::io::Result<()>;
 }

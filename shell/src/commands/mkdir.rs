@@ -1,5 +1,6 @@
 use std::{fs, path::PathBuf};
 use crate::ShellCommand;
+use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mkdir {
@@ -22,7 +23,7 @@ impl Mkdir {
 }
 
 impl ShellCommand for Mkdir {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         let is_parent = self.parse_flags();
 
         for drc in &self.args {

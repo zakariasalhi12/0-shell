@@ -5,6 +5,8 @@ use std::{
     io::{Error, ErrorKind},
 };
 
+use crate::envirement::ShellEnv;
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Mv {
     pub args: Vec<String>,
@@ -105,7 +107,7 @@ fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
 }
 
 impl ShellCommand for Mv {
-    fn execute(&self) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
         if !self.validate_args() {
             return Err(Error::new(
                 ErrorKind::InvalidInput,

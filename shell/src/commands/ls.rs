@@ -1,17 +1,9 @@
 use crate::ShellCommand;
-use std::fs::{FileType, Metadata};
-use std::fs::{read_dir, symlink_metadata};
-use std::io::Error;
-use std::io::{ErrorKind, Result};
-use std::os::unix::fs::PermissionsExt;
-use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::path::Path;
-use std::path::PathBuf;
+use std::io::{ Result};
 use std::process::Stdio;
-use std::process::{Child, Command as ExternalCommand};
-use std::time::UNIX_EPOCH;
-use std::{self, fs};
-use users::{get_group_by_gid, get_user_by_uid};
+use std::process::{ Command as ExternalCommand};
+
+use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Ls {
@@ -29,7 +21,7 @@ impl Ls {
 }
 
 impl ShellCommand for Ls {
-    fn execute(&self) -> Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<()> {
         let mut child = ExternalCommand::new("/home/aelhadda/0-shell/bin/ls") // Use full_path here
             .args(&self.args)
             .stdin(Stdio::inherit())
