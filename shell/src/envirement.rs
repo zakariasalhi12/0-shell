@@ -19,6 +19,8 @@ fn get_user_shell(username: &str) -> Option<String> {
 }
 
 /// Represents the current shell environment.
+#[derive(Clone)]
+
 pub struct ShellEnv {
     /// Shell variables (like $PATH, $HOME)
     pub variables: HashMap<String, (String, bool)>,
@@ -117,12 +119,15 @@ impl ShellEnv {
 
     /// Get a shell variable
     pub fn get(&self, key: &str) -> Option<String> {
-        println!("get: {}", key);
         if let Some(value) = self.variables.get(key) {
             Some(value.0.clone())
         } else {
             Some("".to_string())
         }
+    }
+
+    pub fn get_environment_only(&self) -> HashMap<String,String> {
+        self.variables.iter().filter(|(_, v)| v.1).map(|(k, v)| (k.clone(), v.0.clone())).collect()
     }
 
     // pub fn get_env_

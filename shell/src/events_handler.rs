@@ -488,8 +488,10 @@ pub fn Parse_input(buffer: &str, mut env: &mut ShellEnv) {
         Ok(res) => match Parser::new(res).parse() {
             Ok(ast) => match ast {
                 Some(ast) => {
-                    let exit_code = execute(&ast, &mut env).unwrap_or(1);
-                    println!("[exit code: {}]\r", exit_code);
+                    match execute(&ast, &mut env){
+                        Ok(status) => println!("[exit code: {}]\r", status),
+                        Err(e) => eprintln!("{e}\r"),
+                    }
                 }
                 None => println!("empty AST"),
             },
