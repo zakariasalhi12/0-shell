@@ -3,7 +3,10 @@ use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let cat = Ls::new(args[1..].to_vec());
+    let ls = Ls::new(args[1..].to_vec());
     // println!("Hello, world!");
-    cat.execute();
+    match ls.execute() {
+        Ok(_) => {}
+        Err(e) => eprintln!("{}", e),
+    }
 }
