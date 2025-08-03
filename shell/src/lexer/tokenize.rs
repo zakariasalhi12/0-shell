@@ -191,6 +191,8 @@ impl<'a> Tokenizer<'a> {
                     if let Some('&') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalAnd);
+                    } else if let Some('>') = self.chars.peek() {
+                        self.chars.next();
                     } else {
                         tokens.push(Token::Ampersand);
                     }
@@ -268,7 +270,7 @@ impl<'a> Tokenizer<'a> {
                     buffer.push(c);
                     state = State::InWord;
                 }
-                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&'  | '(' | ')') => {
+                (State::InWord, ' ' | '\t' | '\n' | '|' | ';' | '&' | '(' | ')') => {
                     if !buffer.is_empty() {
                         parts.push(WordPart::Literal(buffer.clone()));
                         buffer.clear();
@@ -284,7 +286,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::InWord, '>') => {
                     self.chars.next();
-                    if !buffer.is_empty() && buffer.chars().all(|ch| ch.is_ascii_digit()){
+                    if !buffer.is_empty() && buffer.chars().all(|ch| ch.is_ascii_digit()) {
                         match buffer.parse::<u64>() {
                             Ok(fd_num) => {
                                 buffer.clear();

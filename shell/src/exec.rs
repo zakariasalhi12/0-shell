@@ -77,102 +77,26 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     env.set_var(&ass.0, &value);
                 }
             }
-            let mut stdin_stdio: Option<OwnedFd> = None;
-            let mut stdout_stdio: Option<OwnedFd> = None;
-            let mut stderr_stdio: Option<OwnedFd> = None;
-            // 3. Handle redirects (basic implementation)
-            if !redirects.is_empty() {
-                // For now, just log redirects - full implementation would require file handling
 
-                match setup_redirections_ownedfds(redirects, env) {
-                    Ok(val) => (stdin_stdio, stdout_stdio, stderr_stdio) = val,
-                    Err(e) => return Err(e),
-                };
-                println!("[exec] Redirects: {:?}", redirects);
-            }
+            // 3. Handle redirects (basic implementation)
+
+            // For now, just log redirects - full implementation would require file handling
+
+            let fds_map = if redirects.is_empty() {
+                None
+            } else {
+                Some(setup_redirections_ownedfds(&redirects, env)?)
+            };
 
             // 4. Check for built-in
             if !cmd_str.is_empty() {
-                execute_command_with_stdio(
+                let child = execute_command_with_stdio(
                     &cmd_str,
                     &all_args,
-                    stdin_stdio,
-                    stdout_stdio,
-                    if let Some(er) = stderr_stdio {
-                        Stdio::from(er)
-                    } else {
-                        Stdio::inherit()
-                    },
+                    fds_map.as_ref(),
                     should_use_external_for_pipeline(&cmd_str),
                 )?;
                 Ok(0)
-                // Check if a function in envirement functions
-                // if let Some(func) = env.get_func(&cmd_str) {
-                //     let body = func.clone(); // <- Clone here
-                //     let status = execute(&body, env)?; // <- Now safe to mutably borrow env
-                //     env.set_last_status(status);
-                //     return Ok(status);
-                // }
-
-                // let command = build_command(&cmd_str, arg_strs.clone(), opts, None);
-                // match command {
-                //     Some(val) => {
-                //         let res = val.execute();
-                //         match res {
-                //             Ok(_) => {
-                //                 env.set_last_status(0);
-                //                 Ok(0)
-                //             }
-                //             Err(e) => {
-                //                 eprintln!("{e}");
-                //                 env.set_last_status(1);
-                //                 Ok(1)
-                //             }
-                //         }
-                //     }
-                //     None => {
-                //         // 5. Try to run as external command
-                //         let env_result = ENV.lock();
-                //         if let Ok(mut env_map) = env_result {
-                //             // Get the full path from your environment map
-                //             if let Some(full_path) = env_map.get(&cmd_str) {
-                //                 println!("Found command at: {}", full_path);
-
-                //                 // Use the full path instead of just the command name
-                //                 let mut child =
-                //                     match ExternalCommand::new(full_path) // Use full_path here
-                //                         .args(&all_args)
-                //                         .stdin(Stdio::inherit())
-                //                         .stdout(Stdio::inherit())
-                //                         .stderr(Stdio::inherit())
-                //                         .spawn()
-                //                     {
-                //                         Ok(child) => child,
-                //                         Err(e) => {
-                //                             eprintln!(
-                //                                 "{}: command failed to execute: {}",
-                //                                 full_path, e
-                //                             );
-                //                             env.set_last_status(127);
-                //                             return Ok(127);
-                //                         }
-                //                     };
-
-                //                 let status =
-                //                     child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                //                 env.set_last_status(status);
-                //                 Ok(status)
-                //             } else {
-                //                 // Command not found in your environment map
-                //                 eprintln!("{}: command not found", cmd_str);
-                //                 env.set_last_status(127);
-                //                 return Ok(127);
-                //             }
-                //         } else {
-                //             return Err(ShellError::Exec(cmd_str));
-                //         }
-                //     }
-                // }
             } else {
                 Ok(0)
             }
@@ -220,15 +144,19 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
                     let stderr = Stdio::inherit();
                     let use_external = should_use_external_for_pipeline(&cmd_str);
+                    let fds_map = if redirects.is_empty() {
+                        None
+                    } else {
+                        Some(setup_redirections_ownedfds(&redirects, env)?)
+                    };
 
                     let child = execute_command_with_stdio(
                         &cmd_str,
                         &all_args,
-                        stdin,
-                        write_end,
-                        stderr,
+                        fds_map.as_ref(),
                         use_external,
                     )?;
+
                     let pid = match child {
                         CommandResult::Child(val) => val,
                         CommandResult::Builtin => {
@@ -489,14 +417,27 @@ pub enum CommandResult {
     Builtin,
 }
 
-fn execute_command_with_stdio(
+fn should_use_external_for_pipeline(cmd: &str) -> bool {
+    matches!(cmd, "ls" | "cat" | "grep")
+}
+
+use nix::unistd::{close, dup2};
+use std::collections::HashMap;
+// use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
+use std::os::unix::process::CommandExt;
+// use std::process::{Command as ExternalCommand, Stdio}; // for pre_exec()
+
+pub fn execute_command_with_stdio(
     cmd_str: &str,
     args: &[String],
-    stdin: Option<OwnedFd>,
-    stdout: Option<OwnedFd>,
-    stderr: Stdio,
+    fds_map: Option<&HashMap<u64, OwnedFd>>,
     use_external: bool,
 ) -> Result<CommandResult, ShellError> {
+    let stdin_fd = fds_map.and_then(|map| map.get(&0));
+    let stdout_fd = fds_map.and_then(|map| map.get(&1));
+    let stderr_fd = fds_map.and_then(|map| map.get(&2));
+    println!("{:?}", stdout_fd);
+
     if use_external {
         let env_result = ENV.lock();
         if let Ok(env_map) = env_result {
@@ -504,33 +445,82 @@ fn execute_command_with_stdio(
                 let mut command = ExternalCommand::new(full_path);
                 command.args(args);
 
-                if let Some(ref fd) = stdin {
+                // Setup standard fds
+                if let Some(fd) = stdin_fd {
                     let new_fd = dup(fd.as_raw_fd()).unwrap();
                     command.stdin(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
                 } else {
                     command.stdin(Stdio::inherit());
                 }
 
-                if let Some(ref fd) = stdout {
+                if let Some(fd) = stdout_fd {
                     let new_fd = dup(fd.as_raw_fd()).unwrap();
                     command.stdout(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
                 } else {
                     command.stdout(Stdio::inherit());
                 }
 
-                command.stderr(stderr);
+                if let Some(fd) = stderr_fd {
+                    let new_fd = dup(fd.as_raw_fd()).unwrap();
+                    command.stderr(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
+                } else {
+                    command.stderr(Stdio::inherit());
+                }
 
+                // Setup arbitrary fds > 2
+                if let Some(map) = fds_map {
+                    let extra_fds: Vec<(i32, i32)> = map
+                        .iter()
+                        .filter(|(fd, _)| fd > &&2)
+                        .map(|(&target_fd, owned_fd)| (target_fd as i32, owned_fd.as_raw_fd()))
+                        .collect();
+
+                    // Apply those via pre_exec (runs in child before exec)
+                    unsafe {
+                        command.pre_exec(move || {
+                            for (target_fd, source_fd) in &extra_fds {
+                                dup2(*source_fd, *target_fd).map_err(|e| {
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::Other,
+                                        format!("dup2 failed: {}", e),
+                                    )
+                                })?;
+                            }
+                            Ok(())
+                        });
+                    }
+                }
                 return command
                     .spawn()
-                    .map(|child| CommandResult::Child(child))
+                    .map(CommandResult::Child)
                     .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)));
             }
         }
     } else {
-        let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], stdout);
+        // Internal command: temporarily redirect fds in current process
+
+        let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], None);
         match com {
             Some(val) => {
                 val.execute()?;
+                if let Some(map) = fds_map {
+                    let backups: Vec<(u64, i32)> = map
+                        .iter()
+                        .map(|(&fd, _)| (fd, dup(fd as i32).unwrap()))
+                        .collect();
+
+                    for (&target_fd, owned_fd) in map {
+                        let source_fd = owned_fd.as_raw_fd();
+                        dup2(source_fd, target_fd as i32).map_err(|e| {
+                            ShellError::Exec(format!("dup2 failed for fd {}: {}", target_fd, e))
+                        })?;
+                    }
+                    for (fd, backup) in backups {
+                        dup2(backup, fd as i32).ok();
+                        close(backup).ok();
+                    }
+                }
+
                 return Ok(CommandResult::Builtin);
             }
             None => {
@@ -543,8 +533,4 @@ fn execute_command_with_stdio(
     }
 
     Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
-}
-
-fn should_use_external_for_pipeline(cmd: &str) -> bool {
-    matches!(cmd, "ls" | "cat" | "grep")
 }
