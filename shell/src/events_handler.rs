@@ -394,12 +394,12 @@ pub fn print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
 pub fn Parse_input(buffer: &str, mut env: &mut ShellEnv) {
     match Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
         Ok(res) => {
-            for token in &res {
-                println!("{:#?}\r", token);
-            }
+            // for token in &res {
+            //     println!("{:#?}\r", token);
+            // }
             match Parser::new(res).parse() {
                 Ok(ast) => {
-                    println!("{:?}\r", ast);
+                    // println!("{:?}\r", ast);
                     match ast {
                         Some(ast) => {
                             // println!("{}", ast); // Optionally keep for debugging

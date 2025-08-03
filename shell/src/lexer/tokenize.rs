@@ -191,8 +191,6 @@ impl<'a> Tokenizer<'a> {
                     if let Some('&') = self.chars.peek() {
                         self.chars.next();
                         tokens.push(Token::LogicalAnd);
-                    } else if let Some('>') = self.chars.peek() {
-                        self.chars.next();
                     } else {
                         tokens.push(Token::Ampersand);
                     }
