@@ -1,12 +1,22 @@
 use crate::PathBuf;
 use crate::ShellCommand;
+use crate::redirection::setup_redirections_ownedfds;
+use nix::fcntl::{FcntlArg, fcntl};
+use nix::unistd::dup;
+use nix::unistd::pipe;
+use std::char;
+use std::os::fd::AsFd;
+use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
+use std::vec;
+
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd, typ::Type,
-    rm::Rm,
+    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
+    rm::Rm, typ::Type,
 };
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::expansion::expand_and_split;
+use crate::lexer::types::Word;
 use crate::parser::types::*;
 use std::process::Child;
 use std::process::Command as ExternalCommand;
@@ -38,102 +48,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            // 1. Expand command and args
-            let mut all_args: Vec<String> = vec![];
-            let mut expanded_command = expand_and_split(cmd, env);
-            let cmd_str = if expanded_command.len() >= 1 {
-                expanded_command.remove(0)
-            } else {
-                "".to_string()
-            };
-            all_args.extend(expanded_command);
-
-            for arg in args {
-                let expanded_args = expand_and_split(arg, env);
-                all_args.extend(expanded_args);
-            }
-
-            let opts: Vec<String> = all_args
-                .iter()
-                .filter(|v| v.starts_with('-'))
-                .cloned()
-                .collect();
-
-            let arg_strs: Vec<String> = all_args
-                .iter()
-                .filter(|v| !v.starts_with('-'))
-                .cloned()
-                .collect();
-
-            // 3. Handle redirects (basic implementation)
-            if !redirects.is_empty() {
-                println!("[exec] Redirects: {:?}", redirects);
-            }
-
-            if !cmd_str.is_empty() {
-                match get_command_type(cmd.expand(env).as_str(), env) {
-                    CommandType::Function(func) => {
-                        let status = execute(&func, env)?;
-                        env.set_last_status(status);
-                        return Ok(status);
-                    }
-
-                    CommandType::Builtin => {
-                        if let Some(command) = build_command(&cmd_str, arg_strs.clone(), opts) {
-                            match command.execute(env) {
-                                Ok(_) => {
-                                    env.set_last_status(0);
-                                    return Ok(0);
-                                }
-                                Err(e) => {
-                                    eprintln!("{e}");
-                                    env.set_last_status(1);
-                                    return Ok(1);
-                                }
-                            }
-                        } else {
-                            return Ok(0);
-                        }
-                    }
-
-                    CommandType::External(path) => {
-                        let mut envs = env.get_environment_only();
-                        for ass in assignments.clone() {
-                            envs.insert(ass.0, ass.1.expand(&env));
-                        }
-                        let mut child = match ExternalCommand::new(path.clone())
-                            .args(&all_args)
-                            .envs(envs)
-                            .stdin(Stdio::inherit())
-                            .stdout(Stdio::inherit())
-                            .stderr(Stdio::inherit())
-                            .spawn()
-                        {
-                            Ok(child) => child,
-                            Err(e) => {
-                                eprintln!("{}: command failed to execute: {}", path, e);
-                                env.set_last_status(127);
-                                return Ok(127);
-                            }
-                        };
-
-                        let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                        env.set_last_status(status);
-                        Ok(status)
-                    }
-                    CommandType::Undefined => {
-                        Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
-                    }
-                }
-            } else {
-                if !assignments.is_empty() {
-                    for ass in assignments {
-                        env.set_local_var(&ass.0, &ass.1.expand(&env));
-                    }
-                    return Ok(0);
-                }
-                return Ok(0);
-            }
+            let mut child = execute_commande(cmd, args, assignments, redirects, env, None)?;
+            Ok(child)
         }
         AstNode::Pipeline(nodes) => {
             if nodes.is_empty() {
@@ -141,18 +57,15 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             if nodes.len() == 1 {
-                // Single command, not really a pipeline
                 return execute(&nodes[0], env);
             }
 
             let mut children: Vec<Child> = Vec::new();
-            let mut prev_stdout: Option<std::process::ChildStdout> = None;
+            let mut prev_read: Option<OwnedFd> = None;
 
             for (i, node) in nodes.iter().enumerate() {
-                let is_first = i == 0;
                 let is_last = i == nodes.len() - 1;
 
-                // Extract command info from the node
                 if let AstNode::Command {
                     cmd,
                     args,
@@ -163,50 +76,41 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     let cmd_str: String = cmd.expand(&env);
                     let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
 
-                    // Setup stdio for this command in the pipeline
-                    let stdin = if is_first {
-                        Stdio::inherit()
-                    } else {
-                        match prev_stdout.take() {
-                            Some(stdout) => Stdio::from(stdout),
-                            None => {
-                                return Err(ShellError::Exec(
-                                    "Pipeline broken: missing stdout".to_string(),
-                                ));
-                            }
-                        }
-                    };
+                    // Use the read end of the previous pipe as stdin
+                    let stdin = prev_read.take();
 
-                    let stdout = if is_last {
-                        Stdio::inherit()
+                    // Create new pipe only if this is not the last command
+                    let (read_end, write_end) = if !is_last {
+                        let (read_fd, write_fd) = pipe().expect("pipe failed");
+                        (
+                            Some(unsafe { OwnedFd::from_raw_fd(read_fd.as_raw_fd()) }),
+                            Some(unsafe { OwnedFd::from_raw_fd(write_fd.as_raw_fd()) }),
+                        )
                     } else {
-                        Stdio::piped()
+                        (None, None)
                     };
 
                     let stderr = Stdio::inherit();
-                    // Force external execution for pipeline-compatible commands
-                    let use_external = should_use_external_for_pipeline(&cmd_str);
-                    let mut child = execute_command_with_stdio(
-                        &cmd_str,
-                        &all_args,
-                        stdin,
-                        stdout,
-                        stderr,
-                        env,
-                        use_external,
-                    )?;
-                    if let Some(ref stdin) = child.stdout {
-                        println!("{i}");
-                        let fd = stdin.as_raw_fd();
-                        println!("stdin: {}", detect_fd_type(fd));
-                    }
-                    // println!("{:?} {:?} {:?}", &stdin, stdout, stderr);
-                    // Capture stdout for the next command if not the last
-                    if !is_last {
-                        prev_stdout = child.stdout.take();
-                    }
+                    // let use_external = should_use_external_for_pipeline(&cmd_str);
 
-                    children.push(child);
+                    let fds_map = if redirects.is_empty() {
+                        let mut map: HashMap<u64, OwnedFd> = HashMap::new();
+                        if let Some(stdi) = stdin {
+                            map.insert(0, stdi);
+                        }
+                        if let Some(stdo) = write_end {
+                            map.insert(1, stdo);
+                        }
+                        Some(map)
+                    } else {
+                        Some(setup_redirections_ownedfds(&redirects, env)?)
+                    };
+
+                    let stat =
+                        execute_commande(cmd, args, &vec![], redirects, env, fds_map.as_ref())?;
+                    // children.push(char);
+                    env.set_last_status(stat);
+                    prev_read = read_end; // becomes stdin for next command
                 } else {
                     return Err(ShellError::Exec(
                         "Pipeline can only contain commands".to_string(),
@@ -214,15 +118,16 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 }
             }
 
-            // Wait for all children and get the status of the last one
-            let mut last_status = 0;
-            for mut child in children {
-                let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
-                last_status = status; // In bash, pipeline status is the status of the last command
-            }
-            env.set_last_status(last_status);
-            Ok(last_status)
+            // let mut last_status = 0;
+            // for mut child in children {
+            //     let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+            //     last_status = status;
+            // }
+
+            // env.set_last_status(last_status);
+            Ok(env.get_last_status())
         }
+
         AstNode::Sequence(nodes) => {
             let mut last_status = 0;
 
@@ -433,9 +338,10 @@ pub fn build_command(
     cmd: &String,
     args: Vec<String>,
     opts: Vec<String>,
+    stdout: Option<OwnedFd>,
 ) -> Option<Box<dyn ShellCommand>> {
     match cmd.as_str() {
-        "echo" => Some(Box::new(Echo::new(args))),
+        "echo" => Some(Box::new(Echo::new(args, stdout))),
         "cd" => Some(Box::new(Cd::new(args))),
         "ls" => Some(Box::new(Ls::new(args, opts))),
         "pwd" => Some(Box::new(Pwd::new(args))),
@@ -452,65 +358,146 @@ pub fn build_command(
         _ => None,
     }
 }
-
-fn execute_command_with_stdio(
-    cmd_str: &str,
-    args: &[String],
-    stdin: Stdio,
-    stdout: Stdio,
-    stderr: Stdio,
-    env: &mut ShellEnv,
-    use_external: bool,
-) -> Result<Child, ShellError> {
-    if let Some(full_path) = env.get(cmd_str) {
-        let child = match ExternalCommand::new(full_path)
-            .args(args)
-            .stdin(stdin)
-            .stdout(stdout)
-            .stderr(stderr)
-            .spawn()
-            .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)))
-        {
-            Ok(val) => val,
-            Err(e) => {
-                println!("{:?}", e);
-                return Err(e);
-            }
-        };
-        return Ok(child);
-    }
-    return Err(ShellError::Exec(format!(
-        "External command not found: {}",
-        cmd_str
-    )));
+pub enum CommandResult {
+    Child(Child),
+    Builtin,
 }
 
 fn should_use_external_for_pipeline(cmd: &str) -> bool {
-    matches!(cmd, "ls" | "cat" | "grep" | "sort" | "head" | "tail" | "wc")
+    matches!(cmd, "ls" | "cat" | "grep")
 }
 
-//////////////////////////////////////
-use libc::{S_IFCHR, S_IFIFO, S_IFMT, fstat, isatty, stat};
-use std::os::unix::io::AsRawFd;
-use std::process::Command;
+use nix::unistd::{close, dup2};
+use std::collections::HashMap;
+use std::os::unix::process::CommandExt;
 
-fn detect_fd_type(fd: i32) -> &'static str {
-    let mut statbuf: stat = unsafe { std::mem::zeroed() };
-    if unsafe { fstat(fd, &mut statbuf) } != 0 {
-        return "Unknown";
-    }
-    let file_type = statbuf.st_mode & S_IFMT;
-    match file_type {
-        S_IFIFO => "Pipe",
-        S_IFCHR => {
-            if unsafe { isatty(fd) } == 1 {
-                "TTY"
-            } else {
-                "Char Device (non-TTY)"
+pub fn execute_command_with_stdio(
+    cmd_str: &str,
+    args: &[String],
+    fds_map: Option<&HashMap<u64, OwnedFd>>,
+    use_external: bool,
+    assignements: HashMap<String, String>,
+    env: &mut ShellEnv,
+) -> Result<CommandResult, ShellError> {
+    let stdin_fd = fds_map.and_then(|map| map.get(&0));
+    let stdout_fd = fds_map.and_then(|map| map.get(&1));
+    let stderr_fd = fds_map.and_then(|map| map.get(&2));
+
+    if use_external {
+        // let env_result = ENV.lock();
+        // if let Ok(env_map) = env_result {
+        // if let Some(full_path) = env_map.get(cmd_str) {
+        let mut command = ExternalCommand::new(cmd_str);
+        command.args(args);
+
+        // Setup standard fds
+        if let Some(fd) = stdin_fd {
+            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            command.stdin(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
+        } else {
+            command.stdin(Stdio::inherit());
+        }
+
+        if let Some(fd) = stdout_fd {
+            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            command.stdout(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
+        } else {
+            command.stdout(Stdio::inherit());
+        }
+
+        if let Some(fd) = stderr_fd {
+            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            command.stderr(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
+        } else {
+            command.stderr(Stdio::inherit());
+        }
+
+        // Setup arbitrary fds > 2
+        if let Some(map) = fds_map {
+            let extra_fds: Vec<(i32, i32)> = map
+                .iter()
+                .filter(|(fd, _)| fd > &&2)
+                .map(|(&target_fd, owned_fd)| (target_fd as i32, owned_fd.as_raw_fd()))
+                .collect();
+
+            // Apply those via pre_exec (runs in child before exec)
+            unsafe {
+                command.pre_exec(move || {
+                    for (target_fd, source_fd) in &extra_fds {
+                        // Check if source_fd is valid
+                        if fcntl(*source_fd, FcntlArg::F_GETFD).is_err() {
+                            return Err(std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("Invalid source fd: {}", source_fd),
+                            ));
+                        }
+
+                        // Proceed with dup2
+                        dup2(*source_fd, *target_fd).map_err(|e| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("dup2 failed: {}", e),
+                            )
+                        })?;
+                    }
+                    Ok(())
+                });
             }
         }
-        _ => "Other",
+        return command
+            .envs(assignements)
+            .spawn()
+            .map(CommandResult::Child)
+            .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)));
+        // }
+        // }
+    } else {
+        // Internal command: temporarily redirect fds in current process
+
+        let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], None);
+        let mut backups: Option<Vec<(u64, i32)>> = None;
+        if let Some(map) = fds_map {
+            backups = Some(
+                map.iter()
+                    .filter_map(|(&fd, _)| match dup(fd as i32) {
+                        Ok(dup_fd) => Some((fd, dup_fd)),
+                        Err(err) => {
+                            eprintln!("Failed to duplicate fd {}: {}", fd, err);
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>(),
+            );
+
+            for (&target_fd, owned_fd) in map {
+                let source_fd = owned_fd.as_raw_fd();
+                dup2(source_fd, target_fd as i32).map_err(|e| {
+                    ShellError::Exec(format!("dup2 failed for fd {}: {}", target_fd, e))
+                })?;
+            }
+        }
+        match com {
+            Some(val) => {
+                val.execute(env)?;
+                if let Some(back) = backups {
+                    for (fd, backup) in back {
+                        dup2(backup, fd as i32).ok();
+                        close(backup).ok();
+                    }
+                }
+
+                return Ok(CommandResult::Builtin);
+            }
+            None => {
+                return Err(ShellError::Exec(format!(
+                    "Internal command not found: {}",
+                    cmd_str
+                )));
+            }
+        }
     }
+
+    Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
 }
 
 pub enum CommandType {
@@ -526,9 +513,8 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
-            CommandType::Builtin
-        }
+        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit"
+        | "type" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();
@@ -543,5 +529,105 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
             }
             None => return CommandType::Undefined,
         },
+    }
+}
+
+pub fn execute_commande(
+    cmd: &Word,
+    args: &Vec<Word>,
+    assignments: &Vec<(String, Word)>,
+    redirects: &Vec<Redirect>,
+    env: &mut ShellEnv,
+    mut piping_fds: Option<&HashMap<u64, OwnedFd>>,
+) -> Result<i32, ShellError> {
+    // 1. Expand command and args
+    let mut all_args: Vec<String> = vec![];
+    let mut expanded_command = expand_and_split(cmd, env);
+    let cmd_str = if expanded_command.len() >= 1 {
+        expanded_command.remove(0)
+    } else {
+        "".to_string()
+    };
+    all_args.extend(expanded_command);
+
+    for arg in args {
+        let expanded_args = expand_and_split(arg, env);
+        all_args.extend(expanded_args);
+    }
+    
+    //  let merged_fds = if !redirects.is_empty() {
+    //     match setup_redirections_ownedfds(&redirects, env) {
+    //         Ok(redirects_map) => {
+    //             if let Some(piping_fds_map) = piping_fds {
+    //                 // Merge the two maps
+    //                 let mut merged = piping_fds_map.clone();
+    //                 merged.extend(redirects_map);
+    //                 Some(merged)
+    //             } else {
+    //                 Some(redirects_map).as_ref()
+    //             }
+    //         }
+    //         Err(e) => return Err(e),
+    //     }
+    // } else {
+    //     // No redirects, just use piping_fds as is
+    //     piping_fds
+    // };
+
+    if !cmd_str.is_empty() {
+        match get_command_type(cmd.expand(env).as_str(), env) {
+            CommandType::Function(func) => {
+                let status = execute(&func, env)?;
+                env.set_last_status(status);
+                return Ok(status);
+            }
+
+            CommandType::Builtin => {
+                execute_command_with_stdio(
+                    &cmd_str,
+                    &all_args,
+                    piping_fds,
+                    false,
+                    HashMap::new(),
+                    env,
+                )?;
+                Ok(0)
+            }
+
+            CommandType::External(path) => {
+                let mut envs = env.get_environment_only();
+                for ass in assignments.clone() {
+                    envs.insert(ass.0, ass.1.expand(&env));
+                }
+
+                let status = match execute_command_with_stdio(
+                    &path,
+                    &all_args,
+                    piping_fds,
+                    true,
+                    envs,
+                    env,
+                )? {
+                    CommandResult::Child(mut child) => {
+                        child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
+                    }
+                    CommandResult::Builtin => 0,
+                };
+
+                env.set_last_status(status);
+                Ok(status)
+            }
+            CommandType::Undefined => {
+                Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
+            }
+        }
+    } else {
+        if !assignments.is_empty() {
+            for ass in assignments {
+                env.set_local_var(&ass.0, &ass.1.expand(&env));
+            }
+            return Ok(0);
+        }
+        return Ok(0);
     }
 }
