@@ -20,6 +20,7 @@ impl<'a> Tokenizer<'a> {
         let mut state = State::Default;
         let mut buffer = (String::new(), QuoteType::None);
         let mut parts: Vec<WordPart> = vec![];
+        let mut where_im_at = QuoteType::None;
 
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
@@ -32,8 +33,10 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
+                            quote  : where_im_at,
                         }));
                         parts.clear();
+                        where_im_at = QuoteType::None;
                     }
                     if c == '\n' {
                         tokens.push(Token::Newline);
@@ -172,6 +175,9 @@ impl<'a> Tokenizer<'a> {
                     self.chars.next();
                     buffer.1 = QuoteType::Double;
                     state = State::InDoubleQuote;
+                    if where_im_at == QuoteType::None{
+                        where_im_at = QuoteType::Double
+                    }
                 }
 
                 (State::InWord, '"') => {
@@ -186,6 +192,9 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, '\'') => {
                     self.chars.next();
                     state = State::InSingleQuote;
+                    if where_im_at == QuoteType::None{
+                        where_im_at = QuoteType::Double
+                    }
                 }
                 (State::InWord, '\'') => {
                     self.chars.next();
@@ -274,7 +283,9 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
+                            quote : where_im_at
                         }));
+                        where_im_at = QuoteType::None;
                         parts.clear();
                     }
                     tokens.push(Token::Semicolon);
@@ -293,7 +304,9 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
+                            quote : where_im_at
                         }));
+                        where_im_at = QuoteType::None;
                         parts.clear();
                     }
                     state = State::Default;
@@ -312,8 +325,10 @@ impl<'a> Tokenizer<'a> {
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
+                                        quote : where_im_at
                                     }));
                                     parts.clear();
+                                    where_im_at = QuoteType::None;
                                 }
                                 state = State::MaybeRedirectOut2;
                             }
@@ -326,8 +341,11 @@ impl<'a> Tokenizer<'a> {
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
+                                quote : where_im_at
                             }));
                             parts.clear();
+                            where_im_at = QuoteType::None;
+
                         }
                         state = State::MaybeRedirectOut2;
                     }
@@ -346,8 +364,10 @@ impl<'a> Tokenizer<'a> {
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
+                                        quote : where_im_at
                                     }));
                                     parts.clear();
+                                    where_im_at = QuoteType::None;
                                 }
                                 state = State::MaybeRedirectIn2;
                             }
@@ -360,8 +380,10 @@ impl<'a> Tokenizer<'a> {
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
+                                quote : where_im_at
                             }));
                             parts.clear();
+                            where_im_at = QuoteType::None;
                         }
                         state = State::MaybeRedirectIn2;
                     }
@@ -440,7 +462,8 @@ impl<'a> Tokenizer<'a> {
             // state = State::Default;
         }
         if !parts.is_empty() {
-            tokens.push(Token::Word(Word { parts }));
+            tokens.push(Token::Word(Word { parts, quote:where_im_at }));
+            where_im_at = QuoteType::None;
         }
 
         match state {

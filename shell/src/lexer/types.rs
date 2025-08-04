@@ -3,6 +3,7 @@ use std::process::Stdio;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Word {
     pub parts: Vec<WordPart>,
+    pub quote : QuoteType,
 }
 
 use crate::envirement::ShellEnv;

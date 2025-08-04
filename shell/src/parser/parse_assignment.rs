@@ -7,12 +7,12 @@ impl Parser {
         if let Token::Word(word) = token {
                 if let Some(WordPart::Literal(part)) = word.parts.get(0) {
                     if let Some(eq_pos) = part.0.find('=') {
-                        let mut result = Word{parts: vec![]};
+                        let mut result = Word{parts: vec![], quote : word.quote};
                         let key = part.0[..eq_pos].to_string();
                         if eq_pos == part.0.len() - 1 && word.parts.len() == 1 {
                             let next_token = self.tokens.get(pos + 1)?;
                             if let Token::Word(val) = next_token {
-                                return Some((2, (key, Word{parts :val.parts.clone()})));
+                                return Some((2, (key, Word{parts :val.parts.clone(), quote : word.quote})));
                             } else {
                                 return None;
                             }
