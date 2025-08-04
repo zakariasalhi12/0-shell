@@ -16,7 +16,7 @@ $(LS_BIN):
 	cargo build --release --manifest-path=ls/Cargo.toml
 	cp ls/target/release/ls $(LS_BIN)
 
-clean:
+clean: cargo-clean
 	rm -f bin/*
 
 cargo-clean:
