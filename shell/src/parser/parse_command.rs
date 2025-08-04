@@ -40,6 +40,7 @@ impl Parser {
                 if !assignments.is_empty() {
                     Word {
                         parts: vec![],
+                        quote: QuoteType::None,
                     }
                 } else {
                     return Ok(None);
@@ -77,6 +78,7 @@ impl Parser {
                     if cmd_word.parts.len() != 0 {
                         args.push(Word {
                             parts: vec![WordPart::Literal((String::from("!"), QuoteType::None))],
+                            quote: QuoteType::None,
                         });
                         self.advance();
                     }else{
