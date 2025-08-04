@@ -1,0 +1,156 @@
+   Compiling shell v0.1.0 (/home/yhajjaou/0-shell)
+warning: unused imports: `clear_terminal` and `print_out`
+ --> src/shell.rs:5:40
+  |
+5 | use crate::shell_interactions::utils::{clear_terminal, print_out};
+  |                                        ^^^^^^^^^^^^^^  ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `shell`
+ --> src/shell.rs:6:41
+  |
+6 | use crate::{display_prompt, prompt_len, shell};
+  |                                         ^^^^^
+
+warning: unused import: `Up`
+ --> src/shell.rs:9:46
+  |
+9 | use termion::cursor::{DetectCursorPos, Goto, Up};
+  |                                              ^^
+
+warning: unused import: `env`
+ --> src/commands/cp.rs:4:5
+  |
+4 |     env, fs,
+  |     ^^^
+
+warning: unused imports: `calc_termlines_in_buffer` and `print_out`
+ --> src/shell_interactions/pop_from_buffer.rs:1:40
+  |
+1 | use crate::shell_interactions::utils::{calc_termlines_in_buffer, print_out};
+  |                                        ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^
+
+warning: unused imports: `prompt_len` and `shell::*`
+ --> src/shell_interactions/pop_from_buffer.rs:2:13
+  |
+2 | use crate::{prompt_len, shell::*};
+  |             ^^^^^^^^^^  ^^^^^^^^
+
+warning: unused import: `std::io::*`
+ --> src/shell_interactions/pop_from_buffer.rs:3:5
+  |
+3 | use std::io::*;
+  |     ^^^^^^^^^^
+
+warning: unused imports: `Right` and `Up`
+ --> src/shell_interactions/pop_from_buffer.rs:4:23
+  |
+4 | use termion::cursor::{Right, Up};
+  |                       ^^^^^  ^^
+
+warning: unused import: `termion::raw::RawTerminal`
+ --> src/shell_interactions/pop_from_buffer.rs:5:5
+  |
+5 | use termion::raw::RawTerminal;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `clear` and `cursor`
+ --> src/shell_interactions/pop_from_buffer.rs:6:15
+  |
+6 | use termion::{clear, cursor};
+  |               ^^^^^  ^^^^^^
+
+warning: use of deprecated associated function `chrono::NaiveDateTime::from_timestamp_opt`: use `DateTime::from_timestamp` instead
+  --> src/commands/ls.rs:93:50
+   |
+93 |             .and_then(|d| chrono::NaiveDateTime::from_timestamp_opt(d.as_secs() as i64, 0))
+   |                                                  ^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+
+warning: unused variable: `total_lines`
+   --> src/shell.rs:102:13
+    |
+102 |         let total_lines = if total_content_len == 0 {
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_total_lines`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `current_x`
+   --> src/shell.rs:109:14
+    |
+109 |         let (current_x, current_y) = match &mut self.stdout {
+    |              ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_current_x`
+
+warning: unused variable: `i`
+   --> src/shell.rs:126:13
+    |
+126 |         for i in 1..max_possible_lines {
+    |             ^ help: if this is intentional, prefix it with an underscore: `_i`
+
+warning: unused variable: `char`
+   --> src/shell.rs:205:21
+    |
+205 |                 let char = self.buffer.remove(delete_pos - 1);
+    |                     ^^^^ help: if this is intentional, prefix it with an underscore: `_char`
+
+warning: unused variable: `file_type`
+   --> src/commands/ls.rs:217:33
+    |
+217 | fn build_perm_string(mode: u32, file_type: &std::fs::FileType) -> String {
+    |                                 ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_file_type`
+
+warning: unused variable: `xbit`
+   --> src/commands/ls.rs:223:26
+    |
+223 |     let rwx = |bit: u32, xbit: u32, special: bool, special_char: char, default: char| {
+    |                          ^^^^ help: if this is intentional, prefix it with an underscore: `_xbit`
+
+warning: unused variable: `default`
+   --> src/commands/ls.rs:223:72
+    |
+223 |     let rwx = |bit: u32, xbit: u32, special: bool, special_char: char, default: char| {
+    |                                                                        ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_default`
+
+warning: unused variable: `path`
+   --> src/commands/ls.rs:245:5
+    |
+245 |     path: &Path,
+    |     ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+
+warning: unused variable: `y`
+  --> src/shell_interactions/positions_handler.rs:13:9
+   |
+13 |     (x, y): (u16, u16),
+   |         ^ help: if this is intentional, prefix it with an underscore: `_y`
+
+warning: unused variable: `buffer`
+  --> src/shell_interactions/positions_handler.rs:38:5
+   |
+38 |     buffer: String,
+   |     ^^^^^^ help: if this is intentional, prefix it with an underscore: `_buffer`
+
+warning: unused variable: `y`
+  --> src/shell_interactions/positions_handler.rs:41:9
+   |
+41 |     (x, y): (u16, u16),
+   |         ^ help: if this is intentional, prefix it with an underscore: `_y`
+
+warning: unused variable: `e`
+  --> src/lib.rs:64:13
+   |
+64 |         Err(e) => match redirect_to_home() {
+   |             ^ help: if this is intentional, prefix it with an underscore: `_e`
+
+warning: function `parse_word` is never used
+   --> src/parser.rs:151:4
+    |
+151 | fn parse_word(s: String) -> Result<String, ()> {
+    |    ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `shell` (lib) generated 24 warnings (run `cargo fix --lib -p shell` to apply 10 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.55s
+     Running `target/debug/shell`
