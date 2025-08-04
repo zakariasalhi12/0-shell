@@ -495,8 +495,9 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cat" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit"
-        | "type" => CommandType::Builtin,
+        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
+            CommandType::Builtin
+        }
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();

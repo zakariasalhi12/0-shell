@@ -29,10 +29,9 @@ use termion::raw::RawTerminal;
 use crate::shell_interactions::utils::print_out;
 
 pub mod shell_interactions {
-    pub mod edit_buffer;
+    pub mod buffer;
     pub mod history_handler;
-    pub mod pop_from_buffer;
-    pub mod positions_handler;
+    pub mod rerender;
     pub mod utils;
 }
 pub mod features {

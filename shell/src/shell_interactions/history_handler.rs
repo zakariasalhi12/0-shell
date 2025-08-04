@@ -1,59 +1,42 @@
-use crate::events_handler::CursorPosition;
+use crate::OutputTarget;
+use crate::events_handler::{CursorPosition, Shell};
 use crate::features::history::History;
+use crate::shell_interactions::utils::clear_buff_ter;
 use crate::shell_interactions::utils::{calc_termlines_in_buffer, clear_current_line, print_out};
 use crate::{display_promt, shell1::*};
 use std::io::*;
 use termion::cursor::{Down, Up};
 use termion::raw::RawTerminal;
 
-pub fn history_prev(
-    stdout: &mut Option<RawTerminal<Stdout>>,
-    buffer: &mut String,
-    history: &mut History,
-    cursor_position: CursorPosition,
-) {
-    let prev_history = history.prev();
-    if cursor_position.y > 0 {
-        for _ in 0..cursor_position.y {
-            print_out(stdout, &format!("{}", Down(1)));
+impl Shell {
+    pub fn load_history_prev(&mut self) {
+        let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
+            OutputTarget::Raw(std) => std,
+            OutputTarget::Stdout(_) => &mut None,
+        };
+        // self.buffer
+        let prev_history = self.history.prev();
+        if prev_history != self.buffer {
+            clear_buff_ter(stdout, self.buffer.clone());
+        }
+        if !prev_history.is_empty() {
+            self.buffer = prev_history;
+            self.cursor_position.reset();
+            self.rerender();
         }
     }
-    if !prev_history.is_empty() {
-        for i in 0..calc_termlines_in_buffer(buffer.len()) {
-            if i > 0 {
-                print_out(stdout, &format!("{}", Up(1)));
-            }
-            clear_current_line(stdout);
-        }
-        buffer.clear();
-        display_promt(stdout);
-        print_out(stdout, &prev_history);
-        buffer.push_str(&prev_history);
-    }
-}
 
-pub fn history_next(
-    stdout: &mut Option<RawTerminal<Stdout>>,
-    buffer: &mut String,
-    history: &mut History,
-    cursor_position: CursorPosition,
-) {
-    let next_history = history.next();
-    if cursor_position.y > 0 {
-        for _ in 0..cursor_position.y {
-            print_out(stdout, &format!("{}", Down(1)));
+    pub fn load_history_next(&mut self) {
+        let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
+            OutputTarget::Raw(std) => std,
+            OutputTarget::Stdout(_) => &mut None,
+        };
+        let next_history = self.history.next();
+        if next_history != self.buffer {
+            clear_buff_ter(stdout, self.buffer.clone());
         }
-    }
-    if !next_history.is_empty() {
-        for i in 0..calc_termlines_in_buffer(buffer.len()) {
-            if i > 0 {
-                print_out(stdout, &format!("{}", Up(1)));
-            }
-            clear_current_line(stdout);
-        }
-        buffer.clear();
-        display_promt(stdout);
-        print_out(stdout, &next_history);
-        buffer.push_str(&next_history);
+        self.buffer = next_history; // Empty string if no next history
+        self.cursor_position.reset();
+        self.rerender();
     }
 }

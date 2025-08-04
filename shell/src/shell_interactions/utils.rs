@@ -1,3 +1,7 @@
+use crate::Parser;
+use crate::envirement::ShellEnv;
+use crate::exec::execute;
+use crate::lexer::tokenize::Tokenizer;
 use crate::{display_promt, prompt_len};
 use std::io::*;
 use termion::raw::RawTerminal;
@@ -43,5 +47,32 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, bufer: String) {
     for _i in 0..lines - 1 {
         print_out(stdout, &format!("{}\r", Up(1)));
         clear_current_line(stdout);
+    }
+}
+
+pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
+    match Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
+        Ok(res) => match Parser::new(res).parse() {
+            Ok(ast) => match ast {
+                Some(ast) => {
+                    // println!("ast: {:?}", &ast);
+
+                    match execute(&ast, &mut env) {
+                        Ok(_status) => {
+                            print!("\r");
+                        }
+                        Err(e) => eprintln!("{e}\r"),
+                    }
+                }
+                None => println!("empty AST"),
+            },
+            Err(e) => {
+                eprintln!("{:#?}", e);
+            }
+        },
+
+        Err(err) => {
+            eprintln!("{:#?}", err);
+        }
     }
 }
