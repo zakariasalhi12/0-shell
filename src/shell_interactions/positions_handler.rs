@@ -1,8 +1,8 @@
+use crate::shell::*;
+use crate::shell_interactions::utils::{calc_termlines_in_buffer, print_out};
+use std::io::*;
 use termion::cursor::{Down, Left, Right, Up};
 use termion::raw::RawTerminal;
-use std::io::*;
-use crate::shell_interactions::utils::{calc_termlines_in_buffer, print_out};
-use crate::{shell::*};
 
 pub fn move_cursor_left(
     stdout: &mut Option<RawTerminal<Stdout>>,
@@ -43,7 +43,11 @@ pub fn move_cursor_right(
 ) {
     // leb make
     if cursor_position.x > 0 {
-        cursor_position.x -= 1;
+        cursor_position.x = if let Some(val) = cursor_position.x.checked_sub(1) {
+            val
+        } else {
+            cursor_position.x
+        };
         print_out(stdout, &format!("{}", Right(1)));
     }
 
@@ -51,8 +55,16 @@ pub fn move_cursor_right(
         *need_to_down = true;
     } else if *need_to_down && x == width && *buffer_lines > 1 && cursor_position.y != 0 {
         print_out(stdout, &format!("{}{}", Down(1), Left(width)));
-        cursor_position.y -= 1;
-        cursor_position.x -= 1;
+        cursor_position.y = if let Some(val) = cursor_position.y.checked_sub(1) {
+            val
+        } else {
+            cursor_position.y
+        };
+        cursor_position.x = if let Some(val) = cursor_position.x.checked_sub(1) {
+            val
+        } else {
+            cursor_position.x
+        };
         *need_to_down = false;
     }
 }
