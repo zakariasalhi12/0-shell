@@ -37,6 +37,7 @@ impl Parser {
                         if !remaining.is_empty() {
                             let remaining_word = Word {
                                 parts: vec![WordPart::Literal((remaining.to_string(), QuoteType::None))],
+                                quote : word.quote
                             };
                             self.tokens[self.pos] = Token::OpenBrace;
                             self.tokens
