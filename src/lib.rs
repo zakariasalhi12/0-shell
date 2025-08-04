@@ -1,5 +1,5 @@
 pub mod config;
-pub mod events_handler;
+pub mod shell;
 pub mod parser;
 pub use parser::*;
 pub mod executer;
@@ -20,7 +20,15 @@ use std::io::{Stdout};
 use std::path::PathBuf;
 use termion::raw::RawTerminal;
 
-use crate::events_handler::print_out;
+use crate::shell_interactions::utils::print_out;
+
+pub mod shell_interactions {
+    pub mod edit_buffer;
+    pub mod pop_from_buffer;
+    pub mod utils;
+    pub mod history_handler;
+    pub mod positions_handler;
+}
 pub mod features {
     pub mod history;
 }

@@ -1,4 +1,4 @@
-use shell::events_handler::*;
+use shell::shell::*;
 
 fn main() {
     let mut shell = match Shell::new() {
