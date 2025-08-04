@@ -26,18 +26,39 @@
     "prompt": {
       "format": "{\\user}{@\\host}:{\\cwd} {\\git_branch} λ ",
       "styles": {
-        "user": {"color": "#FF79C6", "bold": true},
-        "host": {"color": "#50FA7B"},
-        "cwd": {"color": "#8BE9FD", "italic": true},
-        "git_branch": {"color": "#F1FA8C"},
-        "symbol": {"color": "#FF5555"}
+        "user": {
+          "color": "#FF79C6",
+          "bold": true
+        },
+        "host": {
+          "color": "#50FA7B"
+        },
+        "cwd": {
+          "color": "#8BE9FD",
+          "italic": true
+        },
+        "git_branch": {
+          "color": "#F1FA8C"
+        },
+        "symbol": {
+          "color": "#FF5555"
+        }
       }
     },
     "syntax_highlighting": {
-      "commands": {"color": "#8BE9FD"},
-      "arguments": {"color": "#F8F8F2"},
-      "strings": {"color": "#F1FA8C"},
-      "errors": {"color": "#FF5555", "bold": true}
+      "commands": {
+        "color": "#8BE9FD"
+      },
+      "arguments": {
+        "color": "#F8F8F2"
+      },
+      "strings": {
+        "color": "#F1FA8C"
+      },
+      "errors": {
+        "color": "#FF5555",
+        "bold": true
+      }
     },
     "theme": "dracula",
     "transparency": 0.9
