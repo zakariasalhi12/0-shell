@@ -20,13 +20,37 @@ pub fn calc_termlines_in_buffer(buffer_size: usize) -> u16 {
 pub fn print_out(w: &mut Option<RawTerminal<Stdout>>, input: &str) {
     match w {
         Some(raw_stdout) => {
-            write!(raw_stdout, "{}", input).unwrap();
-            raw_stdout.flush().unwrap();
+            match write!(raw_stdout, "{}", input) {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
+            match raw_stdout.flush() {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
         }
         None => {
             let mut std = std::io::stdout();
-            write!(std, "{}", input).unwrap();
-            std.flush().unwrap();
+            match write!(std, "{}", input) {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
+            match std.flush() {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
         }
     }
 }

@@ -1,8 +1,8 @@
 use crate::OutputTarget;
 use crate::display_promt;
 use crate::events_handler::Shell;
+use crate::prompt_len;
 use crate::shell_interactions::utils::{calc_termlines_in_buffer, print_out};
-use crate::{prompt_len, shell1::*};
 use std::io::*;
 use termion::cursor::{Right, Up};
 use termion::raw::RawTerminal;
@@ -33,13 +33,37 @@ impl Shell {
     pub fn print_out_static(stdout: &mut Option<RawTerminal<Stdout>>, input: &str) {
         match stdout {
             Some(raw_stdout) => {
-                write!(raw_stdout, "{}", input).unwrap();
-                raw_stdout.flush().unwrap();
+                match write!(raw_stdout, "{}", input) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
+                match raw_stdout.flush() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
             None => {
                 let mut std = std::io::stdout();
-                write!(std, "{}", input).unwrap();
-                std.flush().unwrap();
+                match write!(std, "{}", input) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
+                match std.flush() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
         }
     }

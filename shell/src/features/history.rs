@@ -11,25 +11,40 @@ pub struct History {
 static NAME: &str = ".0-shell_history";
 
 fn file_to_vec(path: String) -> Vec<String> {
-    let mut file = OpenOptions::new()
+    let mut file = match OpenOptions::new()
         .read(true)
         .create(true)
         .write(true)
         .open(path)
-        .unwrap();
+    {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
 
     let mut content = String::new();
-    file.read_to_string(&mut content).unwrap();
+    match file.read_to_string(&mut content) {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
     content.lines().map(|line| line.to_string()).collect()
 }
 
 impl History {
     pub fn new() -> Self {
-        let file_path = format!(
-            "{}/{}",
-            home_dir().unwrap().to_string_lossy().to_owned(),
-            NAME
-        );
+        let home = match home_dir() {
+            Some(val) => val.to_string_lossy().to_string(),
+            None => {
+                eprintln!("Invalide Home directory");
+                std::process::exit(1);
+            }
+        };
+        let file_path = format!("{}/{}", home, NAME);
 
         let file_content = file_to_vec(file_path.to_owned());
 
@@ -63,15 +78,26 @@ impl History {
             return;
         }
 
-        let mut file = OpenOptions::new()
+        let mut file = match OpenOptions::new()
             .append(true)
             .create(true)
             .open(self.path.to_owned())
-            .unwrap();
+        {
+            Ok(val) => val,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        };
 
-        file.write((command.to_string()  + "\n").as_bytes()).unwrap();
+        match file.write((command.to_string() + "\n").as_bytes()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        };
         self.history.push(command);
         self.position += 1;
     }
-
 }

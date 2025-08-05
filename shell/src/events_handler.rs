@@ -9,6 +9,7 @@ use crate::{display_promt, prompt_len};
 use crate::{exec::*, parser};
 use std::io::*;
 use std::io::{self, BufRead};
+use std::os::unix::process;
 use std::{self};
 use termion::cursor::DetectCursorPos;
 use termion::cursor::Goto;
@@ -92,18 +93,30 @@ impl Shell {
 
     // if the character == \0 remove the character from the buffer instead of add it
 
-    pub fn cooked_mode(stdout : &mut OutputTarget) {
+    pub fn cooked_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
-                raw_stdout.suspend_raw_mode().unwrap();
+                match raw_stdout.suspend_raw_mode() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
         }
     }
 
-    pub fn raw_mode(stdout : &mut OutputTarget) {
+    pub fn raw_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
-                raw_stdout.activate_raw_mode().unwrap();
+                match raw_stdout.activate_raw_mode() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
         }
     }
@@ -117,13 +130,31 @@ impl Shell {
         match stdout {
             OutputTarget::Raw(raw) => match raw {
                 Some(s) => {
-                    writeln!(s).unwrap();
+                    match writeln!(s) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    };
                     print!("\r\x1b[2K");
-                    s.flush().unwrap();
+                    match s.flush() {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    };
                 }
                 None => {}
             },
-            OutputTarget::Stdout(stdout) => stdout.flush().unwrap(),
+            OutputTarget::Stdout(stdout) => match stdout.flush() {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            },
         }
 
         if !buffer.trim().is_empty() {
@@ -152,7 +183,14 @@ impl Shell {
         let stdin = self.stdin.lock();
 
         for key in stdin.keys() {
-            match key.unwrap() {
+            let new_key = match key {
+                Ok(val) => val,
+                Err(e) => {
+                    eprint!("{e}");
+                    std::process::exit(0);
+                }
+            };
+            match new_key {
                 // Execute command
                 termion::event::Key::Char('\n') => {
                     self.cursor_position.reset();
@@ -235,7 +273,13 @@ impl Shell {
     pub fn run_non_interactive_stdin(&mut self) {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
-            let line = line.unwrap();
+            let line = match line {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
             match Tokenizer::new(&line).tokenize() {
                 Ok(tokens) => match parser::Parser::new(tokens).parse() {
                     Ok(ast) => match ast {
