@@ -1,6 +1,14 @@
-SHELL_BIN=bin/0shell
-CAT_BIN=bin/cat
-LS_BIN=bin/ls
+SHELL_BIN=$(HOME)/.push/bin/push
+CAT_BIN=$(HOME)/.push/bin/cat
+LS_BIN=$(HOME)/.push/bin/ls
+
+
+install:
+	mkdir -p ~/.push/bin
+	touch ~/.push/.pushrc
+	echo 'export PATH=$$HOME/.push/bin:$$PATH' >> ~/.push/.pushrc
+	$(MAKE) clean
+	$(MAKE) all
 
 all: $(SHELL_BIN) $(CAT_BIN) $(LS_BIN)
 
@@ -17,7 +25,7 @@ $(LS_BIN):
 	cp ls/target/release/ls $(LS_BIN)
 
 clean: cargo-clean
-	rm -f bin/*
+	rm -f $(HOME)/.push/bin/*
 
 cargo-clean:
 	cargo clean --manifest-path=shell/Cargo.toml

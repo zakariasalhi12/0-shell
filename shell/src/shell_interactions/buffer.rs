@@ -67,6 +67,9 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+            _=>{
+                return;
+            }
         };
         self.buffer.clear();
         self.cursor_position.reset();

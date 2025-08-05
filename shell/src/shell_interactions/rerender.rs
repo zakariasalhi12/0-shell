@@ -15,6 +15,9 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+             _=>{
+                return;
+            }
         };
         // Store values we need to avoid borrowing conflicts
         let buffer_clone = self.buffer.clone();

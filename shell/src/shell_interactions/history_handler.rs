@@ -13,6 +13,9 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+             _=>{
+                return;
+            }
         };
         // self.buffer
         let prev_history = self.history.prev();
@@ -30,6 +33,9 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+             _=>{
+                return;
+            }
         };
         let next_history = self.history.next();
         if next_history != self.buffer {

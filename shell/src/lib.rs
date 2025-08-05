@@ -7,12 +7,10 @@ pub mod envirement;
 pub mod exec;
 pub mod redirection;
 pub mod commands {
-    pub mod cat;
     pub mod cd;
     pub mod cp;
     pub mod echo;
     pub mod export;
-    pub mod ls;
     pub mod mkdir;
     pub mod mv;
     pub mod pwd;

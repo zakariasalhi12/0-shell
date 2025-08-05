@@ -15,23 +15,14 @@ impl Export {
 impl ShellCommand for Export {
     fn execute(&self, env: &mut ShellEnv) -> Result<()> {
         for arg in &self.args {
-            let spliced: Vec<&str> = arg.splitn(2, '=').collect();
-
-            if spliced.len() != 2 {
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    format!("Invalid export syntax: '{}'", arg),
-                ));
+            if let Some(pos) = arg.find('='){
+                env.set_env_var(&arg[..pos], &arg[pos + 1..]);
+            }else{
+                if let Some(var) = env.get(&arg){
+                    env.set_env_var(&arg, &var);
+                }
             }
-
-            let key = spliced[0].trim_matches(|c| c == '\'' || c == '"');
-            let value = spliced[1].trim_matches(|c| c == '\'' || c == '"');
-
-  
-                env.set_env_var(key, value);
-           
         }
-
         Ok(())
     }
 }
