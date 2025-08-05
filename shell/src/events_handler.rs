@@ -7,6 +7,8 @@ use crate::shell_interactions::utils::clear_buff_ter;
 use crate::shell_interactions::utils::parse_input;
 use crate::{display_promt, prompt_len};
 use crate::{exec::*, parser};
+use std::env;
+use std::fs::read_to_string;
 use std::io::*;
 use std::io::{self, BufRead};
 use std::{self};
@@ -16,6 +18,7 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};
+
 #[derive(Debug, Clone, Copy)]
 pub struct CursorPosition {
     pub x: u16, // Position within the buffer (0 = at end)
@@ -43,6 +46,7 @@ pub enum ShellMode {
 pub enum OutputTarget {
     Raw(Option<RawTerminal<Stdout>>),
     Stdout(Stdout),
+    Null,
 }
 
 pub struct Shell {
@@ -92,7 +96,7 @@ impl Shell {
 
     // if the character == \0 remove the character from the buffer instead of add it
 
-    pub fn cooked_mode(stdout : &mut OutputTarget) {
+    pub fn cooked_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
                 raw_stdout.suspend_raw_mode().unwrap();
@@ -100,7 +104,7 @@ impl Shell {
         }
     }
 
-    pub fn raw_mode(stdout : &mut OutputTarget) {
+    pub fn raw_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
                 raw_stdout.activate_raw_mode().unwrap();
@@ -124,6 +128,7 @@ impl Shell {
                 None => {}
             },
             OutputTarget::Stdout(stdout) => stdout.flush().unwrap(),
+            _ => {}
         }
 
         if !buffer.trim().is_empty() {
@@ -137,6 +142,9 @@ impl Shell {
         let std: &mut Option<RawTerminal<std::io::Stdout>> = match stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+            _ => {
+                return;
+            }
         };
         display_promt(std);
     }
@@ -146,7 +154,32 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
+            _ => {
+                return;
+            }
         };
+        if let Ok(home) = env::var("HOME") {
+            match read_to_string(format!("{}/.push/.pushrc", home)) {
+                Ok(mut data) => {
+                    let mut dev_null = OutputTarget::Null;
+                    Shell::parse_and_exec(
+                        &mut dev_null,
+                        &mut data,
+                        &mut self.history,
+                        &mut self.env,
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Error reading pushrc: {}\n add pushrc file in $(HOME)/.push/",
+                        e
+                    );
+                    std::process::exit(1);
+                }
+            };
+        } else {
+            eprintln!("HOME environment variable not set.");
+        }
 
         display_promt(stdout);
         let stdin = self.stdin.lock();
@@ -207,6 +240,9 @@ impl Shell {
                     let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
                         OutputTarget::Raw(std) => std,
                         OutputTarget::Stdout(_) => &mut None,
+                        _ => {
+                            return;
+                        }
                     };
                     Self::print_out_static(stdout, "\r");
                     return;

@@ -4,6 +4,7 @@ pub mod config;
 use shell::events_handler::{self, ShellMode};
 
 fn main() {
+
     let args: Vec<String> = std::env::args().collect();
     let mode = if let Some(pos) = args.iter().position(|arg| arg == "-c") {
         if let Some(cmd) = args.get(pos + 1) {

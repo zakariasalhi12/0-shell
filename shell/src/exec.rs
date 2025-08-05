@@ -4,13 +4,11 @@ use crate::redirection::setup_redirections_ownedfds;
 use nix::fcntl::{FcntlArg, fcntl};
 use nix::unistd::dup;
 use nix::unistd::pipe;
-use std::char;
-use std::os::fd::AsFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
 use std::vec;
 
 use crate::commands::{
-    cat::Cat, cd::Cd, cp::Cp, echo::Echo, export::Export, ls::Ls, mkdir::Mkdir, mv::Mv, pwd::Pwd,
+    cd::Cd, cp::Cp, echo::Echo, export::Export, mkdir::Mkdir, mv::Mv, pwd::Pwd,
     rm::Rm, typ::Type,
 };
 use crate::envirement::ShellEnv;
@@ -325,9 +323,7 @@ pub fn build_command(
     match cmd.as_str() {
         "echo" => Some(Box::new(Echo::new(args, stdout))),
         "cd" => Some(Box::new(Cd::new(args))),
-        "ls" => Some(Box::new(Ls::new(args, opts))),
         "pwd" => Some(Box::new(Pwd::new(args))),
-        "cat" => Some(Box::new(Cat::new(args))),
         "cp" => Some(Box::new(Cp::new(args, opts))),
         "rm" => Some(Box::new(Rm::new(args, opts))),
         "mv" => Some(Box::new(Mv::new(args))),
@@ -366,9 +362,7 @@ pub fn execute_command_with_stdio(
     let stderr_fd = fds_map.and_then(|map| map.get(&2));
 
     if use_external {
-        // let env_result = ENV.lock();
-        // if let Ok(env_map) = env_result {
-        // if let Some(full_path) = env_map.get(cmd_str) {
+
         let mut command = ExternalCommand::new(cmd_str);
         command.args(args);
 
@@ -431,10 +425,7 @@ pub fn execute_command_with_stdio(
             .spawn()
             .map(CommandResult::Child)
             .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)));
-        // }
-        // }
     } else {
-        // Internal command: temporarily redirect fds in current process
 
         let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], None);
         let mut backups: Option<Vec<(u64, i32)>> = None;
