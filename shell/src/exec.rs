@@ -1,5 +1,6 @@
 use crate::PathBuf;
 use crate::ShellCommand;
+use crate::commands::exit::Exit;
 use crate::redirection::setup_redirections_ownedfds;
 use nix::fcntl::{FcntlArg, fcntl};
 use nix::unistd::dup;
@@ -19,6 +20,9 @@ use crate::parser::types::*;
 use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
+// use signal_hook::{SIGINT};
+use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM}; // Import signal constants from libc
+use signal_hook::iterator::Signals;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     match ast {
@@ -28,7 +32,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let mut child = execute_commande(cmd, args, assignments, redirects, env, None)?;
+            let child = execute_commande(cmd, args, assignments, redirects, env, None)?;
+            env.set_last_status(child);
             Ok(child)
         }
         AstNode::Pipeline(nodes) => {
@@ -40,7 +45,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 return execute(&nodes[0], env);
             }
 
-            let mut children: Vec<Child> = Vec::new();
+            // let mut children: Vec<Child> = Vec::new();
             let mut prev_read: Option<OwnedFd> = None;
 
             for (i, node) in nodes.iter().enumerate() {
@@ -53,8 +58,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ..
                 } = node
                 {
-                    let cmd_str: String = cmd.expand(&env);
-                    let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
+                    // let cmd_str: String = cmd.expand(&env);
+                    // let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
 
                     // Use the read end of the previous pipe as stdin
                     let stdin = prev_read.take();
@@ -70,10 +75,10 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         (None, None)
                     };
 
-                    let stderr = Stdio::inherit();
+                    // let stderr = Stdio::inherit();
                     // let use_external = should_use_external_for_pipeline(&cmd_str);
 
-                    let fds_map = if redirects.is_empty() {
+                    let fds_map = {
                         let mut map: HashMap<u64, OwnedFd> = HashMap::new();
                         if let Some(stdi) = stdin {
                             map.insert(0, stdi);
@@ -82,9 +87,10 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                             map.insert(1, stdo);
                         }
                         Some(map)
-                    } else {
-                        Some(setup_redirections_ownedfds(&redirects, env)?)
                     };
+                    // } else {
+                    //     Some(setup_redirections_ownedfds(&redirects, env)?)
+                    // };
 
                     let stat =
                         execute_commande(cmd, args, &vec![], redirects, env, fds_map.as_ref())?;
@@ -254,11 +260,15 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        AstNode::For { var, values, body } => {
+        AstNode::For {
+            var: _,
+            values,
+            body,
+        } => {
             // Execute for loop
             let mut last_status = 0;
 
-            for value in values {
+            for _ in values {
                 // Set the loop variable
                 // env.set_var(var, value);
 
@@ -330,19 +340,13 @@ pub fn build_command(
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
         "type" => Some(Box::new(Type::new(args))),
-        "exit" => {
-            std::process::exit(0);
-        }
+        "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
 }
 pub enum CommandResult {
     Child(Child),
     Builtin,
-}
-
-fn should_use_external_for_pipeline(cmd: &str) -> bool {
-    matches!(cmd, "ls" | "cat" | "grep")
 }
 
 use nix::unistd::{close, dup2};
@@ -368,21 +372,30 @@ pub fn execute_command_with_stdio(
 
         // Setup standard fds
         if let Some(fd) = stdin_fd {
-            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            let new_fd = match dup(fd.as_raw_fd()) {
+                Ok(val) => val,
+                Err(e) => return Err(ShellError::Exec(e.to_string())),
+            };
             command.stdin(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
         } else {
             command.stdin(Stdio::inherit());
         }
 
         if let Some(fd) = stdout_fd {
-            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            let new_fd = match dup(fd.as_raw_fd()) {
+                Ok(val) => val,
+                Err(e) => return Err(ShellError::Exec(e.to_string())),
+            };
             command.stdout(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
         } else {
             command.stdout(Stdio::inherit());
         }
 
         if let Some(fd) = stderr_fd {
-            let new_fd = dup(fd.as_raw_fd()).unwrap();
+            let new_fd = match dup(fd.as_raw_fd()) {
+                Ok(val) => val,
+                Err(e) => return Err(ShellError::Exec(e.to_string())),
+            };
             command.stderr(Stdio::from(unsafe { OwnedFd::from_raw_fd(new_fd) }));
         } else {
             command.stderr(Stdio::inherit());
@@ -458,7 +471,6 @@ pub fn execute_command_with_stdio(
                         close(backup).ok();
                     }
                 }
-
                 return Ok(CommandResult::Builtin);
             }
             None => {
@@ -469,8 +481,6 @@ pub fn execute_command_with_stdio(
             }
         }
     }
-
-    Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
 }
 
 pub enum CommandType {
@@ -505,14 +515,13 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
         },
     }
 }
-
 pub fn execute_commande(
     cmd: &Word,
     args: &Vec<Word>,
     assignments: &Vec<(String, Word)>,
     redirects: &Vec<Redirect>,
     env: &mut ShellEnv,
-    mut piping_fds: Option<&HashMap<u64, OwnedFd>>,
+    piping_fds: Option<&HashMap<u64, OwnedFd>>,
 ) -> Result<i32, ShellError> {
     // 1. Expand command and args
     let mut all_args: Vec<String> = vec![];
@@ -529,25 +538,42 @@ pub fn execute_commande(
         all_args.extend(expanded_args);
     }
 
-    //  let merged_fds = if !redirects.is_empty() {
-    //     match setup_redirections_ownedfds(&redirects, env) {
-    //         Ok(redirects_map) => {
-    //             if let Some(piping_fds_map) = piping_fds {
-    //                 // Merge the two maps
-    //                 let mut merged = piping_fds_map.clone();
-    //                 merged.extend(redirects_map);
-    //                 Some(merged)
-    //             } else {
-    //                 Some(redirects_map).as_ref()
-    //             }
-    //         }
-    //         Err(e) => return Err(e),
-    //     }
-    // } else {
-    //     // No redirects, just use piping_fds as is
-    //     piping_fds
-    // };
+    // 2. Merge piping FDs and redirection FDs
+    let merged_fds: Option<HashMap<u64, OwnedFd>> = match (!redirects.is_empty(), piping_fds) {
+        // Case 1: We have redirects but no piping FDs
+        (true, None) => Some(setup_redirections_ownedfds(&redirects, env)?),
+        // Case 2: We have both redirects and piping FDs - need to merge
+        (true, Some(piping_fds_map)) => {
+            let mut merged_map = HashMap::new();
 
+            // First, clone all piping FDs
+            for (fd, owned_fd) in piping_fds_map {
+                // Note: This assumes OwnedFd implements Clone or you have a way to duplicate it
+                // If OwnedFd doesn't implement Clone, you might need to use a different approach
+                merged_map.insert(*fd, owned_fd.try_clone().map_err(|e| ShellError::Io(e))?);
+            }
+
+            // Then add/override with redirection FDs
+            let redirects_map = setup_redirections_ownedfds(&redirects, env)?;
+            for (fd, owned_fd) in redirects_map {
+                merged_map.insert(fd, owned_fd);
+            }
+            Some(merged_map)
+        }
+        // Case 3: We have piping FDs but no redirects
+        (false, Some(piping_fds_map)) => {
+            // Clone the existing piping FDs map
+            let mut cloned_map = HashMap::new();
+            for (fd, owned_fd) in piping_fds_map {
+                cloned_map.insert(*fd, owned_fd.try_clone().map_err(|e| ShellError::Io(e))?);
+            }
+            Some(cloned_map)
+        }
+        // Case 4: No FDs to merge
+        (false, None) => None,
+    };
+
+    // 3. Execute the command
     if !cmd_str.is_empty() {
         match get_command_type(cmd.expand(env).as_str(), env) {
             CommandType::Function(func) => {
@@ -560,7 +586,7 @@ pub fn execute_commande(
                 execute_command_with_stdio(
                     &cmd_str,
                     &all_args,
-                    piping_fds,
+                    merged_fds.as_ref(),
                     false,
                     HashMap::new(),
                     env,
@@ -575,9 +601,23 @@ pub fn execute_commande(
                 }
 
                 let status = match execute_command_with_stdio(
-                    &path, &all_args, piping_fds, true, envs, env,
+                    &path,
+                    &all_args,
+                    merged_fds.as_ref(),
+                    true,
+                    envs,
+                    env,
                 )? {
                     CommandResult::Child(mut child) => {
+                        let mut signals = Signals::new(&[libc_SIGINT, libc_SIGTERM])?;
+
+                        for sig in signals.pending() {
+                            if sig == libc_SIGINT {
+                                println!("\nCaught SIGINT (Ctrl+C). Killing the 'cat' process...");
+                                child.kill()?; // Kill the 'cat' process, not the shell
+                            }
+                        }
+
                         child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
                     }
                     CommandResult::Builtin => 0,
@@ -591,6 +631,7 @@ pub fn execute_commande(
             }
         }
     } else {
+        // Handle variable assignments without command
         if !assignments.is_empty() {
             for ass in assignments {
                 env.set_local_var(&ass.0, &ass.1.expand(&env));

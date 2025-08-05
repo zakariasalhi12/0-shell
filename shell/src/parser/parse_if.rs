@@ -1,5 +1,5 @@
 use crate::error::ShellError;
-use crate::lexer::types::{QuoteType, Token, WordPart};
+use crate::lexer::types::{Token, WordPart};
 use crate::parser::Parser;
 use crate::parser::types::*;
 
@@ -19,12 +19,14 @@ impl Parser {
                         }
                     }
                 },
-                _ =>{
-
-                },
                 None =>{
                     break;
                 }
+                
+                _ =>{
+
+                },
+                
             }
         }
         Ok(None)

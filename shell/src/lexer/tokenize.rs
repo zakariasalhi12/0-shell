@@ -33,7 +33,7 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote  : where_im_at,
+                            quote: where_im_at,
                         }));
                         parts.clear();
                         where_im_at = QuoteType::None;
@@ -44,7 +44,6 @@ impl<'a> Tokenizer<'a> {
                     state = State::Default;
                 }
                 (State::InDoubleQuote | State::Default | State::InWord, '$') => {
-                    // println!("{:?}", state);
                     self.chars.next();
                     if !buffer.0.is_empty() {
                         parts.push(WordPart::Literal((buffer.0.clone(), buffer.1)));
@@ -79,7 +78,7 @@ impl<'a> Tokenizer<'a> {
                                     parts.push(WordPart::CommandSubstitution(cmd));
                                 }
                             }
-                            c if c.is_alphanumeric() || c == '_' => {
+                            c if c.is_alphanumeric() || c == '_' || c == '?' => {
                                 let mut var = String::new();
                                 if c.is_ascii_digit() {
                                     var.push(c);
@@ -94,7 +93,7 @@ impl<'a> Tokenizer<'a> {
                                     }
                                 } else {
                                     while let Some(&ch) = self.chars.peek() {
-                                        if ch.is_alphanumeric() || ch == '_' {
+                                        if ch.is_alphanumeric() || ch == '_' || ch == '?' {
                                             var.push(ch);
                                             self.chars.next();
                                         } else {
@@ -175,7 +174,7 @@ impl<'a> Tokenizer<'a> {
                     self.chars.next();
                     buffer.1 = QuoteType::Double;
                     state = State::InDoubleQuote;
-                    if where_im_at == QuoteType::None{
+                    if where_im_at == QuoteType::None {
                         where_im_at = QuoteType::Double
                     }
                 }
@@ -192,7 +191,7 @@ impl<'a> Tokenizer<'a> {
                 (State::Default, '\'') => {
                     self.chars.next();
                     state = State::InSingleQuote;
-                    if where_im_at == QuoteType::None{
+                    if where_im_at == QuoteType::None {
                         where_im_at = QuoteType::Double
                     }
                 }
@@ -283,7 +282,7 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote : where_im_at
+                            quote: where_im_at,
                         }));
                         where_im_at = QuoteType::None;
                         parts.clear();
@@ -304,7 +303,7 @@ impl<'a> Tokenizer<'a> {
                     if !parts.is_empty() {
                         tokens.push(Token::Word(Word {
                             parts: parts.clone(),
-                            quote : where_im_at
+                            quote: where_im_at,
                         }));
                         where_im_at = QuoteType::None;
                         parts.clear();
@@ -325,7 +324,7 @@ impl<'a> Tokenizer<'a> {
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
-                                        quote : where_im_at
+                                        quote: where_im_at,
                                     }));
                                     parts.clear();
                                     where_im_at = QuoteType::None;
@@ -341,11 +340,10 @@ impl<'a> Tokenizer<'a> {
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
-                                quote : where_im_at
+                                quote: where_im_at,
                             }));
                             parts.clear();
                             where_im_at = QuoteType::None;
-
                         }
                         state = State::MaybeRedirectOut2;
                     }
@@ -364,7 +362,7 @@ impl<'a> Tokenizer<'a> {
                                 if !parts.is_empty() {
                                     tokens.push(Token::Word(Word {
                                         parts: parts.clone(),
-                                        quote : where_im_at
+                                        quote: where_im_at,
                                     }));
                                     parts.clear();
                                     where_im_at = QuoteType::None;
@@ -380,7 +378,7 @@ impl<'a> Tokenizer<'a> {
                         if !parts.is_empty() {
                             tokens.push(Token::Word(Word {
                                 parts: parts.clone(),
-                                quote : where_im_at
+                                quote: where_im_at,
                             }));
                             parts.clear();
                             where_im_at = QuoteType::None;
@@ -462,8 +460,11 @@ impl<'a> Tokenizer<'a> {
             // state = State::Default;
         }
         if !parts.is_empty() {
-            tokens.push(Token::Word(Word { parts, quote:where_im_at }));
-            where_im_at = QuoteType::None;
+            tokens.push(Token::Word(Word {
+                parts,
+                quote: where_im_at,
+            }));
+            _ = QuoteType::None;
         }
 
         match state {
@@ -499,7 +500,11 @@ impl<'a> Tokenizer<'a> {
         while let Some(_) = self.chars.peek() {
             if self.peek_matches(start) {
                 for _ in 0..start_len {
-                    buffer.push(self.chars.next().unwrap());
+                    let char = match self.chars.next() {
+                        Some(val) => val,
+                        None => return Err(ShellError::UnexpectedEof),
+                    };
+                    buffer.push(char);
                 }
                 depth += 1;
                 continue;

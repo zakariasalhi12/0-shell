@@ -1,4 +1,4 @@
-use crate::{envirement::ShellEnv, lexer::{self, types::{QuoteType, Word, WordPart}}, Parser};
+use crate::{envirement::ShellEnv, lexer::{types::{QuoteType, Word}}};
 
     pub fn expand_and_split(word: &Word, env: &ShellEnv) -> Vec<String> {
     let expanded = word.expand(env);

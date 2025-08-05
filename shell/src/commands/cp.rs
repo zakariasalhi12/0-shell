@@ -1,7 +1,7 @@
 use crate::ShellCommand;
 use std::path::{Path, PathBuf};
 use std::{
-    env, fs,
+    fs,
     io::{Error, ErrorKind},
 };
 
