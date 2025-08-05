@@ -464,8 +464,33 @@ impl<'a> Tokenizer<'a> {
                 parts,
                 quote: where_im_at,
             }));
-            _ = QuoteType::None;
         }
+
+        // if state == State::InDoubleQuote
+        //     || state == State::InSingleQuote
+        //     || where_im_at == QuoteType::Double
+        //     || where_im_at == QuoteType::Single
+        // {
+        if state == State::InDoubleQuote {
+            return Err(ShellError::Syntax("missing quote: \"".to_string()));
+        }
+        if state == State::InSingleQuote {
+            return Err(ShellError::Syntax("missing quote: '".to_string()));
+        } // match (&state, &where_im_at) {
+        //     (State::InDoubleQuote, QuoteType::Double) => {
+        //         return Err(ShellError::Syntax("missing quote: \"".to_string()));
+        //     }
+        //     (State::InSingleQuote, QuoteType::Single) => {
+        //         return Err(ShellError::Syntax("missing quote: '".to_string()));
+        //     }
+        //     (State::InDoubleQuote, QuoteType::Single) => {
+        //         return Err(ShellError::Syntax("missing quote: \"".to_string()));
+        //     }
+        //     (State::InSingleQuote,  QuoteType::Double) => {
+        //         return Err(ShellError::Syntax("missing quote: '".to_string()));
+        //     }
+        // }
+        // }
 
         match state {
             State::MaybeRedirectOut2 => {
