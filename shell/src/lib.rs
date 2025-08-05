@@ -22,7 +22,6 @@ pub mod commands {
 use crate::events_handler::OutputTarget;
 use envirement as v;
 use std::env;
-use std::io::Stdout;
 use std::path::PathBuf;
 use termion::raw::RawTerminal;
 
@@ -74,7 +73,7 @@ pub fn get_current_directory() -> Result<String, String> {
             Some(name) => Ok(name.to_string_lossy().to_string()),
             None => Ok("/".to_string()),
         },
-        Err(e) => match redirect_to_home() {
+        Err(_) => match redirect_to_home() {
             Ok(val) => Ok(val),
             Err(e) => Err(e.to_string()),
         },

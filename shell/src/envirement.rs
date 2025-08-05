@@ -5,9 +5,8 @@ use crate::jobs::Job;
 use crate::parser::types::AstNode;
 
 use dirs::home_dir;
-use lazy_static::lazy_static;
 use std::fs::read_to_string;
-use std::{env, sync::Mutex};
+use std::{env};
 use whoami;
 
 fn get_user_shell(username: &str) -> Option<String> {

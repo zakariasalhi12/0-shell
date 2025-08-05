@@ -1,9 +1,6 @@
 // use crate::ShellCommand;
 use std::fs::{File, canonicalize};
 use std::io::*;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-
 #[derive(Debug, PartialEq, Eq)]
 pub struct Cat {
     pub args: Vec<String>,

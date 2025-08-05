@@ -3,20 +3,15 @@ use crate::features::history;
 use crate::features::history::History;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
-use crate::shell_interactions::utils::clear_buff_ter;
 use crate::shell_interactions::utils::parse_input;
-use crate::{display_promt, prompt_len};
+use crate::{display_promt};
 use crate::{exec::*, parser};
 use std::io::*;
 use std::io::{self, BufRead};
-use std::os::unix::process;
 use std::{self};
-use termion::cursor::DetectCursorPos;
-use termion::cursor::Goto;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
-use termion::{clear, cursor};
 #[derive(Debug, Clone, Copy)]
 pub struct CursorPosition {
     pub x: u16, // Position within the buffer (0 = at end)

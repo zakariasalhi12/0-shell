@@ -1,9 +1,6 @@
 use crate::ShellCommand;
-use std::fs::{canonicalize, read};
 use std::io::*;
 use std::process::Command;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
 use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,7 +29,7 @@ impl ShellCommand for Cat {
                     Ok(())
                 }
             }
-            Err(e) => Err(Error::new(ErrorKind::InvalidInput, "Error invalid")),
+            Err(_) => Err(Error::new(ErrorKind::InvalidInput, "Error invalid")),
         }
     }
 }
