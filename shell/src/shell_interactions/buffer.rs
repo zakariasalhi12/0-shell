@@ -2,7 +2,7 @@ use crate::OutputTarget;
 use crate::display_promt;
 use crate::events_handler::Shell;
 use crate::shell_interactions::utils::{calc_termlines_in_buffer, print_out};
-use crate::{prompt_len, shell1::*};
+use crate::{prompt_len,};
 use std::io::*;
 use termion::cursor::{Right, Up};
 use termion::raw::RawTerminal;

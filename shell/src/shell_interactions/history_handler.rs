@@ -3,7 +3,7 @@ use crate::events_handler::{CursorPosition, Shell};
 use crate::features::history::History;
 use crate::shell_interactions::utils::clear_buff_ter;
 use crate::shell_interactions::utils::{calc_termlines_in_buffer, clear_current_line, print_out};
-use crate::{display_promt, shell1::*};
+use crate::{display_promt};
 use std::io::*;
 use termion::cursor::{Down, Up};
 use termion::raw::RawTerminal;
