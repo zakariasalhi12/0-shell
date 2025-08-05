@@ -1,5 +1,5 @@
 use ls::Ls;
-use std::{any::Any, env, os::unix::process};
+use std::env;
 
 fn main() {
     let args: Vec<String> = env::args().collect();

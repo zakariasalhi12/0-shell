@@ -1,10 +1,10 @@
+use crate::display_promt;
 use crate::envirement::ShellEnv;
 use crate::features::history;
 use crate::features::history::History;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
 use crate::shell_interactions::utils::parse_input;
-use crate::{display_promt};
 use crate::{exec::*, parser};
 use std::env;
 use std::fs::read_to_string;
@@ -14,7 +14,6 @@ use std::{self};
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
-use termion::{clear, cursor};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CursorPosition {
@@ -155,9 +154,7 @@ impl Shell {
                     std::process::exit(1);
                 }
             },
-            OutputTarget::Null =>{
-                
-            }
+            OutputTarget::Null => {}
         }
 
         if !buffer.trim().is_empty() {
