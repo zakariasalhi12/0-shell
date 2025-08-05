@@ -2,6 +2,7 @@ use crate::PathBuf;
 use crate::ShellCommand;
 use crate::redirection::setup_redirections_ownedfds;
 use nix::fcntl::{FcntlArg, fcntl};
+use nix::sys::signal;
 use nix::unistd::dup;
 use nix::unistd::pipe;
 use std::char;
@@ -21,6 +22,10 @@ use crate::parser::types::*;
 use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
+// use signal_hook::{SIGINT};
+use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM}; // Import signal constants from libc
+use signal_hook::{iterator::Signals};
+
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     match ast {
@@ -609,6 +614,15 @@ pub fn execute_commande(
                     env,
                 )? {
                     CommandResult::Child(mut child) => {
+                        let mut signals = Signals::new(&[libc_SIGINT, libc_SIGTERM])?;
+
+                        for sig in signals.pending() {
+                            if sig == libc_SIGINT {
+                                println!("\nCaught SIGINT (Ctrl+C). Killing the 'cat' process...");
+                                child.kill()?;  // Kill the 'cat' process, not the shell
+                            }
+                        }
+
                         child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
                     }
                     CommandResult::Builtin => 0,
