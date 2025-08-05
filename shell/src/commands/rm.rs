@@ -8,15 +8,42 @@ use crate::envirement::ShellEnv;
 pub struct Rm {
     pub args: Vec<String>,
     pub opts: Vec<String>,
+    pub is_recursion: bool,
+    pub valid_opts: bool,
 }
 
 impl Rm {
     pub fn new(args: Vec<String>, opts: Vec<String>) -> Self {
-        Rm { args, opts }
+        let mut rs = Rm {
+            args,
+            opts,
+            is_recursion: false,
+            valid_opts: false,
+        };
+        rs.parse_flags();
+        rs
     }
 
-    pub fn is_recursive(&self) -> bool {
-        self.opts.iter().all(|f| f == "-r")
+    pub fn parse_flags(&mut self) {
+        for f in &self.args {
+            if f.starts_with('-') {
+                for ch in f.chars().skip(1) {
+                    match ch {
+                        'r' => self.is_recursion = true,
+                        _ => {
+                            self.valid_opts = false;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        self.args = self
+            .args
+            .iter()
+            .filter(|f| !f.starts_with('-'))
+            .cloned()
+            .collect();
     }
 }
 
@@ -46,8 +73,7 @@ impl ShellCommand for Rm {
                 "rm: missing operand",
             ));
         }
-
-        let recursive = self.is_recursive();
+        let recursive = self.is_recursion;
         if self.opts.len() != 0 && !recursive {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -56,6 +82,10 @@ impl ShellCommand for Rm {
         }
 
         for target in &self.args {
+            if target == "." || target == ".." {
+                eprintln!("rm: refusing to remove '.' or '..' directory: skipping '..'\r");
+                continue;
+            }
             let path = PathBuf::from(target);
             if !path.exists() {
                 eprintln!(
