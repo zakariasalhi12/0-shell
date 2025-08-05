@@ -1,6 +1,6 @@
-use crate::commands::exit::Exit;
 use crate::PathBuf;
 use crate::ShellCommand;
+use crate::commands::exit::Exit;
 use crate::redirection::setup_redirections_ownedfds;
 use nix::fcntl::{FcntlArg, fcntl};
 use nix::unistd::dup;
@@ -22,8 +22,7 @@ use std::process::Command as ExternalCommand;
 use std::process::Stdio;
 // use signal_hook::{SIGINT};
 use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM}; // Import signal constants from libc
-use signal_hook::{iterator::Signals};
-
+use signal_hook::iterator::Signals;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     match ast {
@@ -260,7 +259,11 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        AstNode::For { var : _, values, body } => {
+        AstNode::For {
+            var: _,
+            values,
+            body,
+        } => {
             // Execute for loop
             let mut last_status = 0;
 
@@ -615,7 +618,7 @@ pub fn execute_commande(
                         for sig in signals.pending() {
                             if sig == libc_SIGINT {
                                 println!("\nCaught SIGINT (Ctrl+C). Killing the 'cat' process...");
-                                child.kill()?;  // Kill the 'cat' process, not the shell
+                                child.kill()?; // Kill the 'cat' process, not the shell
                             }
                         }
 
