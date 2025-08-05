@@ -1,7 +1,6 @@
 pub mod config;
 pub mod events_handler;
 pub mod parser;
-pub mod shell1;
 pub use parser::*;
 pub mod envirement;
 pub mod exec;
