@@ -3,11 +3,8 @@ use crate::PathBuf;
 use crate::ShellCommand;
 use crate::redirection::setup_redirections_ownedfds;
 use nix::fcntl::{FcntlArg, fcntl};
-use nix::sys::signal;
 use nix::unistd::dup;
 use nix::unistd::pipe;
-use std::char;
-use std::os::fd::AsFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
 use std::vec;
 
@@ -36,7 +33,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let mut child = execute_commande(cmd, args, assignments, redirects, env, None)?;
+            let child = execute_commande(cmd, args, assignments, redirects, env, None)?;
             Ok(child)
         }
         AstNode::Pipeline(nodes) => {
@@ -48,7 +45,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 return execute(&nodes[0], env);
             }
 
-            let mut children: Vec<Child> = Vec::new();
+            // let mut children: Vec<Child> = Vec::new();
             let mut prev_read: Option<OwnedFd> = None;
 
             for (i, node) in nodes.iter().enumerate() {
@@ -61,8 +58,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ..
                 } = node
                 {
-                    let cmd_str: String = cmd.expand(&env);
-                    let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
+                    // let cmd_str: String = cmd.expand(&env);
+                    // let all_args: Vec<String> = args.iter().map(|w| w.expand(env)).collect();
 
                     // Use the read end of the previous pipe as stdin
                     let stdin = prev_read.take();
@@ -78,7 +75,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         (None, None)
                     };
 
-                    let stderr = Stdio::inherit();
+                    // let stderr = Stdio::inherit();
                     // let use_external = should_use_external_for_pipeline(&cmd_str);
 
                     let fds_map = {
@@ -263,11 +260,11 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        AstNode::For { var, values, body } => {
+        AstNode::For { var : _, values, body } => {
             // Execute for loop
             let mut last_status = 0;
 
-            for value in values {
+            for _ in values {
                 // Set the loop variable
                 // env.set_var(var, value);
 

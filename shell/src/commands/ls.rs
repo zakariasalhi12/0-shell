@@ -29,7 +29,7 @@ impl ShellCommand for Ls {
             .stderr(Stdio::inherit())
             .spawn()?;
 
-        let status = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
+        let _ = child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1);
         Ok(())
     }
 }

@@ -465,7 +465,7 @@ impl<'a> Tokenizer<'a> {
                 parts,
                 quote: where_im_at,
             }));
-            where_im_at = QuoteType::None;
+            _ = QuoteType::None;
         }
 
         match state {

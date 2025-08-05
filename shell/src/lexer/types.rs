@@ -49,16 +49,16 @@ impl Word {
                     // }
                 }
 
-                (WordPart::VariableSubstitution(var)) => {
+                WordPart::VariableSubstitution(var) => {
                     if let Some(value) = env.get(&var) {
                         result.push_str(&value);
                     }
                 }
 
-                (WordPart::ArithmeticSubstitution(word)) => {
+                WordPart::ArithmeticSubstitution(word) => {
                     result.push_str(&word);
                 }
-                (WordPart::Literal(word)) => match word.1 {
+                WordPart::Literal(word) => match word.1 {
                     QuoteType::Double => {
                         result.push_str(&word.0);
                     }
