@@ -174,7 +174,10 @@ impl Ls {
     }
 
     fn handle_file(&self, path: &Path) -> Result<()> {
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let name = match path.file_name() {
+            Some(val) => val.to_string_lossy().to_string(),
+            None => return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid Path")),
+        };
         let entry_info = Self::create_entry_info(name, path.to_path_buf())?;
         println!("{}", self.format_entry(&entry_info));
         Ok(())
@@ -183,7 +186,7 @@ impl Ls {
         if !self.valid_opts {
             return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
         }
-        
+
         let targets = if self.folders.is_empty() {
             vec![".".to_string()]
         } else {

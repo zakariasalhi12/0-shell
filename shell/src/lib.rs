@@ -1,7 +1,6 @@
 pub mod config;
 pub mod events_handler;
 pub mod parser;
-pub mod shell1;
 pub use parser::*;
 pub mod envirement;
 pub mod exec;
@@ -82,13 +81,25 @@ pub fn get_current_directory() -> Result<String, String> {
 }
 
 pub fn display_promt(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
-    let current_directory: String = get_current_directory().unwrap();
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print_out(stdout, &format!("{}", prompt.to_ansi()))
 }
 
 pub fn prompt_len() -> usize {
-    let current_directory: String = get_current_directory().unwrap();
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
     format!("➜ {} ", current_directory).chars().count()
 }
 
