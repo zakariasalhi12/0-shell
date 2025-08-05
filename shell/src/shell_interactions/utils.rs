@@ -79,11 +79,8 @@ pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
         Ok(res) => match Parser::new(res).parse() {
             Ok(ast) => match ast {
                 Some(ast) => {
-                    // println!("ast: {:?}", &ast);
-
                     match execute(&ast, &mut env) {
                         Ok(_status) => {
-                            
                             print!("\r");
                         }
                         Err(e) => {

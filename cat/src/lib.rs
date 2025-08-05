@@ -1,4 +1,3 @@
-// use crate::ShellCommand;
 use std::fs::{canonicalize, File};
 use std::io::*;
 #[derive(Debug, PartialEq, Eq)]
@@ -16,14 +15,13 @@ impl Cat {
                 let file_path = canonicalize(file)?;
                 let mut file_handle = File::open(&file_path)?;
                 let content = read_to_string(&mut file_handle)?;
-                println!("from cat {}\r", content);
+                println!("{}\r", content);
             }
         } else {
             let stdin = std::io::stdin();
             let mut stdout = std::io::stdout();
 
             let stdin_lock = stdin.lock();
-            writeln!(stdout, "from cat \r",)?;
 
             for line in stdin_lock.lines() {
                 let line = line?;
