@@ -1,3 +1,4 @@
+use crate::commands::exit::Exit;
 use crate::PathBuf;
 use crate::ShellCommand;
 use crate::redirection::setup_redirections_ownedfds;
@@ -340,9 +341,7 @@ pub fn build_command(
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
         "type" => Some(Box::new(Type::new(args))),
-        "exit" => {
-            std::process::exit(0);
-        }
+        "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
 }

@@ -17,6 +17,7 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
     pub mod typ;
+    pub mod exit;
 }
 use crate::events_handler::OutputTarget;
 use envirement as v;
