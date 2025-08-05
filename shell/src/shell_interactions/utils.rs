@@ -78,25 +78,24 @@ pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
     match Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
         Ok(res) => match Parser::new(res).parse() {
             Ok(ast) => match ast {
-                Some(ast) => {
-                    match execute(&ast, &mut env) {
-                        Ok(_status) => {
-                            print!("\r");
-                        }
-                        Err(e) => {
-                            env.set_last_status(e.code());
-                        },
+                Some(ast) => match execute(&ast, &mut env) {
+                    Ok(_status) => {
+                        print!("\r");
                     }
-                }
-                None => println!("empty AST"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        env.set_last_status(e.code());
+                    }
+                },
+                None => {}
             },
             Err(e) => {
-                eprintln!("{:#?}", e);
+                eprintln!("{}", e);
             }
         },
 
         Err(err) => {
-            eprintln!("{:#?}", err);
+            eprintln!("{}", err);
         }
     }
 }

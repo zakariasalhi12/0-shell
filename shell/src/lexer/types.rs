@@ -116,7 +116,7 @@ pub enum WordPart {
     CommandSubstitution(String),    // $(whoami)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum State {
     Default,
     InWord,
