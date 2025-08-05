@@ -92,6 +92,22 @@ impl Shell {
 
     // if the character == \0 remove the character from the buffer instead of add it
 
+    pub fn cooked_mode(stdout : &mut OutputTarget) {
+        if let OutputTarget::Raw(raw) = stdout {
+            if let Some(raw_stdout) = raw {
+                raw_stdout.suspend_raw_mode().unwrap();
+            }
+        }
+    }
+
+    pub fn raw_mode(stdout : &mut OutputTarget) {
+        if let OutputTarget::Raw(raw) = stdout {
+            if let Some(raw_stdout) = raw {
+                raw_stdout.activate_raw_mode().unwrap();
+            }
+        }
+    }
+
     pub fn parse_and_exec(
         stdout: &mut OutputTarget,
         buffer: &mut String,
@@ -112,7 +128,9 @@ impl Shell {
 
         if !buffer.trim().is_empty() {
             history.save(buffer.clone());
+            Shell::cooked_mode(stdout);
             parse_input(&buffer, shell);
+            Shell::raw_mode(stdout);
         }
 
         buffer.clear();
