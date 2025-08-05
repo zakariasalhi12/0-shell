@@ -1,4 +1,4 @@
-use crate::lexer::types::{Word, WordPart};
+use crate::lexer::types::{Word};
 use std::fmt;
 
 // Arithmetic expression AST

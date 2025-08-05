@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::os::unix::io::{AsRawFd, FromRawFd};
 use std::{
-    io::{Error, Stdout},
     os::fd::OwnedFd,
 };
 

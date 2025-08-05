@@ -4,11 +4,12 @@ LS_BIN=$(HOME)/.push/bin/ls
 
 
 install:
+	$(MAKE) clean
 	mkdir -p ~/.push/bin
 	touch ~/.push/.pushrc
 	echo 'export PATH=$$HOME/.push/bin:$$PATH' >> ~/.push/.pushrc
-	$(MAKE) clean
 	$(MAKE) all
+	$(MAKE) run
 
 all: $(SHELL_BIN) $(CAT_BIN) $(LS_BIN)
 
@@ -25,15 +26,15 @@ $(LS_BIN):
 	cp ls/target/release/ls $(LS_BIN)
 
 clean: cargo-clean
-	rm -f $(HOME)/.push/bin/*
+	rm -rf $(HOME)/.push
 
 cargo-clean:
 	cargo clean --manifest-path=shell/Cargo.toml
 	cargo clean --manifest-path=cat/Cargo.toml
 	cargo clean --manifest-path=ls/Cargo.toml
 
-run: clean all
-	./$(SHELL_BIN)
+run: 
+	$(SHELL_BIN)
 
 push: cargo-clean clean
 	@read -p "Enter commit message: " msg; \

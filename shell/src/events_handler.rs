@@ -3,17 +3,14 @@ use crate::features::history;
 use crate::features::history::History;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
-use crate::shell_interactions::utils::clear_buff_ter;
 use crate::shell_interactions::utils::parse_input;
-use crate::{display_promt, prompt_len};
+use crate::{display_promt};
 use crate::{exec::*, parser};
 use std::env;
 use std::fs::read_to_string;
 use std::io::*;
 use std::io::{self, BufRead};
 use std::{self};
-use termion::cursor::DetectCursorPos;
-use termion::cursor::Goto;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
@@ -99,7 +96,13 @@ impl Shell {
     pub fn cooked_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
-                raw_stdout.suspend_raw_mode().unwrap();
+                match raw_stdout.suspend_raw_mode() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
         }
     }
@@ -107,7 +110,13 @@ impl Shell {
     pub fn raw_mode(stdout: &mut OutputTarget) {
         if let OutputTarget::Raw(raw) = stdout {
             if let Some(raw_stdout) = raw {
-                raw_stdout.activate_raw_mode().unwrap();
+                match raw_stdout.activate_raw_mode() {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        std::process::exit(1);
+                    }
+                };
             }
         }
     }
@@ -121,14 +130,34 @@ impl Shell {
         match stdout {
             OutputTarget::Raw(raw) => match raw {
                 Some(s) => {
-                    writeln!(s).unwrap();
+                    match writeln!(s) {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    };
                     print!("\r\x1b[2K");
-                    s.flush().unwrap();
+                    match s.flush() {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    };
                 }
                 None => {}
             },
-            OutputTarget::Stdout(stdout) => stdout.flush().unwrap(),
-            _ => {}
+            OutputTarget::Stdout(stdout) => match stdout.flush() {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            },
+            OutputTarget::Null =>{
+                
+            }
         }
 
         if !buffer.trim().is_empty() {
@@ -185,7 +214,14 @@ impl Shell {
         let stdin = self.stdin.lock();
 
         for key in stdin.keys() {
-            match key.unwrap() {
+            let new_key = match key {
+                Ok(val) => val,
+                Err(e) => {
+                    eprint!("{e}");
+                    std::process::exit(0);
+                }
+            };
+            match new_key {
                 // Execute command
                 termion::event::Key::Char('\n') => {
                     self.cursor_position.reset();
@@ -271,7 +307,13 @@ impl Shell {
     pub fn run_non_interactive_stdin(&mut self) {
         let stdin = io::stdin();
         for line in stdin.lock().lines() {
-            let line = line.unwrap();
+            let line = match line {
+                Ok(val) => val,
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
+            };
             match Tokenizer::new(&line).tokenize() {
                 Ok(tokens) => match parser::Parser::new(tokens).parse() {
                     Ok(ast) => match ast {

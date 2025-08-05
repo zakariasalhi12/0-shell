@@ -23,7 +23,12 @@ impl Parser {
                 }
                 Some(Token::Ampersand) => {
                     self.advance();
-                    let last = commands.pop().unwrap();
+                    let last = match commands.pop() {
+                        Some(val) => val,
+                        None => {
+                            return Err(ShellError::Parse("Syntax Error".to_string()));
+                        }
+                    };
                     commands.push(AstNode::Background(Box::new(last)));
                 }
                 _ => break,
@@ -33,7 +38,11 @@ impl Parser {
         if commands.is_empty() {
             Ok(None)
         } else if commands.len() == 1 {
-            Ok(Some(commands.into_iter().next().unwrap()))
+            let commande = match commands.into_iter().next() {
+                Some(val) => val,
+                None => return Err(ShellError::Parse("Syntax Error".to_string())),
+            };
+            Ok(Some(commande))
         } else {
             Ok(Some(AstNode::Sequence(commands)))
         }

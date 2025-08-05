@@ -3,7 +3,7 @@ use std::process::Stdio;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Word {
     pub parts: Vec<WordPart>,
-    pub quote : QuoteType,
+    pub quote: QuoteType,
 }
 
 use crate::envirement::ShellEnv;
@@ -12,16 +12,23 @@ impl Word {
     pub fn expand(&self, env: &ShellEnv) -> String {
         let mut result = String::new();
         for part in &self.parts {
-            match part { WordPart::CommandSubstitution(expression) => {
+            match part {
+                WordPart::CommandSubstitution(expression) => {
                     // if let Some(shell_path) = env.get("0") {
                     // println!("shell path: {}", shell_path);
-                    let command = Command::new("./bin/0shell")
+                    let command = match Command::new("./bin/0shell")
                         .arg("-c")
                         .arg(expression)
                         .stdout(Stdio::piped())
                         .stderr(Stdio::inherit())
                         .spawn()
-                        .unwrap();
+                    {
+                        Ok(val) => val,
+                        Err(e) => {
+                            eprintln!("{e}");
+                            std::process::exit(1);
+                        }
+                    };
                     let output = match command.wait_with_output() {
                         Ok(output) => output,
                         Err(e) => {
@@ -41,30 +48,27 @@ impl Word {
 
                     // }
                 }
-                
-                (WordPart::VariableSubstitution(var)) => {
+
+                WordPart::VariableSubstitution(var) => {
                     if let Some(value) = env.get(&var) {
                         result.push_str(&value);
                     }
                 }
-               
-                (WordPart::ArithmeticSubstitution(word)) => {
+
+                WordPart::ArithmeticSubstitution(word) => {
                     result.push_str(&word);
                 }
-                (WordPart::Literal(word)) => {
-                    match word.1 {
-                        QuoteType::Double => {
-                            result.push_str(&word.0);
-                        }
-                        QuoteType::Single => {
-                            result.push_str(&word.0);
-                        }
-                        QuoteType::None => {
-                            result.push_str(&word.0);
-                        }
-                        
+                WordPart::Literal(word) => match word.1 {
+                    QuoteType::Double => {
+                        result.push_str(&word.0);
                     }
-                }
+                    QuoteType::Single => {
+                        result.push_str(&word.0);
+                    }
+                    QuoteType::None => {
+                        result.push_str(&word.0);
+                    }
+                },
             }
         }
         return result;

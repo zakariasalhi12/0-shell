@@ -1,7 +1,6 @@
 pub mod config;
 pub mod events_handler;
 pub mod parser;
-pub mod shell1;
 pub use parser::*;
 pub mod envirement;
 pub mod exec;
@@ -16,11 +15,11 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
     pub mod typ;
+    pub mod exit;
 }
 use crate::events_handler::OutputTarget;
 use envirement as v;
 use std::env;
-use std::io::Stdout;
 use std::path::PathBuf;
 use termion::raw::RawTerminal;
 
@@ -72,7 +71,7 @@ pub fn get_current_directory() -> Result<String, String> {
             Some(name) => Ok(name.to_string_lossy().to_string()),
             None => Ok("/".to_string()),
         },
-        Err(e) => match redirect_to_home() {
+        Err(_) => match redirect_to_home() {
             Ok(val) => Ok(val),
             Err(e) => Err(e.to_string()),
         },
@@ -80,13 +79,25 @@ pub fn get_current_directory() -> Result<String, String> {
 }
 
 pub fn display_promt(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
-    let current_directory: String = get_current_directory().unwrap();
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
     let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
     print_out(stdout, &format!("{}", prompt.to_ansi()))
 }
 
 pub fn prompt_len() -> usize {
-    let current_directory: String = get_current_directory().unwrap();
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
     format!("➜ {} ", current_directory).chars().count()
 }
 

@@ -1,4 +1,6 @@
 // use crate::ShellCommand;
+use chrono::DateTime;
+use colored::Colorize;
 use std::fs::read_link;
 use std::fs::{FileType, Metadata};
 use std::fs::{read_dir, symlink_metadata};
@@ -6,9 +8,10 @@ use std::io::Error;
 use std::io::{ErrorKind, Result};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
-
+use std::os::unix::process;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::exit;
 use std::time::UNIX_EPOCH;
 use std::{self, fs};
 use users::{get_group_by_gid, get_user_by_uid};
@@ -68,7 +71,7 @@ impl Ls {
     fn format_entry(&self, entry: &EntryInfo) -> String {
         let file_type = entry.metadata.file_type();
         let display_name = if self.classify {
-            display_name_with_suffix(&entry.path, &entry.name, &file_type, &entry.metadata)
+            display_name_with_suffix(&entry.name, &file_type, &entry.metadata)
         } else {
             entry.name.clone()
         };
@@ -93,7 +96,7 @@ impl Ls {
             .modified()
             .ok()
             .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
-            .and_then(|d| chrono::NaiveDateTime::from_timestamp_opt(d.as_secs() as i64, 0))
+            .and_then(|d| DateTime::from_timestamp(d.as_secs() as i64, 0))
             .map(|dt| dt.format("%b %e %H:%M").to_string())
             .unwrap_or_else(|| "???".to_string());
 
@@ -126,11 +129,19 @@ impl Ls {
 
     fn create_entry_info(name: String, path: PathBuf) -> Result<EntryInfo> {
         let metadata = symlink_metadata(&path)?;
-        Ok(EntryInfo {
-            name,
-            path,
-            metadata,
-        })
+        if metadata.is_dir() {
+            Ok(EntryInfo {
+                name: name.green().bold().to_string(),
+                path,
+                metadata,
+            })
+        } else {
+            Ok(EntryInfo {
+                name,
+                path,
+                metadata,
+            })
+        }
     }
 
     fn handle_directory(&self, path: &Path) -> Result<()> {
@@ -147,7 +158,13 @@ impl Ls {
         }
 
         // Read directory entries
-        let dir_entries: Vec<fs::DirEntry> = read_dir(path)?.filter_map(Result::ok).collect();
+        let dir_entries: Vec<fs::DirEntry> = match read_dir(path) {
+            Ok(entries) => entries.filter_map(Result::ok).collect(),
+            Err(err) => {
+                eprintln!("Error reading directory {}: {}", path.display(), err);
+                std::process::exit(2);
+            }
+        };
 
         if !self.format && !self.classify && !self.all {
             // Sort for default alphabetical order
@@ -156,6 +173,19 @@ impl Ls {
             entries.extend(sorted_entries);
         } else {
             entries.extend(dir_entries);
+        }
+        if self.format {
+            let total_blocks: u64 = entries
+                .iter()
+                .filter(|val| !val.file_name().to_string_lossy().starts_with('.'))
+                .map(|entry| {
+                    fs::symlink_metadata(entry.path())
+                        .map(|m| m.blocks())
+                        .unwrap_or(0)
+                })
+                .sum();
+
+            println!("total {}", total_blocks / 2);
         }
 
         for entry in entries {
@@ -174,16 +204,29 @@ impl Ls {
     }
 
     fn handle_file(&self, path: &Path) -> Result<()> {
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
-        let entry_info = Self::create_entry_info(name, path.to_path_buf())?;
+        let name = match path.file_name() {
+            Some(val) => val.to_string_lossy().to_string(),
+            None => {
+                eprintln!("ls: invalid Path");
+                std::process::exit(1);
+            }
+        };
+        let entry_info =match  Self::create_entry_info(name, path.to_path_buf()){
+              Ok(val) => val,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(2);
+            }
+        };
         println!("{}", self.format_entry(&entry_info));
         Ok(())
     }
     pub fn execute(&self) -> Result<()> {
         if !self.valid_opts {
-            return Err(Error::new(ErrorKind::InvalidInput, "ls: invalid flag"));
+            eprintln!("ls: invalid flag");
+            std::process::exit(1);
         }
-        
+
         let targets = if self.folders.is_empty() {
             vec![".".to_string()]
         } else {
@@ -221,13 +264,13 @@ fn file_type_char(ft: &std::fs::FileType) -> String {
     }
 }
 
-fn build_perm_string(mode: u32, file_type: &std::fs::FileType) -> String {
+fn build_perm_string(mode: u32, _file_type: &std::fs::FileType) -> String {
     let mut perm = String::with_capacity(9);
     let suid = mode & 0o4000 != 0;
     let sgid = mode & 0o2000 != 0;
     let sticky = mode & 0o1000 != 0;
 
-    let rwx = |bit: u32, xbit: u32, special: bool, special_char: char, default: char| {
+    let rwx = |bit: u32, _xbit: u32, special: bool, special_char: char, _default: char| {
         let read = if bit & 0o4 != 0 { 'r' } else { '-' };
         let write = if bit & 0o2 != 0 { 'w' } else { '-' };
         let exec = if bit & 0o1 != 0 {
@@ -248,12 +291,7 @@ fn build_perm_string(mode: u32, file_type: &std::fs::FileType) -> String {
     perm
 }
 
-fn display_name_with_suffix(
-    path: &Path,
-    file_name: &str,
-    file_type: &FileType,
-    metadata: &Metadata,
-) -> String {
+fn display_name_with_suffix(file_name: &str, file_type: &FileType, metadata: &Metadata) -> String {
     let mut suffix = "";
 
     if file_type.is_dir() {

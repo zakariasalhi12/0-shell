@@ -1,5 +1,3 @@
-use std::process::Child;
-use std::collections::HashMap;
 use std::time::SystemTime;
 use crate::parser::types::AstNode;
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -20,10 +18,10 @@ pub struct Job {
     pub created: SystemTime,             // for ordering / cleanup
 }
 
-pub fn launch_job(ast: &AstNode, background: bool) -> Job { 
+pub fn launch_job(_: &AstNode, _: bool) -> Job { 
     todo!("");
  }
-pub fn wait_for_job(job: &Job) -> i32 { 
+pub fn wait_for_job(_: &Job) -> i32 { 
     todo!("");
  }
 pub fn list_jobs() { 

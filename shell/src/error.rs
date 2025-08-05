@@ -16,6 +16,24 @@ pub enum ShellError {
     DivisionByZero,
 }
 
+impl ShellError {
+    pub fn code(&self) -> i32 {
+        match self {
+            ShellError::InvalidVariableSyntax => 2,
+            ShellError::Io(_) => 1,
+            ShellError::Syntax(_) => 2,
+            ShellError::Parse(_) => 2,
+            ShellError::Eval(_) => 3,
+            ShellError::Exec(_) => 126,
+            ShellError::Expansion(_) => 4,
+            ShellError::UnexpectedEof => 2,
+            ShellError::UnclosedQuote => 2,
+            ShellError::InvalidVariable(_) => 5,
+            ShellError::DivisionByZero => 6,
+        }
+    }
+}
+
 impl From<io::Error> for ShellError {
     fn from(err: io::Error) -> Self {
         ShellError::Io(err)
