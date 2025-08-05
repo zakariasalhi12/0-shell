@@ -1,17 +1,13 @@
-// use crate::ShellCommand;
 use chrono::DateTime;
 use colored::Colorize;
 use std::fs::read_link;
 use std::fs::{FileType, Metadata};
 use std::fs::{read_dir, symlink_metadata};
-use std::io::Error;
-use std::io::{ErrorKind, Result};
+use std::io::Result;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::os::unix::process;
 use std::path::Path;
 use std::path::PathBuf;
-use std::process::exit;
 use std::time::UNIX_EPOCH;
 use std::{self, fs};
 use users::{get_group_by_gid, get_user_by_uid};
