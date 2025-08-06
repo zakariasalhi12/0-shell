@@ -141,9 +141,17 @@ impl Ls {
     }
 
     fn handle_directory(&self, path: &Path) -> Result<()> {
-        let mut entries = Vec::new();
+        let mut all_entries = Vec::new();
 
-        // Handle special entries . and .. if -a flag is set
+        // Add special entries first if -a flag is set
+        if self.all {
+            for special in &[".", ".."] {
+                let special_path = path.join(special);
+                if let Ok(entry_info) = Self::create_entry_info(special.to_string(), special_path) {
+                    all_entries.push(entry_info);
+                }
+            }
+        }
 
         // Read directory entries
         let dir_entries: Vec<fs::DirEntry> = match read_dir(path) {
@@ -154,21 +162,33 @@ impl Ls {
             }
         };
 
-        if !self.format && !self.classify && !self.all {
-            // Sort for default alphabetical order
-            let mut sorted_entries = dir_entries;
-            sorted_entries.sort_by_key(|e| e.path());
-            entries.extend(sorted_entries);
-        } else {
-            entries.extend(dir_entries);
+        // Process directory entries and add to all_entries
+        for entry in dir_entries {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+
+            // Skip hidden files unless -a flag is set
+            if !self.all && file_name.starts_with('.') {
+                continue;
+            }
+
+            if let Ok(entry_info) = Self::create_entry_info(file_name, entry.path()) {
+                all_entries.push(entry_info);
+            }
         }
-        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+
+        // Sort all entries together
+        all_entries.sort_by(|a, b| {
+            let a_name = a.name.replace('.', ""); // Assuming entry_info has a 'name' field
+            let b_name = b.name.replace('.', "");
+            a_name.cmp(&b_name)
+        });
+
+        // Calculate total blocks if format flag is set
         if self.format {
-            let total_blocks: u64 = entries
+            let total_blocks: u64 = all_entries
                 .iter()
-                .filter(|val| !val.file_name().to_string_lossy().starts_with('.'))
                 .map(|entry| {
-                    fs::symlink_metadata(entry.path())
+                    fs::symlink_metadata(&entry.path) // Assuming entry_info has a 'path' field
                         .map(|m| m.blocks())
                         .unwrap_or(0)
                 })
@@ -176,26 +196,12 @@ impl Ls {
 
             println!("total {}", total_blocks / 2);
         }
-        if self.all {
-            for special in &[".", ".."] {
-                let special_path = path.join(special);
-                if let Ok(entry_info) = Self::create_entry_info(special.to_string(), special_path) {
-                    println!("{}", self.format_entry(&entry_info));
-                }
-            }
-        }
-        for entry in entries {
-            let file_name = entry.file_name().to_string_lossy().to_string();
 
-            // Skip hidden files unless -a
-            if !self.all && file_name.starts_with('.') {
-                continue;
-            }
-
-            if let Ok(entry_info) = Self::create_entry_info(file_name, entry.path()) {
-                println!("{}", self.format_entry(&entry_info));
-            }
+        // Print all entries
+        for entry_info in all_entries {
+            println!("{}", self.format_entry(&entry_info));
         }
+
         Ok(())
     }
 
