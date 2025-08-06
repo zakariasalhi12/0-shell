@@ -1,12 +1,12 @@
+use crate::shell_interactions::utils::prompt_len;
 use crate::OutputTarget;
-use crate::display_promt;
 use crate::events_handler::Shell;
-use crate::prompt_len;
 use std::{self};
 use termion::cursor::DetectCursorPos;
 use termion::cursor::Goto;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};
+use crate::shell_interactions::utils::*;
 
 impl Shell {
     pub fn rerender(&mut self) {

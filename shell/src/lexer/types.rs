@@ -14,8 +14,6 @@ impl Word {
         for part in &self.parts {
             match part {
                 WordPart::CommandSubstitution(expression) => {
-                    // if let Some(shell_path) = env.get("0") {
-                    // println!("shell path: {}", shell_path);
                     let command = match Command::new("./bin/0shell")
                         .arg("-c")
                         .arg(expression)
@@ -51,6 +49,7 @@ impl Word {
 
                 WordPart::VariableSubstitution(var) => {
                     if let Some(value) = env.get(&var) {
+                        println!("here is the value: {}", value);
                         result.push_str(&value);
                     }
                 }
