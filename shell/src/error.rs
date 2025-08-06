@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::fmt;
 use std::io;
 
@@ -44,16 +45,70 @@ impl fmt::Display for ShellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ShellError::InvalidVariableSyntax => write!(f, "Invalid variable syntax"),
-            ShellError::Io(err) => write!(f, "IO error: {}", err),
-            ShellError::Syntax(msg) => write!(f, "Syntax error: {}", msg),
-            ShellError::Parse(msg) => write!(f, "Parse error: {}", msg),
-            ShellError::Eval(msg) => write!(f, "Evaluation error: {}", msg),
-            ShellError::Exec(msg) => write!(f, "Execution error: {}", msg),
-            ShellError::Expansion(msg) => write!(f, "Expansion error: {}", msg),
-            ShellError::UnexpectedEof => write!(f, "Unexpected end of file"),
-            ShellError::UnclosedQuote => write!(f, "Unclosed quote"),
-            ShellError::InvalidVariable(var) => write!(f, "Invalid variable: {}", var),
-            ShellError::DivisionByZero => write!(f, "Division by zero"),
+            ShellError::Io(err) => {
+                write!(f, "{}", format!("IO error: {}", err).red().bold().italic())
+            }
+            ShellError::Syntax(msg) => {
+                write!(
+                    f,
+                    "{}",
+                    format!("Syntax error: {}", msg).red().bold().italic()
+                )
+            }
+            ShellError::Parse(msg) => write!(
+                f,
+                "{}",
+                format!("Parse error: {}", msg).red().bold().italic()
+            ),
+            ShellError::Eval(msg) => {
+                write!(
+                    f,
+                    "{}",
+                    format!("Evaluation error: {}", msg).red().bold().italic()
+                )
+            }
+            ShellError::Exec(msg) => {
+                write!(
+                    f,
+                    "{}",
+                    format!("Execution error: {}", msg).red().bold().italic()
+                )
+            }
+            ShellError::Expansion(msg) => {
+                write!(
+                    f,
+                    "{}",
+                    format!("Expansion error: {}", msg).red().bold().italic()
+                )
+            }
+            ShellError::UnexpectedEof => {
+                write!(
+                    f,
+                    "{}",
+                    String::from("Unexpected end of file").red().bold().italic()
+                )
+            }
+            ShellError::UnclosedQuote => {
+                write!(
+                    f,
+                    "{}",
+                    String::from("Unclosed quote").red().bold().italic()
+                )
+            }
+            ShellError::InvalidVariable(var) => {
+                write!(
+                    f,
+                    "{}",
+                    format!("Invalid variable: {}", var).red().bold().italic()
+                )
+            }
+            ShellError::DivisionByZero => {
+                write!(
+                    f,
+                    "{}",
+                    String::from("Division by zero").red().bold().italic()
+                )
+            }
         }
     }
 }
