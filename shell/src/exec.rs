@@ -155,7 +155,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
 
             // Handle redirects (basic implementation)
             if !redirects.is_empty() {
-                println!("[exec] Group redirects: {:?}", redirects);
+                // println!("[exec] Group redirects: {:?}", redirects);
             }
 
             env.set_last_status(last_status);

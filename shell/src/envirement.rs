@@ -50,7 +50,6 @@ impl ShellEnv {
 
         variables.insert("HOME".to_string(), home.clone());
         variables.insert("~".to_string(), home.clone());
-        println!("home: {:?}", variables.get("~"));
         // SHELL
         let shell = get_user_shell(&username).unwrap_or_default();
         variables.insert("SHELL".to_string(), (shell, true));

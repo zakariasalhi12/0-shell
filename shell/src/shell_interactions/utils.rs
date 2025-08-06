@@ -89,7 +89,6 @@ pub fn clear_current_line(stdout: &mut Option<RawTerminal<Stdout>>) {
 
 pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, bufer: String) {
     let lines = calc_termlines_in_buffer(bufer.len());
-    // println!("{}", lines);
     for _i in 0..lines - 1 {
         print_out(stdout, &format!("{}\r", Up(1)));
         clear_current_line(stdout);
@@ -164,18 +163,12 @@ pub fn redirect_to_home() -> std::io::Result<String> {
 
 
 enum Colors {
-    WHITE(String),
-    GREY(String),
-    BLUE(String),
     YELLOW(String),
 }
 
 impl Colors {
     fn to_ansi(&self) -> String {
         match self {
-            Colors::WHITE(text) => format!("\x1b[1;37m{}\x1b[0m", text),
-            Colors::GREY(text) => format!("\x1b[1;30m{}\x1b[0m", text),
-            Colors::BLUE(text) => format!("\x1b[1;34m{}\x1b[0m", text),
             Colors::YELLOW(text) => format!("\x1b[1;31m{}\x1b[0m", text),
         }
     }

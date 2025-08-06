@@ -49,7 +49,6 @@ impl Word {
 
                 WordPart::VariableSubstitution(var) => {
                     if let Some(value) = env.get(&var) {
-                        println!("here is the value: {}", value);
                         result.push_str(&value);
                     }
                 }
