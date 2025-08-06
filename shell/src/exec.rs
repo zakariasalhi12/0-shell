@@ -20,8 +20,7 @@ use crate::parser::types::*;
 use std::process::Child;
 use std::process::Command as ExternalCommand;
 use std::process::Stdio;
-// use signal_hook::{SIGINT};
-use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM}; // Import signal constants from libc
+use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM}; 
 use signal_hook::iterator::Signals;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
@@ -45,7 +44,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 return execute(&nodes[0], env);
             }
 
-            // let mut children: Vec<Child> = Vec::new();
             let mut prev_read: Option<OwnedFd> = None;
 
             for (i, node) in nodes.iter().enumerate() {
@@ -167,12 +165,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             Ok(status)
         }
         AstNode::Subshell(node) => {
-            // Execute node in a subshell (basic implementation)
-            // In a full implementation, this would:
-            // - Fork the process
-            // - Create a new environment
-            // - Execute the node
-            // - Return the status
             let status = execute(node, env)?;
             env.set_last_status(status);
             Ok(status)
@@ -279,48 +271,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        _ => Ok(0), // AstNode::Case { word, arms } => {
-                    //     // Execute case statement
-                    //     let word_value = word_to_string(
-                    //         &Word {
-                    //             parts: vec![crate::lexer::types::WordPart::Literal(word.clone())],
-                    //             quote: crate::lexer::types::QuoteType::None,
-                    //         },
-                    //         env,
-                    //     );
-                    //     let mut last_status = 0;
-                    //     let mut matched = false;
-
-                    //     for (patterns, body) in arms {
-                    //         for pattern in patterns {
-                    //             if pattern == &word_value {
-                    //                 last_status = execute(body, env)?;
-                    //                 matched = true;
-                    //                 break;
-                    //             }
-                    //         }
-                    //         if matched {
-                    //             break;
-                    //         }
-                    //     }
-
-                    //     env.set_last_status(last_status);
-                    //     Ok(last_status)
-                    // }
-                    // AstNode::FunctionDef { name, body } => {
-                    //     // Register function in environment
-                    //     let func_name = word_to_string(name, env);
-                    //     env.set_func(func_name, body.as_ref().clone());
-                    //     env.set_last_status(0);
-                    //     Ok(0)
-                    // }
-                    // AstNode::ArithmeticCommand(expr) => {
-                    //     // Evaluate arithmetic expression
-                    //     // For now, return 0 - full implementation would evaluate the expression
-                    //     println!("[exec] ArithmeticCommand: {:?}", expr);
-                    //     env.set_last_status(0);
-                    //     Ok(0)
-                    // }
+        _ => Ok(0), 
     }
 }
 
@@ -353,7 +304,7 @@ use nix::unistd::{close, dup2};
 use std::collections::HashMap;
 use std::os::unix::process::CommandExt;
 
-pub fn execute_command_with_stdio(
+pub fn execute_command(
     cmd_str: &str,
     args: &[String],
     fds_map: Option<&HashMap<u64, OwnedFd>>,
@@ -583,7 +534,7 @@ pub fn execute_commande(
             }
 
             CommandType::Builtin => {
-                execute_command_with_stdio(
+                execute_command(
                     &cmd_str,
                     &all_args,
                     merged_fds.as_ref(),
@@ -600,7 +551,7 @@ pub fn execute_commande(
                     envs.insert(ass.0, ass.1.expand(&env));
                 }
 
-                let status = match execute_command_with_stdio(
+                let status = match execute_command(
                     &path,
                     &all_args,
                     merged_fds.as_ref(),

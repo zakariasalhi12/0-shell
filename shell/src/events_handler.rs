@@ -1,4 +1,3 @@
-use crate::display_promt;
 use crate::envirement::ShellEnv;
 use crate::features::history;
 use crate::features::history::History;
@@ -14,23 +13,10 @@ use std::{self};
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
+use crate::shell_interactions::utils::*;
 
-#[derive(Debug, Clone, Copy)]
-pub struct CursorPosition {
-    pub x: u16, // Position within the buffer (0 = at end)
-    pub y: u16, // Line offset from prompt line
-}
 
-impl CursorPosition {
-    pub fn new(x: u16, y: u16) -> Self {
-        Self { x, y }
-    }
 
-    pub fn reset(&mut self) {
-        self.x = 0;
-        self.y = 0;
-    }
-}
 
 #[derive(Clone, PartialEq)]
 pub enum ShellMode {
@@ -78,13 +64,13 @@ impl Shell {
             stdin: stdin(),
             stdout: stdout,
             buffer: String::new(),
+            env: ShellEnv::new(),
             history: history::History::new(),
             cursor_position_x: 0,
             cursor_position_y: 0,
             buffer_lines: 0,
             need_to_up: false,
             free_lines: 0,
-            env: ShellEnv::new(),
             mode,
             cursor_position: CursorPosition::new(0, 0),
         }

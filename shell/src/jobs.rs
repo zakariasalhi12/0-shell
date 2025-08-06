@@ -1,5 +1,4 @@
 use std::time::SystemTime;
-use crate::parser::types::AstNode;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobStatus {
     Running,
@@ -17,13 +16,3 @@ pub struct Job {
     pub background: bool,                // was it run with '&'?
     pub created: SystemTime,             // for ordering / cleanup
 }
-
-pub fn launch_job(_: &AstNode, _: bool) -> Job { 
-    todo!("");
- }
-pub fn wait_for_job(_: &Job) -> i32 { 
-    todo!("");
- }
-pub fn list_jobs() { 
-    todo!("");
- }

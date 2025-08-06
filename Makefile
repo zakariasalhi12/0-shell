@@ -7,6 +7,7 @@ install:
 	$(MAKE) clean
 	mkdir -p ~/.push/bin
 	touch ~/.push/.pushrc
+	touch ~/.push/.push_history
 	echo 'export PATH=$$HOME/.push/bin:$$PATH' >> ~/.push/.pushrc
 	$(MAKE) all
 	$(MAKE) run

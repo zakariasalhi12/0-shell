@@ -21,31 +21,16 @@ fn get_user_shell(username: &str) -> Option<String> {
 #[derive(Clone)]
 
 pub struct ShellEnv {
-    /// Shell variables (like $PATH, $HOME)
     pub variables: HashMap<String, (String, bool)>,
-
-    /// Arithmetic variables used in $((...)) and `let`-style expressions
     pub arith_vars: HashMap<String, i64>,
-
-    /// User-defined shell functions
     pub functions: HashMap<String, AstNode>,
-
-    /// Background/foreground jobs
     pub jobs: HashMap<usize, Job>,
-
-    /// The next job ID (e.g. %1, %2, ...)
     pub next_job_id: usize,
-
-    /// Whether the last command succeeded
     pub last_status: i32,
-
-    /// Shell start time (can be used for uptime, etc.)
     pub started_at: SystemTime,
 }
 
 impl ShellEnv {
-    /// Create a new default shell environment.
-
     pub fn new() -> Self {
         let mut variables: HashMap<String, (String, bool)> = HashMap::new();
 
@@ -64,8 +49,8 @@ impl ShellEnv {
             .unwrap_or_else(|| ("/".to_string(), true));
 
         variables.insert("HOME".to_string(), home.clone());
-        variables.insert("~".to_string(), home);
-
+        variables.insert("~".to_string(), home.clone());
+        println!("home: {:?}", variables.get("~"));
         // SHELL
         let shell = get_user_shell(&username).unwrap_or_default();
         variables.insert("SHELL".to_string(), (shell, true));
@@ -87,9 +72,10 @@ impl ShellEnv {
             variables.insert(key, (arg, true));
         }
 
+        variables.extend(std::env::vars().map(|k| (k.0, (k.1, true))));
 
         return Self {
-            variables: std::env::vars().map(|k| (k.0, (k.1, true))).collect(),
+            variables,
             arith_vars: HashMap::new(),
             functions: HashMap::new(),
             jobs: HashMap::new(),
@@ -97,11 +83,6 @@ impl ShellEnv {
             last_status: 0,
             started_at: SystemTime::now(),
         };
-
-        // Example default vars if missing
-        // env.variables
-        //     .entry("PATH".to_string())
-        //     .or_insert_with(|| "/usr/bin:/bin".to_string());
     }
 
     /// Set a shell variable
@@ -130,7 +111,6 @@ impl ShellEnv {
         self.variables.iter().filter(|(_, v)| v.1).map(|(k, v)| (k.clone(), v.0.clone())).collect()
     }
 
-    // pub fn get_env_
 
     /// Add a job and increment job ID
     pub fn add_job(&mut self, mut job: Job) -> usize {

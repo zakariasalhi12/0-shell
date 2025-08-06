@@ -110,6 +110,12 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
+                (State::Default, '~') =>{
+                    self.chars.next();
+                    state = State::InWord;
+                    parts.push(WordPart::VariableSubstitution(String::from("~")));
+                }
+
                 (State::Default, '{') => {
                     self.chars.next();
                     match self.chars.peek() {
@@ -457,7 +463,6 @@ impl<'a> Tokenizer<'a> {
 
         if !buffer.0.is_empty() {
             parts.push(WordPart::Literal((buffer.0, buffer.1)));
-            // state = State::Default;
         }
         if !parts.is_empty() {
             tokens.push(Token::Word(Word {
@@ -466,31 +471,12 @@ impl<'a> Tokenizer<'a> {
             }));
         }
 
-        // if state == State::InDoubleQuote
-        //     || state == State::InSingleQuote
-        //     || where_im_at == QuoteType::Double
-        //     || where_im_at == QuoteType::Single
-        // {
         if state == State::InDoubleQuote {
             return Err(ShellError::Syntax("missing quote: \"".to_string()));
         }
         if state == State::InSingleQuote {
             return Err(ShellError::Syntax("missing quote: '".to_string()));
-        } // match (&state, &where_im_at) {
-        //     (State::InDoubleQuote, QuoteType::Double) => {
-        //         return Err(ShellError::Syntax("missing quote: \"".to_string()));
-        //     }
-        //     (State::InSingleQuote, QuoteType::Single) => {
-        //         return Err(ShellError::Syntax("missing quote: '".to_string()));
-        //     }
-        //     (State::InDoubleQuote, QuoteType::Single) => {
-        //         return Err(ShellError::Syntax("missing quote: \"".to_string()));
-        //     }
-        //     (State::InSingleQuote,  QuoteType::Double) => {
-        //         return Err(ShellError::Syntax("missing quote: '".to_string()));
-        //     }
-        // }
-        // }
+        }
 
         match state {
             State::MaybeRedirectOut2 => {
@@ -509,7 +495,6 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
-        // println!("{:?}", tokens);
         Ok(tokens)
     }
 

@@ -2,13 +2,35 @@ use crate::Parser;
 use crate::envirement::ShellEnv;
 use crate::exec::execute;
 use crate::lexer::tokenize::Tokenizer;
-use crate::{display_promt, prompt_len};
 use std::io::*;
 use termion::raw::RawTerminal;
 use termion::{
     clear,
     cursor::{self, Up},
 };
+
+
+use std::env;
+use std::path::PathBuf;
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct CursorPosition {
+    pub x: u16, 
+    pub y: u16, 
+}
+
+impl CursorPosition {
+    pub fn new(x: u16, y: u16) -> Self {
+        Self { x, y }
+    }
+
+    pub fn reset(&mut self) {
+        self.x = 0;
+        self.y = 0;
+    }
+}
+
 
 pub fn calc_termlines_in_buffer(buffer_size: usize) -> u16 {
     let (width, _) = termion::terminal_size().unwrap_or((80, 24));
@@ -97,5 +119,78 @@ pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
         Err(err) => {
             eprintln!("{}", err);
         }
+    }
+}
+
+
+pub fn display_promt(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
+    let prompt = Colors::YELLOW(format!("➜ {} ", current_directory));
+    print_out(stdout, &format!("{}", prompt.to_ansi()))
+}
+
+pub fn prompt_len() -> usize {
+    let current_directory: String = match get_current_directory() {
+        Ok(val) => val,
+        Err(e) => {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+    };
+    format!("➜ {} ", current_directory).chars().count()
+}
+
+pub fn redirect_to_home() -> std::io::Result<String> {
+    let home = env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/"));
+
+    env::set_current_dir(&home)?;
+
+    let dir_name = home
+        .file_name()
+        .and_then(|os_str| os_str.to_str())
+        .unwrap_or("/")
+        .to_string();
+
+    Ok(dir_name)
+}
+
+
+enum Colors {
+    WHITE(String),
+    GREY(String),
+    BLUE(String),
+    YELLOW(String),
+}
+
+impl Colors {
+    fn to_ansi(&self) -> String {
+        match self {
+            Colors::WHITE(text) => format!("\x1b[1;37m{}\x1b[0m", text),
+            Colors::GREY(text) => format!("\x1b[1;30m{}\x1b[0m", text),
+            Colors::BLUE(text) => format!("\x1b[1;34m{}\x1b[0m", text),
+            Colors::YELLOW(text) => format!("\x1b[1;31m{}\x1b[0m", text),
+        }
+    }
+}
+
+
+pub fn get_current_directory() -> Result<String> {
+    match std::env::current_dir() {
+        Ok(path) => match path.file_name() {
+            Some(name) => Ok(name.to_string_lossy().to_string()),
+            None => Ok("/".to_string()),
+        },
+        Err(_) => match redirect_to_home() {
+            Ok(val) => Ok(val),
+            Err(e) => Err(e),
+        },
     }
 }

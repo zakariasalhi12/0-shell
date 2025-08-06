@@ -8,7 +8,7 @@ pub struct History {
     pub position: i32,
 }
 
-static NAME: &str = ".0-shell_history";
+static NAME: &str = ".push/.push_history";
 
 fn file_to_vec(path: String) -> Vec<String> {
     let mut file = match OpenOptions::new()
@@ -40,7 +40,7 @@ impl History {
         let home = match home_dir() {
             Some(val) => val.to_string_lossy().to_string(),
             None => {
-                eprintln!("Invalide Home directory");
+                eprintln!("feature-history: Invalid Home directory");
                 std::process::exit(1);
             }
         };

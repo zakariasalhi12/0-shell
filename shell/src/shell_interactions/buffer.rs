@@ -1,5 +1,5 @@
 use crate::OutputTarget;
-use crate::display_promt;
+use crate::shell_interactions::utils::*;
 use crate::events_handler::Shell;
 use std::io::*;
 use termion::raw::RawTerminal;
