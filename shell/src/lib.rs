@@ -8,18 +8,17 @@ pub mod commands {
     pub mod cd;
     pub mod cp;
     pub mod echo;
+    pub mod exit;
     pub mod export;
     pub mod mkdir;
     pub mod mv;
     pub mod pwd;
     pub mod rm;
     pub mod typ;
-    pub mod exit;
 }
 use crate::events_handler::OutputTarget;
 use envirement as v;
 use std::path::PathBuf;
-
 
 pub mod shell_interactions {
     pub mod buffer;
@@ -33,11 +32,10 @@ pub mod features {
 
 pub mod error;
 pub mod eval;
+pub mod executor;
 pub mod expansion;
 pub mod jobs;
 pub mod lexer;
-
-
 
 pub trait ShellCommand {
     fn execute(&self, env: &mut v::ShellEnv) -> std::io::Result<()>;
