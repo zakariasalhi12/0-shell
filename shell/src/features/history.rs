@@ -62,7 +62,7 @@ impl History {
             return "".to_owned();
         }
         self.position -= 1;
-        return self.history[self.position as usize].to_owned();
+        return self.history[self.position as usize].to_owned().replace("\n", "");
     }
 
     pub fn next(&mut self) -> String {
@@ -70,7 +70,7 @@ impl History {
             return "".to_owned();
         }
         self.position += 1;
-        return self.history[self.position as usize].to_owned();
+        return self.history[self.position as usize].to_owned().replace("\n", "");
     }
 
     pub fn save(&mut self, command: String) {
@@ -98,6 +98,6 @@ impl History {
             }
         };
         self.history.push(command);
-        self.position += 1;
+        self.position = self.history.len() as i32;
     }
 }
