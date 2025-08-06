@@ -144,14 +144,6 @@ impl Ls {
         let mut entries = Vec::new();
 
         // Handle special entries . and .. if -a flag is set
-        if self.all {
-            for special in &[".", ".."] {
-                let special_path = path.join(special);
-                if let Ok(entry_info) = Self::create_entry_info(special.to_string(), special_path) {
-                    println!("{}", self.format_entry(&entry_info));
-                }
-            }
-        }
 
         // Read directory entries
         let dir_entries: Vec<fs::DirEntry> = match read_dir(path) {
@@ -170,6 +162,7 @@ impl Ls {
         } else {
             entries.extend(dir_entries);
         }
+        entries.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
         if self.format {
             let total_blocks: u64 = entries
                 .iter()
@@ -183,7 +176,14 @@ impl Ls {
 
             println!("total {}", total_blocks / 2);
         }
-
+        if self.all {
+            for special in &[".", ".."] {
+                let special_path = path.join(special);
+                if let Ok(entry_info) = Self::create_entry_info(special.to_string(), special_path) {
+                    println!("{}", self.format_entry(&entry_info));
+                }
+            }
+        }
         for entry in entries {
             let file_name = entry.file_name().to_string_lossy().to_string();
 
@@ -207,8 +207,8 @@ impl Ls {
                 std::process::exit(1);
             }
         };
-        let entry_info =match  Self::create_entry_info(name, path.to_path_buf()){
-              Ok(val) => val,
+        let entry_info = match Self::create_entry_info(name, path.to_path_buf()) {
+            Ok(val) => val,
             Err(e) => {
                 eprintln!("{e}");
                 std::process::exit(2);
