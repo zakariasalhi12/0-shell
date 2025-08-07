@@ -14,7 +14,11 @@ impl Word {
         for part in &self.parts {
             match part {
                 WordPart::CommandSubstitution(expression) => {
-                    let command = match Command::new("./bin/0shell")
+                    let path = match env.get("0") {
+                        Some(val) => val,
+                        None => "".to_string(),
+                    };
+                    let command = match Command::new(path)
                         .arg("-c")
                         .arg(expression)
                         .stdout(Stdio::piped())
