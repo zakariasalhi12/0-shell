@@ -24,6 +24,45 @@ impl<'a> Tokenizer<'a> {
 
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
+                (State::Default | State::InWord, '\\') => {
+                    self.chars.next(); 
+                    if let Some(next) = self.chars.next() {
+                        match next {
+                            '\\' => buffer.0.push('\\'),  
+                            ' '  => buffer.0.push(' '),   
+                            '$'  => buffer.0.push('$'),  
+                            other => buffer.0.push(other), 
+                        }
+                    } else {
+                        buffer.0.push('\\'); 
+                    }
+                }
+
+
+                (State::InDoubleQuote, '\\') => {
+                    self.chars.next();
+                    if let Some(next) = self.chars.next() {
+                        match next {
+                            '\\' => buffer.0.push('\\'),
+                            '"' => buffer.0.push('"'),
+                            other => {
+                                buffer.0.push('\\');
+                                buffer.0.push(other)
+                            }
+                        }
+                    }
+                }
+
+                (State::InSingleQuote, '\\') => {
+                    self.chars.next();
+                    if let Some(next) = self.chars.next() {
+                        buffer.0.push('\\');
+                        buffer.0.push(next);
+                    } else {
+                        buffer.0.push('\\');
+                    }
+                }
+
                 (State::Default, ' ' | '\t' | '\n') => {
                     self.chars.next();
                     if !buffer.0.is_empty() {
@@ -43,6 +82,7 @@ impl<'a> Tokenizer<'a> {
                     }
                     state = State::Default;
                 }
+
                 (State::InDoubleQuote | State::Default | State::InWord, '$') => {
                     self.chars.next();
                     if !buffer.0.is_empty() {
@@ -110,7 +150,7 @@ impl<'a> Tokenizer<'a> {
                     }
                 }
 
-                (State::Default, '~') =>{
+                (State::Default, '~') => {
                     self.chars.next();
                     state = State::InWord;
                     parts.push(WordPart::VariableSubstitution(String::from("~")));
@@ -406,12 +446,7 @@ impl<'a> Tokenizer<'a> {
                     buffer.1 = QuoteType::None;
                     state = State::InWord;
                 }
-                (State::InDoubleQuote, '\\') => {
-                    self.chars.next();
-                    if let Some(next) = self.chars.next() {
-                        buffer.0.push(next);
-                    }
-                }
+
                 (State::InDoubleQuote, c) => {
                     self.chars.next();
                     buffer.0.push(c);
@@ -495,6 +530,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
+        println!("{:?}", tokens);
         Ok(tokens)
     }
 
