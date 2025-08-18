@@ -96,7 +96,7 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, bufer: String) {
 }
 
 pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
-    match Tokenizer::new(buffer.trim().to_owned().as_str()).tokenize() {
+    match Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
         Ok(res) => match Parser::new(res).parse() {
             Ok(ast) => match ast {
                 Some(ast) => match execute(&ast, &mut env) {
