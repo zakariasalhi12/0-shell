@@ -161,34 +161,34 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        AstNode::If {
-            condition,
-            then_branch,
-            else_branch,
-        } => {
-            // Execute condition, then then_branch or else_branch
-            let condition_status = execute(condition, env)?;
+        // AstNode::If {
+        //     condition,
+        //     then_branch,
+        //     else_branch,
+        // } => {
+        //     // Execute condition, then then_branch or else_branch
+        //     let condition_status = execute(condition, env)?;
 
-            if condition_status == 0 {
-                // Condition succeeded, execute then branch
-                let status = execute(then_branch, env)?;
-                env.set_last_status(status);
-                Ok(status)
-            } else {
-                // Condition failed, execute else branch if it exists
-                match else_branch {
-                    Some(else_node) => {
-                        let status = execute(else_node, env)?;
-                        env.set_last_status(status);
-                        Ok(status)
-                    }
-                    None => {
-                        env.set_last_status(condition_status);
-                        Ok(condition_status)
-                    }
-                }
-            }
-        }
+        //     if condition_status == 0 {
+        //         // Condition succeeded, execute then branch
+        //         let status = execute(then_branch, env)?;
+        //         env.set_last_status(status);
+        //         Ok(status)
+        //     } else {
+        //         // Condition failed, execute else branch if it exists
+        //         match else_branch {
+        //             Some(else_node) => {
+        //                 let status = execute(else_node, env)?;
+        //                 env.set_last_status(status);
+        //                 Ok(status)
+        //             }
+        //             None => {
+        //                 env.set_last_status(condition_status);
+        //                 Ok(condition_status)
+        //             }
+        //         }
+        //     }
+        // }
         AstNode::While { condition, body } => {
             // Execute while loop
             let mut last_status = 0;

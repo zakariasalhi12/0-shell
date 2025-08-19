@@ -16,35 +16,34 @@ impl Parser {
         let mut left = if let Some(if_node) = self.parse_if()? {
             if_node
         } else {
-            if let Some(cmd) = self.parse_command()?{
-                if should_negate {
-                    AstNode::Not(Box::new(cmd));
-                }else{
-                    cmd;
+            match self.parse_command()? {
+                Some(cmd) => {
+                    if should_negate {
+                        AstNode::Not(Box::new(cmd))
+                    } else {
+                        cmd
+                    }
                 }
+                None => return Ok(None),
             }
-            return Ok(None);
         };
-
-        // let mut left = match self.parse_command()? {
-        //     Some(command) => {
-               
-        //     }
-        //     None => return Ok(None),
-        // };
 
         while let Some(token) = self.current() {
             match token {
                 Token::LogicalAnd => {
                     self.advance();
-                    let right = match self.parse_command()? {
-                        Some(command) => command,
-                        None => {
-                            return Err(ShellError::Parse(String::from(
-                                "Expected command after &&",
-                            )));
+
+                    let right = if let Some(if_node) = self.parse_if()? {
+                        if_node
+                    } else {
+                        match self.parse_command()? {
+                            Some(cmd) => cmd,
+                            None => {
+                                return Err(ShellError::Parse("expected command after &&".into()));
+                            }
                         }
                     };
+
                     left = AstNode::And(Box::new(left), Box::new(right));
                 }
 
@@ -53,9 +52,7 @@ impl Parser {
                     let right = match self.parse_op()? {
                         Some(command) => command,
                         None => {
-                            return Err(ShellError::Parse(String::from(
-                                "Expected command after ||",
-                            )));
+                            return Err(ShellError::Parse("Expected command after ||".into()));
                         }
                     };
                     left = AstNode::Or(Box::new(left), Box::new(right));
