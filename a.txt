@@ -1,0 +1,10 @@
+a.txt
+bin
+cat
+Dockerfile
+install-docker-rootless.zsh
+ls
+Makefile
+me.todo
+PROJECT_INDEX.md
+shell

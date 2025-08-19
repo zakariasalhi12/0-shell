@@ -99,6 +99,7 @@ pub enum AstNode {
     If {
         condition: Box<AstNode>,
         then_branch: Box<AstNode>,
+        elif: Vec<(Box<Option<AstNode>>, Box<Option<AstNode>>)>,
         else_branch: Option<Box<AstNode>>,
     },
     While {
