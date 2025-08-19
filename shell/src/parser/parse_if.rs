@@ -23,7 +23,7 @@ impl Parser {
             return Ok(None);
         }
 
-        self.advance(); 
+        self.advance();
 
         let condition = match self.parse_sequence()? {
             Some(cmd) => cmd,
@@ -32,13 +32,21 @@ impl Parser {
             }
         };
 
+        if !self.expect_delimiter() {
+            return Err(ShellError::Parse(String::from(
+                "Expected ; or Newline after condition",
+            )));
+        }
+
         self.expect_word("then")?;
 
         // Parse `then` branch
         let then_branch = match self.parse_sequence()? {
             Some(cmd) => cmd,
             None => {
-                return Err(ShellError::Syntax("Expected commands in 'then' branch".into()));
+                return Err(ShellError::Syntax(
+                    "Expected commands in 'then' branch".into(),
+                ));
             }
         };
 
@@ -51,6 +59,11 @@ impl Parser {
                 if s.0 == "elif" && s.1 == QuoteType::None {
                     self.advance();
                     let elif_condition = self.parse_sequence()?;
+                    if !self.expect_delimiter() {
+                        return Err(ShellError::Parse(String::from(
+                            "Expected ; or Newline after condition",
+                        )));
+                    }
                     self.expect_word("then")?;
                     let elif_then = self.parse_sequence()?;
                     elif.push((Box::new(elif_condition), Box::new(elif_then)));
@@ -58,12 +71,8 @@ impl Parser {
                     self.advance();
                     let else_tmp = self.parse_sequence()?;
                     else_branch = match else_tmp {
-                        Some(node)=>{
-                            Some(Box::new(node))
-                        },
-                        None =>{
-                            None
-                        }
+                        Some(node) => Some(Box::new(node)),
+                        None => None,
                     };
 
                     break;
@@ -102,4 +111,14 @@ impl Parser {
         }
         Err(ShellError::Syntax(format!("Expected '{}'", expected)))
     }
+
+   fn expect_delimiter(&mut self) -> bool {
+    match self.current() {
+        Some(Token::Semicolon) | Some(Token::Newline) => {
+            self.advance();
+            true
+        }
+        _ => false,
+    }
+}
 }
