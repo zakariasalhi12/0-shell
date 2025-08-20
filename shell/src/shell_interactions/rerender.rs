@@ -6,6 +6,7 @@ use termion::cursor::DetectCursorPos;
 use termion::cursor::Goto;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};
+use unicode_width::UnicodeWidthStr;
 use crate::shell_interactions::utils::*;
 
 impl Shell {
@@ -21,7 +22,7 @@ impl Shell {
         };
         // Store values we need to avoid borrowing conflicts
         let buffer_clone = self.buffer.clone();
-        let buffer_len = self.buffer.len();
+        let buffer_len = UnicodeWidthStr::width(self.buffer.as_str());
         let cursor_x = self.cursor_position.x;
         let cursor_y = self.cursor_position.y;
 
@@ -34,10 +35,13 @@ impl Shell {
         };
 
         let (_current_x, current_y) = if let Some(std) = stdout {
-            let (x, y) = std.cursor_pos().unwrap_or((1, 1));
-            (x, y)
+            let (x, y) = match std.cursor_pos() {
+                Ok(pos) => pos,
+                Err(_) => return, // 
+            };
+            (x,y)
         } else {
-            (1, 1)
+            return;
         };
         // Calculate where the prompt starts
         let prompt_start_line = current_y.saturating_sub(cursor_y);

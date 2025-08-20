@@ -20,3 +20,4 @@ atty = "0.2.14"
 nix = { version = "0.27", features = ["fs"] }
 signal-hook = "0.3.18"
 signal = "0.7.0"
+unicode-width = "0.2.1"

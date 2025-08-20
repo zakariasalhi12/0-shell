@@ -1,9 +1,11 @@
 use crate::OutputTarget;
-use crate::shell_interactions::utils::*;
 use crate::events_handler::Shell;
+use crate::shell_interactions::utils::*;
+use nix::NixPath;
 use std::io::*;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};
+use unicode_width::UnicodeWidthStr;
 
 impl Shell {
     pub fn delete_char(&mut self) {
@@ -17,12 +19,12 @@ impl Shell {
             self.rerender();
         } else {
             // Delete character before cursor position
-            let delete_pos = self.buffer.len() - self.cursor_position.x as usize;
-            if delete_pos > 0 {
-                self.buffer.remove(delete_pos - 1);
-                // Don't change cursor_position.x since we deleted before the cursor
-            } else {
-                return; // Nothing to delete
+            let delete_pos_chars = self.buffer.chars().count() - self.cursor_position.x as usize;
+            if delete_pos_chars > 0 {
+                // Find byte offset of the char we want to delete
+                if let Some((byte_index, _)) = self.buffer.char_indices().nth(delete_pos_chars - 1) {
+                    self.buffer.remove(byte_index);
+                }
             }
             self.rerender();
         }
@@ -66,13 +68,20 @@ impl Shell {
     }
 
     pub fn insert_char(&mut self, c: char) {
-        let insert_pos = self.buffer.len() - self.cursor_position.x as usize;
-        self.buffer.insert(insert_pos, c);
+        let insert_pos_chars = self.buffer.chars().count() - self.cursor_position.x as usize;
+        let insert_pos_bytes = self
+            .buffer
+            .char_indices()
+            .nth(insert_pos_chars)
+            .map(|(i, _)| i)
+            .unwrap_or(self.buffer.len());
+
+        self.buffer.insert(insert_pos_bytes, c);
         self.rerender();
     }
 
     pub fn move_cursor_left(&mut self) {
-        if self.cursor_position.x < self.buffer.len() as u16 {
+        if self.cursor_position.x < UnicodeWidthStr::width(self.buffer.as_str()) as u16 {
             self.cursor_position.x += 1;
             self.rerender();
         }
@@ -88,7 +97,7 @@ impl Shell {
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
-            _=>{
+            _ => {
                 return;
             }
         };

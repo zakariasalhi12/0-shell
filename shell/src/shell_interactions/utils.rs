@@ -8,6 +8,7 @@ use termion::{
     clear,
     cursor::{self, Up},
 };
+use unicode_width::UnicodeWidthStr;
 
 
 use std::env;
@@ -87,8 +88,8 @@ pub fn clear_current_line(stdout: &mut Option<RawTerminal<Stdout>>) {
     print_out(stdout, &format!("{}\r", clear::CurrentLine));
 }
 
-pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, bufer: String) {
-    let lines = calc_termlines_in_buffer(bufer.len());
+pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) {
+    let lines = calc_termlines_in_buffer(UnicodeWidthStr::width(buffer.as_str()));
     for _i in 0..lines - 1 {
         print_out(stdout, &format!("{}\r", Up(1)));
         clear_current_line(stdout);
