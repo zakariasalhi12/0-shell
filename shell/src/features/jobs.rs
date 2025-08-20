@@ -15,7 +15,7 @@ pub struct Jobs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
     pub pgid: u32,
-    pub pid: u32,
+    pub pids: Vec<u32>,
     pub id: String,
     pub status: JobStatus,
     pub command: String,
@@ -29,7 +29,7 @@ impl Jobs {
     }
 
     pub fn add_job(&mut self, job: Job) {
-        self.jobs.insert(job.pid, job);
+        self.jobs.insert(job.pgid, job);
     }
 
     pub fn remove_job(&mut self, pid: u32) {
@@ -45,18 +45,23 @@ impl Job {
     pub fn new(pgid: u32, pid: u32, id: String, status: JobStatus, command: String) -> Self {
         Job {
             pgid,
-            pid,
+            pids: vec![pid],
             id,
             status,
             command,
         }
     }
 
+    pub fn add_pid(&mut self, pid: u32) {
+        self.pids.push(pid);
+    }
+
+    pub fn remove_pid(&mut self, pid: u32) {
+        self.pids.retain(|&p| p != pid);
+    }
+
     pub fn update_status(&mut self, status: JobStatus) {
         self.status = status;
     }
 
-    pub fn display(&self) -> String {
-        format!("Job ID: {}, PID: {}, Status: {:?}, Command: {}", self.id, self.pid, self.status, self.command)
-    }
 }
