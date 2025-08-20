@@ -12,7 +12,11 @@ use crate::types::Redirect;
 use libc::{SIGINT,SIGTERM,SIGTSTP};
 use std::collections::HashMap;
 use std::os::unix::io::OwnedFd;
+use std::process::exit;
 use std::vec;
+use signal_hook::iterator::Signals;
+use nix::unistd::Pid;
+use nix::sys::signal::{kill, Signal};
 
 pub fn invoke_command(
     cmd: &Word,
@@ -97,23 +101,23 @@ pub fn invoke_command(
                 for ass in assignments.clone() {
                     envs.insert(ass.0, ass.1.expand(&env));
                 }
-                use signal_hook::iterator::Signals;
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
                         CommandResult::Child(mut child) => {
-                            let mut signals = Signals::new(&[SIGINT, SIGTERM , SIGTSTP])?;
+                            let mut signals = Signals::new(&[SIGINT , SIGTSTP])?;
 
                             for sig in signals.pending() {
-                                if sig == SIGINT || sig == SIGTERM {
-                                    child.kill()?;
+                                let pid = Pid::from_raw(child.id() as i32);
+                                
+                                if sig == SIGINT {
+                                    kill(pid, Signal::SIGINT).map_err(|e| ShellError::Exec(format!("Failed to send SIGINT: {}", e)))?;
                                 }
 
                                 if sig == SIGTSTP {
-                                    // let pid = Pid::from_raw(child.id() as i32);
-                                    // child;
+                                    kill(pid, Signal::SIGTSTP).map_err(|e| ShellError::Exec(format!("Failed to send SIGTSTP: {}", e)))?;
                                 }
                             }
-
+                            
                             child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
                         }
                         CommandResult::Builtin => 0,
