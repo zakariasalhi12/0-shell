@@ -9,7 +9,7 @@ use crate::expansion::expand_and_split;
 use crate::lexer::types::Word;
 use crate::redirection::setup_redirections_ownedfds;
 use crate::types::Redirect;
-use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM};
+use libc::{SIGINT,SIGTERM,SIGTSTP};
 use std::collections::HashMap;
 use std::os::unix::io::OwnedFd;
 use std::vec;
@@ -101,14 +101,16 @@ pub fn invoke_command(
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
                         CommandResult::Child(mut child) => {
-                            let mut signals = Signals::new(&[libc_SIGINT, libc_SIGTERM])?;
+                            let mut signals = Signals::new(&[SIGINT, SIGTERM , SIGTSTP])?;
 
                             for sig in signals.pending() {
-                                if sig == libc_SIGINT {
-                                    println!(
-                                        "\nCaught SIGINT (Ctrl+C). Killing the 'cat' process..."
-                                    );
-                                    child.kill()?; // Kill the 'cat' process, not the shell
+                                if (sig == SIGINT || sig == SIGTERM) {
+                                    child.kill()?;
+                                }
+
+                                if sig == SIGTSTP {
+                                    // let pid = Pid::from_raw(child.id() as i32);
+                                    // child;
                                 }
                             }
 

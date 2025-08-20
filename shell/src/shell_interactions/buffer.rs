@@ -1,7 +1,6 @@
 use crate::OutputTarget;
 use crate::events_handler::Shell;
 use crate::shell_interactions::utils::*;
-use nix::NixPath;
 use std::io::*;
 use termion::raw::RawTerminal;
 use termion::{clear, cursor};

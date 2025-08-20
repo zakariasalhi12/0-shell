@@ -28,6 +28,7 @@ pub mod shell_interactions {
 }
 pub mod features {
     pub mod history;
+    pub mod jobs;
 }
 
 pub mod error;
