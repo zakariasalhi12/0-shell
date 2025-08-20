@@ -104,7 +104,7 @@ pub fn invoke_command(
                             let mut signals = Signals::new(&[SIGINT, SIGTERM , SIGTSTP])?;
 
                             for sig in signals.pending() {
-                                if (sig == SIGINT || sig == SIGTERM) {
+                                if sig == SIGINT || sig == SIGTERM {
                                     child.kill()?;
                                 }
 

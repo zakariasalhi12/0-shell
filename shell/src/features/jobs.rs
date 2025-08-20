@@ -14,6 +14,7 @@ pub struct Jobs {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
+    pub pgid: u32,
     pub pid: u32,
     pub id: String,
     pub status: JobStatus,
