@@ -42,8 +42,9 @@ impl Jobs {
 }
 
 impl Job {
-    pub fn new(pid: u32, id: String, status: JobStatus, command: String) -> Self {
+    pub fn new(pgid: u32, pid: u32, id: String, status: JobStatus, command: String) -> Self {
         Job {
+            pgid,
             pid,
             id,
             status,
