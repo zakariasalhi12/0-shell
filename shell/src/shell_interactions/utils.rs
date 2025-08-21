@@ -10,15 +10,13 @@ use termion::{
 };
 use unicode_width::UnicodeWidthStr;
 
-
 use std::env;
 use std::path::PathBuf;
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct CursorPosition {
-    pub x: u16, 
-    pub y: u16, 
+    pub x: u16,
+    pub y: u16,
 }
 
 impl CursorPosition {
@@ -31,7 +29,6 @@ impl CursorPosition {
         self.y = 0;
     }
 }
-
 
 pub fn calc_termlines_in_buffer(buffer_size: usize) -> u16 {
     let (width, _) = termion::terminal_size().unwrap_or((80, 24));
@@ -99,18 +96,20 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) 
 pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
     match Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
         Ok(res) => match Parser::new(res).parse() {
-            Ok(ast) => match ast {
-                Some(ast) => match execute(&ast, &mut env) {
-                    Ok(_status) => {
-                        print!("\r");
-                    }
-                    Err(e) => {
-                        eprintln!("{e}");
-                        env.set_last_status(e.code());
-                    }
-                },
-                None => {}
-            },
+            Ok(ast) => {
+                match ast {
+                    Some(ast) => match execute(&ast, &mut env) {
+                        Ok(_status) => {
+                            print!("\r");
+                        }
+                        Err(e) => {
+                            eprintln!("{e}");
+                            env.set_last_status(e.code());
+                        }
+                    },
+                    None => {}
+                }
+            }
             Err(e) => {
                 eprintln!("{}", e);
             }
@@ -121,7 +120,6 @@ pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
         }
     }
 }
-
 
 pub fn display_promt(stdout: &mut Option<RawTerminal<std::io::Stdout>>) {
     let current_directory: String = match get_current_directory() {
@@ -162,7 +160,6 @@ pub fn redirect_to_home() -> std::io::Result<String> {
     Ok(dir_name)
 }
 
-
 enum Colors {
     YELLOW(String),
 }
@@ -174,7 +171,6 @@ impl Colors {
         }
     }
 }
-
 
 pub fn get_current_directory() -> Result<String> {
     match std::env::current_dir() {

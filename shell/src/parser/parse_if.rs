@@ -50,6 +50,12 @@ impl Parser {
             }
         };
 
+        if !self.expect_delimiter() {
+            return Err(ShellError::Parse(String::from(
+                "Expected ; or Newline after function body",
+            )));
+        }
+
         let mut elif: Vec<(Box<Option<AstNode>>, Box<Option<AstNode>>)> = Vec::new();
         let mut else_branch: Option<Box<AstNode>> = None;
 
@@ -66,6 +72,11 @@ impl Parser {
                     }
                     self.expect_word("then")?;
                     let elif_then = self.parse_sequence()?;
+                    if !self.expect_delimiter() {
+                        return Err(ShellError::Parse(String::from(
+                            "Expected ; or Newline after elif then body",
+                        )));
+                    }
                     elif.push((Box::new(elif_condition), Box::new(elif_then)));
                 } else if s.0 == "else" && s.1 == QuoteType::None {
                     self.advance();
@@ -74,6 +85,12 @@ impl Parser {
                         Some(node) => Some(Box::new(node)),
                         None => None,
                     };
+
+                    if !self.expect_delimiter() {
+                        return Err(ShellError::Parse(String::from(
+                            "Expected ; or Newline after else body",
+                        )));
+                    }
 
                     break;
                 } else {
@@ -94,31 +111,4 @@ impl Parser {
             else_branch,
         }))
     }
-
-    fn expect_word(&mut self, expected: &str) -> Result<(), ShellError> {
-        match self.current() {
-            Some(Token::Word(word)) => {
-                if word.parts.len() == 1 {
-                    if let WordPart::Literal(s) = &word.parts[0] {
-                        if s.0 == expected && s.1 == QuoteType::None {
-                            self.advance();
-                            return Ok(());
-                        }
-                    }
-                }
-            }
-            _ => {}
-        }
-        Err(ShellError::Syntax(format!("Expected '{}'", expected)))
-    }
-
-   fn expect_delimiter(&mut self) -> bool {
-    match self.current() {
-        Some(Token::Semicolon) | Some(Token::Newline) => {
-            self.advance();
-            true
-        }
-        _ => false,
-    }
-}
 }

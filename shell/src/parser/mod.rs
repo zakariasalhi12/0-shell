@@ -1,16 +1,17 @@
 pub mod parse_assignment;
+pub mod parse_background;
 pub mod parse_command;
 pub mod parse_function;
 pub mod parse_group;
+pub mod parse_if;
 pub mod parse_op;
 pub mod parse_pipeline;
 pub mod parse_redirection;
 pub mod parse_sequence;
-pub mod parse_if;
 pub mod types;
 
 use crate::error::ShellError;
-use crate::lexer::types::Token;
+use crate::lexer::types::{QuoteType, Token, WordPart};
 use crate::parser::types::*;
 
 pub struct Parser {
@@ -48,23 +49,82 @@ impl Parser {
         matches!(
             token,
             Token::Eof
-            | Token::Newline
-            | Token::Semicolon
-            | Token::Ampersand
-            | Token::LogicalAnd
-            | Token::LogicalOr
-            | Token::Pipe
+                | Token::Newline
+                | Token::Semicolon
+                | Token::Ampersand
+                | Token::LogicalAnd
+                | Token::LogicalOr
+                | Token::Pipe
         )
     }
 
-    pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
-        let ast = self.parse_sequence();
-        if !self.is_eof() {
-            return Err(ShellError::Parse(format!(
-                "unexpected token at end of tokens{:#?}",
-                self.current()
-            )));
+    pub fn is_reserved_word(token: Option<&Token>) -> bool {
+        match token {
+            Some(Token::Word(word)) => {
+                if word.parts.len() == 1 && word.quote == QuoteType::None {
+                    match &word.parts[0] {
+                        WordPart::Literal(part) => {
+                            if (part.0 == "then" || part.0 == "fi" || part.0 == "else")
+                                && part.1 == QuoteType::None
+                            {
+                                return true;
+                            }
+                            return false;
+                        }
+                        _ => {
+                            return false;
+                        }
+                    }
+                }
+                return false;
+            }
+            _ => {
+                return false;
+            }
         }
-        return ast;
+    }
+
+    pub fn expect_word(&mut self, expected: &str) -> Result<(), ShellError> {
+        match self.current() {
+            Some(Token::Word(word)) => {
+                if word.parts.len() == 1 {
+                    if let WordPart::Literal(s) = &word.parts[0] {
+                        if s.0 == expected && s.1 == QuoteType::None {
+                            self.advance();
+                            return Ok(());
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        Err(ShellError::Syntax(format!("Expected '{}'", expected)))
+    }
+
+    pub fn expect_delimiter(&mut self) -> bool {
+        match self.current() {
+            Some(Token::Semicolon) | Some(Token::Newline) | Some(Token::Ampersand) => {
+                self.advance();
+                true
+            }
+            _ => false,
+        }
+    }
+
+    pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
+        match self.parse_sequence() {
+            Ok(ast) => {
+                if !self.is_eof() {
+                    return Err(ShellError::Parse(format!(
+                        "unexpected token at end of tokens{:#?}",
+                        self.current()
+                    )));
+                }
+                return Ok(ast);
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
     }
 }

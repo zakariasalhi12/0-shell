@@ -25,6 +25,10 @@ impl Parser {
             };
             commands.push(next_command);
         }
+
+        if commands.len() == 1{
+            return Ok(Some(commands[0].clone()));
+        }
         Ok(Some(AstNode::Pipeline(commands)))
     }
 }

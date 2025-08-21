@@ -16,6 +16,7 @@ use crate::parser::types::*;
 use std::process::Child;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    println!("{}", ast);
     match ast {
         AstNode::Command {
             cmd,

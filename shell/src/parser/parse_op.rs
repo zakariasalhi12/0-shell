@@ -1,30 +1,14 @@
 use crate::error::ShellError;
-use crate::lexer::types::Token;
+use crate::lexer::types::{QuoteType, Token, WordPart};
 use crate::parser::Parser;
 use crate::parser::types::*;
 
 impl Parser {
     pub fn parse_op(&mut self) -> Result<Option<AstNode>, ShellError> {
-        let should_negate = match self.current() {
-            Some(Token::LogicalNot) => {
-                self.advance();
-                true
-            }
-            _ => false,
-        };
-
-        let mut left = if let Some(if_node) = self.parse_if()? {
-            if_node
-        } else {
-            match self.parse_command()? {
-                Some(cmd) => {
-                    if should_negate {
-                        AstNode::Not(Box::new(cmd))
-                    } else {
-                        cmd
-                    }
-                }
-                None => return Ok(None),
+        let mut left = match self.parse_background()? {
+            Some(node) => node,
+            None => {
+                return Ok(None);
             }
         };
 
@@ -33,14 +17,10 @@ impl Parser {
                 Token::LogicalAnd => {
                     self.advance();
 
-                    let right = if let Some(if_node) = self.parse_if()? {
-                        if_node
-                    } else {
-                        match self.parse_command()? {
-                            Some(cmd) => cmd,
-                            None => {
-                                return Err(ShellError::Parse("expected command after &&".into()));
-                            }
+                    let right = match self.parse_background()? {
+                        Some(node) => node,
+                        None => {
+                            return Err(ShellError::Parse("expected command after &&".into()));
                         }
                     };
 
@@ -57,7 +37,6 @@ impl Parser {
                     };
                     left = AstNode::Or(Box::new(left), Box::new(right));
                 }
-
                 _ => break,
             }
         }
