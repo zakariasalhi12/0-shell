@@ -105,10 +105,7 @@ pub fn invoke_command(
 
                             for sig in signals.pending() {
                                 if sig == libc_SIGINT {
-                                    println!(
-                                        "\nCaught SIGINT (Ctrl+C). Killing the 'cat' process..."
-                                    );
-                                    child.kill()?; // Kill the 'cat' process, not the shell
+                                    child.kill()?;
                                 }
                             }
 

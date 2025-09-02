@@ -181,7 +181,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 let mut status = condition_status;
 
                 for (elif_cond_opt, elif_body_opt) in elif.iter() {
-                    if let (Some(elif_cond), Some(elif_body)) = (&**elif_cond_opt, &**elif_body_opt) {
+                    if let (Some(elif_cond), Some(elif_body)) = (&**elif_cond_opt, &**elif_body_opt)
+                    {
                         let elif_cond_status = execute(elif_cond, env)?;
                         if elif_cond_status == 0 {
                             status = execute(elif_body, env)?;
@@ -268,6 +269,7 @@ pub fn build_command(
     args: Vec<String>,
     opts: Vec<String>,
     stdout: Option<OwnedFd>,
+    shellenv: ShellEnv,
 ) -> Option<Box<dyn ShellCommand>> {
     match cmd.as_str() {
         "echo" => Some(Box::new(Echo::new(args, stdout))),

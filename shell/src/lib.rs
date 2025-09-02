@@ -5,11 +5,15 @@ pub mod envirement;
 pub mod exec;
 pub mod redirection;
 pub mod commands {
+    pub mod bg;
     pub mod cd;
     pub mod cp;
     pub mod echo;
     pub mod exit;
     pub mod export;
+    pub mod fg;
+    pub mod jobs;
+    pub mod kill;
     pub mod mkdir;
     pub mod mv;
     pub mod pwd;

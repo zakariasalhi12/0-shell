@@ -97,7 +97,13 @@ pub fn run_commande(
             .map(CommandResult::Child)
             .map_err(|e| ShellError::Exec(format!("Failed to spawn {}: {}", cmd_str, e)));
     } else {
-        let com = build_command(&cmd_str.to_owned(), args.to_vec(), vec![], None);
+        let com = build_command(
+            &cmd_str.to_owned(),
+            args.to_vec(),
+            vec![],
+            None,
+            env.clone(),
+        );
         let mut backups: Option<Vec<(u64, i32)>> = None;
         if let Some(map) = fds_map {
             backups = Some(
