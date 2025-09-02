@@ -530,7 +530,7 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
-        println!("{:?}", tokens);
+        // println!("{:?}", tokens);
         Ok(tokens)
     }
 

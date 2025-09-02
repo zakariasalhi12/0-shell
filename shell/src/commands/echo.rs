@@ -1,13 +1,11 @@
 use nix::unistd::dup;
 use std::fs::File;
 use std::io::{self, Write};
+use std::os::fd::OwnedFd;
 use std::os::unix::io::{AsRawFd, FromRawFd};
-use std::{
-    os::fd::OwnedFd,
-};
 
-use crate::envirement::ShellEnv;
 use crate::ShellCommand;
+use crate::envirement::ShellEnv;
 pub struct Echo {
     args: Vec<String>,
     stdout: Option<OwnedFd>,
@@ -19,9 +17,43 @@ impl Echo {
     }
 }
 
+fn interpret_escapes(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('b') => result.push('\u{0008}'),
+                Some('f') => result.push('\u{000C}'),
+                Some('v') => result.push('\u{000B}'),
+                Some('a') => result.push('\u{0007}'),
+                Some('\\') => result.push('\\'),
+                Some('"') => result.push('"'),
+                Some('\'') => result.push('\''),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => {
+                    result.push('\\');
+                }
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+
+    result
+}
+
 impl ShellCommand for Echo {
-    fn execute(&self, _env : &mut ShellEnv) -> io::Result<()> {
-        let output = self.args.join(" ") + "\n";
+    fn execute(&self, _env: &mut ShellEnv) -> io::Result<()> {
+        let joined = self.args.join(" ");
+        let output = interpret_escapes(&joined) + "\n";
 
         match &self.stdout {
             Some(raw_stdout) => {

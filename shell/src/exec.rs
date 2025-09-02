@@ -16,7 +16,6 @@ use crate::parser::types::*;
 use std::process::Child;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
-    println!("{}", ast);
     match ast {
         AstNode::Command {
             cmd,
@@ -162,34 +161,49 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(last_status);
             Ok(last_status)
         }
-        // AstNode::If {
-        //     condition,
-        //     then_branch,
-        //     else_branch,
-        // } => {
-        //     // Execute condition, then then_branch or else_branch
-        //     let condition_status = execute(condition, env)?;
+        AstNode::If {
+            condition,
+            then_branch,
+            elif,
+            else_branch,
+        } => {
+            // Execute condition
+            let condition_status = execute(condition, env)?;
 
-        //     if condition_status == 0 {
-        //         // Condition succeeded, execute then branch
-        //         let status = execute(then_branch, env)?;
-        //         env.set_last_status(status);
-        //         Ok(status)
-        //     } else {
-        //         // Condition failed, execute else branch if it exists
-        //         match else_branch {
-        //             Some(else_node) => {
-        //                 let status = execute(else_node, env)?;
-        //                 env.set_last_status(status);
-        //                 Ok(status)
-        //             }
-        //             None => {
-        //                 env.set_last_status(condition_status);
-        //                 Ok(condition_status)
-        //             }
-        //         }
-        //     }
-        // }
+            if condition_status == 0 {
+                // Condition succeeded, execute then branch
+                let status = execute(then_branch, env)?;
+                env.set_last_status(status);
+                Ok(status)
+            } else {
+                // Try elif branches in order
+                let mut matched = false;
+                let mut status = condition_status;
+
+                for (elif_cond_opt, elif_body_opt) in elif.iter() {
+                    if let (Some(elif_cond), Some(elif_body)) = (&**elif_cond_opt, &**elif_body_opt) {
+                        let elif_cond_status = execute(elif_cond, env)?;
+                        if elif_cond_status == 0 {
+                            status = execute(elif_body, env)?;
+                            matched = true;
+                            break;
+                        } else {
+                            status = elif_cond_status;
+                        }
+                    }
+                }
+
+                if !matched {
+                    // Execute else branch if present
+                    if let Some(else_node) = else_branch {
+                        status = execute(else_node, env)?;
+                    }
+                }
+
+                env.set_last_status(status);
+                Ok(status)
+            }
+        }
         AstNode::While { condition, body } => {
             // Execute while loop
             let mut last_status = 0;
