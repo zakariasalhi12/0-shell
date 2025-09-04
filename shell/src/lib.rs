@@ -15,7 +15,12 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
     pub mod typ;
+    pub mod fg;
+    pub mod kill;
+    pub mod jobs;
+    pub mod bg;
 }
+
 use crate::events_handler::OutputTarget;
 use envirement as v;
 use std::path::PathBuf;

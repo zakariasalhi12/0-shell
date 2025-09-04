@@ -1,3 +1,9 @@
+use crate::commands::bg;
+use crate::commands::bg::Bg;
+use crate::commands::fg;
+use crate::commands::fg::Fg;
+use crate::commands::jobs::Jobs;
+use crate::commands::kill::Kill;
 use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::exit::Exit;
@@ -264,6 +270,10 @@ pub fn build_command(
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
         "type" => Some(Box::new(Type::new(args))),
+        "fg" => Some(Box::new(Fg::new(args))),
+        // "jobs" => Some(Box::new(Jobs::new(args , opts))),
+        // "bg" => Some(Box::new(Bg::new(args))),
+        // "kill" => Some(Box::new(Kill::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
@@ -286,7 +296,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
+        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" | "kill" | "bg" | "fg" | "jobs" => {
             CommandType::Builtin
         }
         _ => match env.get("PATH") {
