@@ -109,13 +109,15 @@ pub fn invoke_command(
                             for sig in signals.pending() {
                                 let pid = Pid::from_raw(child.id() as i32);
                                 
-                                if sig == SIGINT {
-                                    kill(pid, Signal::SIGINT).map_err(|e| ShellError::Exec(format!("Failed to send SIGINT: {}", e)))?;
+                                if sig == SIGTSTP {
+                                    // kill(pid, Signal::SIGINT).map_err(|e| ShellError::Exec(format!("Failed to send SIGTSTP: {}", e)))?;
                                 }
 
-                                if sig == SIGTSTP {
-                                    kill(pid, Signal::SIGTSTP).map_err(|e| ShellError::Exec(format!("Failed to send SIGTSTP: {}", e)))?;
+                                if sig == SIGINT {
+                                    // kill(pid, Signal::SIGINT).map_err(|e| ShellError::Exec(format!("Failed to send SIGINT: {}", e)))?;
                                 }
+
+
                             }
                             
                             child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)

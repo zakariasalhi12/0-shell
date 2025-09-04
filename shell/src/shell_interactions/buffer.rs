@@ -7,6 +7,7 @@ use termion::{clear, cursor};
 use unicode_width::UnicodeWidthStr;
 
 impl Shell {
+
     pub fn delete_char(&mut self) {
         if self.buffer.is_empty() {
             return;
@@ -64,6 +65,20 @@ impl Shell {
                 };
             }
         }
+    }
+
+    pub fn ctrl(&mut self) {
+    let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
+            OutputTarget::Raw(std) => std,
+            OutputTarget::Stdout(_) => &mut None,
+            _ => {
+                return;
+            }
+        };
+
+        self.buffer.clear();
+        Self::print_out_static(stdout , "^C \n\r");
+        display_promt(stdout);
     }
 
     pub fn insert_char(&mut self, c: char) {
