@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
+use crate::features::jobs::{Job, Jobs};
 // use crate::jobs::Job;
 use crate::parser::types::AstNode;
 
@@ -23,7 +24,7 @@ pub struct ShellEnv {
     pub variables: HashMap<String, (String, bool)>,
     pub arith_vars: HashMap<String, i64>,
     pub functions: HashMap<String, AstNode>,
-    // pub jobs: HashMap<usize, Job>,
+    pub jobs : Jobs,
     pub next_job_id: usize,
     pub last_status: i32,
     pub started_at: SystemTime,
@@ -76,7 +77,7 @@ impl ShellEnv {
             variables,
             arith_vars: HashMap::new(),
             functions: HashMap::new(),
-            // jobs: HashMap::new(),
+            jobs: Jobs::new(),
             next_job_id: 1,
             last_status: 0,
             started_at: SystemTime::now(),

@@ -3,23 +3,19 @@ use std::{
     io::{Error, ErrorKind},
 };
 use crate::envirement::ShellEnv;
-use features::jobs::*;
 
 pub struct Kill {
     args: Vec<String>,
-    jobs: Jobs,
-    // flags: Vec<String>,
-    // env: ShellEnv,
 }
 
 impl Kill {
-    pub fn new(args: Vec<String> , jobs : Jobs) -> Self {
-        Self {args , jobs}
+    pub fn new(args: Vec<String>) -> Self {
+        Self {args}
     }
 }
 
 impl ShellCommand for Kill {
-    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, env: &mut ShellEnv) -> std::io::Result<()> {
         let DefaultSignal = 15 ; // SIGTERM
 
         if self.args.len() < 1 {

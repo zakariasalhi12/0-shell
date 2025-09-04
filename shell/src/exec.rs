@@ -273,7 +273,7 @@ pub fn build_command(
         "fg" => Some(Box::new(Fg::new(args))),
         // "jobs" => Some(Box::new(Jobs::new(args , opts))),
         // "bg" => Some(Box::new(Bg::new(args))),
-        // "kill" => Some(Box::new(Kill::new(args))),
+        "kill" => Some(Box::new(Kill::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
