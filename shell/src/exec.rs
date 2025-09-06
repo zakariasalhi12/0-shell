@@ -180,9 +180,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 let mut matched = false;
                 let mut status = condition_status;
 
-                for (elif_cond_opt, elif_body_opt) in elif.iter() {
-                    if let (Some(elif_cond), Some(elif_body)) = (&**elif_cond_opt, &**elif_body_opt)
-                    {
+                for (elif_cond, elif_body) in elif.iter() {
                         let elif_cond_status = execute(elif_cond, env)?;
                         if elif_cond_status == 0 {
                             status = execute(elif_body, env)?;
@@ -192,7 +190,6 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                             status = elif_cond_status;
                         }
                     }
-                }
 
                 if !matched {
                     // Execute else branch if present

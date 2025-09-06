@@ -39,12 +39,12 @@ impl Parser {
             Some(cmd) => cmd,
             None => {
                 return Err(ShellError::Syntax(
-                    "Expected commands in 'then' branch".into(),
+                    "Expected body after 'then' branch".into(),
                 ));
             }
         };
 
-        let mut elif: Vec<(Box<Option<AstNode>>, Box<Option<AstNode>>)> = Vec::new();
+        let mut elif: Vec<(Box<AstNode>, Box<AstNode>)> = Vec::new();
         let mut else_branch: Option<Box<AstNode>> = None;
 
         // Parse `elif` and `else`
@@ -52,19 +52,27 @@ impl Parser {
             if let Some(WordPart::Literal(s)) = word.parts.get(0) {
                 if s.0 == "elif" && s.1 == QuoteType::None {
                     self.advance();
-                    let elif_condition = self.parse_sequence(true)?;
-                    
-                    self.expect_word("then")?;
-                    let elif_then = self.parse_sequence(true)?;
-                    
-                    elif.push((Box::new(elif_condition), Box::new(elif_then)));
+                    if let Some(elif_condition) = self.parse_sequence(true)? {
+                        self.expect_word("then")?;
+                        if let Some(elif_then) = self.parse_sequence(true)? {
+                            elif.push((Box::new(elif_condition), Box::new(elif_then)));
+                        } else {
+                            return Err(ShellError::Parse(String::from(
+                                "Expected body after elif then",
+                            )));
+                        }
+                    } else {
+                        return Err(ShellError::Parse(String::from(
+                            "expected condition after elif",
+                        )));
+                    }
                 } else if s.0 == "else" && s.1 == QuoteType::None {
                     self.advance();
-                    let else_tmp = self.parse_sequence(true)?;
-                    else_branch = match else_tmp {
-                        Some(node) => Some(Box::new(node)),
-                        None => None,
-                    };
+                    if let Some(else_body) = self.parse_sequence(true)? {
+                        else_branch = Some(Box::new(else_body));
+                    } else {
+                        return Err(ShellError::Parse(String::from("expected body after else")));
+                    }
 
                     break;
                 } else {
