@@ -2,6 +2,7 @@ use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::exit::Exit;
 use crate::executor::spawn_commande::invoke_command;
+use nix::unistd::Pid;
 use nix::unistd::pipe;
 use std::collections::HashMap;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
@@ -181,15 +182,15 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 let mut status = condition_status;
 
                 for (elif_cond, elif_body) in elif.iter() {
-                        let elif_cond_status = execute(elif_cond, env)?;
-                        if elif_cond_status == 0 {
-                            status = execute(elif_body, env)?;
-                            matched = true;
-                            break;
-                        } else {
-                            status = elif_cond_status;
-                        }
+                    let elif_cond_status = execute(elif_cond, env)?;
+                    if elif_cond_status == 0 {
+                        status = execute(elif_body, env)?;
+                        matched = true;
+                        break;
+                    } else {
+                        status = elif_cond_status;
                     }
+                }
 
                 if !matched {
                     // Execute else branch if present
@@ -283,7 +284,7 @@ pub fn build_command(
     }
 }
 pub enum CommandResult {
-    Child(Child),
+    Child(Pid),
     Builtin,
 }
 

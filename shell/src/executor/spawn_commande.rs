@@ -105,11 +105,19 @@ pub fn invoke_command(
 
                             for sig in signals.pending() {
                                 if sig == libc_SIGINT {
-                                    child.kill()?;
+                                    nix::sys::signal::kill(child, nix::sys::signal::Signal::SIGINT)
+                                        .map_err(|e| ShellError::Io(std::io::Error::from(e)))?;
                                 }
                             }
 
-                            child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
+                            match nix::sys::wait::waitpid(child, None) {
+                                Ok(wait_status) => match wait_status {
+                                    nix::sys::wait::WaitStatus::Exited(_, code) => code,
+                                    nix::sys::wait::WaitStatus::Signaled(_, _, _) => 1,
+                                    _ => 1,
+                                },
+                                Err(_) => 1,
+                            }
                         }
                         CommandResult::Builtin => 0,
                     };
