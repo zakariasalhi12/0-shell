@@ -4,7 +4,7 @@ use crate::lexer::types::Token;
 use crate::types::AstNode;
 
 impl Parser {
-    pub fn parse_background(&mut self) -> Result<Option<AstNode>, ShellError> {
+    pub fn parse_command_or_if(&mut self) -> Result<Option<AstNode>, ShellError> {
         let should_negate = match self.current() {
             Some(Token::LogicalNot) => {
                 self.advance();
@@ -27,18 +27,6 @@ impl Parser {
                 None => return Ok(None),
             }
         };
-
-        if matches!(self.current(), Some(Token::Ampersand)) {
-            if !Parser::is_reserved_word(self.look_ahead(1)) {
-                self.advance();
-                if let Some(Token::Semicolon) = self.current() {
-                    return Err(ShellError::Parse(
-                        "Unexpected `;` after background `&`".into(),
-                    ))
-                }
-            }
-            return Ok(Some(AstNode::Background(Box::new(node))));
-        }
         return Ok(Some(node));
     }
 }

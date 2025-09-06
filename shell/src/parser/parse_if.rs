@@ -25,23 +25,17 @@ impl Parser {
 
         self.advance();
 
-        let condition = match self.parse_sequence()? {
+        let condition = match self.parse_sequence(true)? {
             Some(cmd) => cmd,
             None => {
                 return Err(ShellError::Syntax("Expected command after 'if'".into()));
             }
         };
 
-        if !self.expect_delimiter() {
-            return Err(ShellError::Parse(String::from(
-                "Expected ; or Newline after condition",
-            )));
-        }
-
         self.expect_word("then")?;
 
         // Parse `then` branch
-        let then_branch = match self.parse_sequence()? {
+        let then_branch = match self.parse_sequence(true)? {
             Some(cmd) => cmd,
             None => {
                 return Err(ShellError::Syntax(
@@ -49,12 +43,6 @@ impl Parser {
                 ));
             }
         };
-
-        if !self.expect_delimiter() {
-            return Err(ShellError::Parse(String::from(
-                "Expected ; or Newline after function body",
-            )));
-        }
 
         let mut elif: Vec<(Box<Option<AstNode>>, Box<Option<AstNode>>)> = Vec::new();
         let mut else_branch: Option<Box<AstNode>> = None;
@@ -64,33 +52,19 @@ impl Parser {
             if let Some(WordPart::Literal(s)) = word.parts.get(0) {
                 if s.0 == "elif" && s.1 == QuoteType::None {
                     self.advance();
-                    let elif_condition = self.parse_sequence()?;
-                    if !self.expect_delimiter() {
-                        return Err(ShellError::Parse(String::from(
-                            "Expected ; or Newline after condition",
-                        )));
-                    }
+                    let elif_condition = self.parse_sequence(true)?;
+                    
                     self.expect_word("then")?;
-                    let elif_then = self.parse_sequence()?;
-                    if !self.expect_delimiter() {
-                        return Err(ShellError::Parse(String::from(
-                            "Expected ; or Newline after elif then body",
-                        )));
-                    }
+                    let elif_then = self.parse_sequence(true)?;
+                    
                     elif.push((Box::new(elif_condition), Box::new(elif_then)));
                 } else if s.0 == "else" && s.1 == QuoteType::None {
                     self.advance();
-                    let else_tmp = self.parse_sequence()?;
+                    let else_tmp = self.parse_sequence(true)?;
                     else_branch = match else_tmp {
                         Some(node) => Some(Box::new(node)),
                         None => None,
                     };
-
-                    if !self.expect_delimiter() {
-                        return Err(ShellError::Parse(String::from(
-                            "Expected ; or Newline after else body",
-                        )));
-                    }
 
                     break;
                 } else {

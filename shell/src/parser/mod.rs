@@ -1,5 +1,5 @@
 pub mod parse_assignment;
-pub mod parse_background;
+pub mod parse_command_or_if;
 pub mod parse_command;
 pub mod parse_function;
 pub mod parse_group;
@@ -58,13 +58,13 @@ impl Parser {
         )
     }
 
-    pub fn is_reserved_word(token: Option<&Token>) -> bool {
-        match token {
+    pub fn is_reserved_word(&self) -> bool {
+        match self.current() {
             Some(Token::Word(word)) => {
                 if word.parts.len() == 1 && word.quote == QuoteType::None {
                     match &word.parts[0] {
                         WordPart::Literal(part) => {
-                            if (part.0 == "then" || part.0 == "fi" || part.0 == "else")
+                            if (part.0 == "then" || part.0 == "fi" || part.0 == "else" || part.0 == "elif")
                                 && part.1 == QuoteType::None
                             {
                                 return true;
@@ -112,7 +112,7 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Option<AstNode>, ShellError> {
-        match self.parse_sequence() {
+        match self.parse_sequence(false) {
             Ok(ast) => {
                 if !self.is_eof() {
                     return Err(ShellError::Parse(format!(
@@ -120,6 +120,7 @@ impl Parser {
                         self.current()
                     )));
                 }
+                // println!("{:?}", ast);
                 return Ok(ast);
             }
             Err(e) => {

@@ -1,12 +1,10 @@
 use crate::error::ShellError;
-use crate::lexer::types::QuoteType;
 use crate::lexer::types::Token;
-use crate::lexer::types::WordPart;
 use crate::parser::Parser;
 use crate::parser::types::*;
 
 impl Parser {
-    pub fn parse_sequence(&mut self) -> Result<Option<AstNode>, ShellError> {
+    pub fn parse_sequence(&mut self, in_if_condition: bool) -> Result<Option<AstNode>, ShellError> {
         let mut commands = Vec::new();
 
         loop {
@@ -17,29 +15,30 @@ impl Parser {
             }
 
             match self.current() {
-                Some(Token::Semicolon | Token::Newline) => {
-                    match self.look_ahead(1){
-                        Some(Token::Word(word)) =>{
-                            if word.parts.len() == 1 && word.quote == QuoteType::None{
-                                match &word.parts[0]{
-                                    WordPart::Literal(part) =>{
-                                        if (part.0 == "then" || part.0 == "fi" || part.0 == "else") && part.1 == QuoteType::None{
-                                            break;
-                                        }
-                                    }
-                                    _ =>{
-                                        self.advance();
-                                    }
-                                }
-                            }
-                        },
-                        _ =>{
-                            self.advance();
-                        }
+                Some(Token::Semicolon) | Some(Token::Newline) | Some(Token::Ampersand) => {
+                    let is_background = matches!(self.current(), Some(Token::Ampersand));
+                    self.advance();
+
+                    if is_background {
+                        let last = commands
+                            .pop()
+                            .ok_or_else(|| ShellError::Parse("Syntax Error".to_string()))?;
+                        commands.push(AstNode::Background(Box::new(last)));
                     }
-                    // self.advance();
+
+                    if in_if_condition && self.is_reserved_word() {
+                        break;
+                    }
                 }
-                _ => break,
+                _ => {
+                    if in_if_condition {
+                        return Err(ShellError::Parse(
+                            "expected sequence to end with Newline, Semicolon, or &".to_string(),
+                        ));
+                    } else {
+                        break;
+                    }
+                }
             }
         }
 

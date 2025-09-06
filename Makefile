@@ -4,7 +4,7 @@ LS_BIN=$(HOME)/.push/bin/ls
 
 
 install:
-	$(MAKE) clean
+	rm -rf $(HOME)/.push
 	mkdir -p ~/.push/bin
 	touch ~/.push/.pushrc
 	touch ~/.push/.push_history
@@ -26,7 +26,8 @@ $(LS_BIN):
 	cargo build --release --manifest-path=ls/Cargo.toml
 	cp ls/target/release/ls $(LS_BIN)
 
-clean: cargo-clean
+clean: 
+	$(MAKE) cargo-clean
 	rm -rf $(HOME)/.push
 
 cargo-clean:
