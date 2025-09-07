@@ -112,7 +112,7 @@ pub enum AstNode {
     },
     For {
         var: String,
-        values: Vec<String>,
+        values: Vec<Word>,
         body: Box<AstNode>,
     },
     Case {

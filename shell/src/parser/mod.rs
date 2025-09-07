@@ -9,6 +9,8 @@ pub mod parse_pipeline;
 pub mod parse_redirection;
 pub mod parse_sequence;
 pub mod types;
+pub mod parse_while_or_until;
+pub mod parse_for;
 
 use crate::error::ShellError;
 use crate::lexer::types::{QuoteType, Token, WordPart};
@@ -64,7 +66,7 @@ impl Parser {
                 if word.parts.len() == 1 && word.quote == QuoteType::None {
                     match &word.parts[0] {
                         WordPart::Literal(part) => {
-                            if (part.0 == "then" || part.0 == "fi" || part.0 == "else" || part.0 == "elif")
+                            if (part.0 == "then" || part.0 == "fi" || part.0 == "else" || part.0 == "elif" || part.0 == "do" || part.0 == "done" || part.0 == "in" )
                                 && part.1 == QuoteType::None
                             {
                                 return true;

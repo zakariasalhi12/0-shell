@@ -15,7 +15,11 @@ impl Parser {
 
         let node = if let Some(if_node) = self.parse_if()? {
             if_node
-        } else {
+        }else if let Some(while_node) = self.parse_while_or_until()? {
+            while_node
+        }else if let Some(for_node) = self.parse_for()? {
+            for_node
+        }else {
             match self.parse_command()? {
                 Some(cmd) => {
                     if should_negate {
