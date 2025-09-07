@@ -6,14 +6,13 @@ use crate::exec::execute;
 use crate::exec::get_command_type;
 use crate::executor::run_commande::run_commande;
 use crate::expansion::expand_and_split;
+use crate::features::jobs;
 use crate::lexer::types::Word;
 use crate::redirection::setup_redirections_ownedfds;
 use crate::types::Redirect;
-use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM};
 use nix::sys::signal::Signal;
 use nix::sys::signal::signal;
 use nix::unistd::getpgrp;
-use nix::unistd::getpid;
 use nix::unistd::setpgid;
 use nix::unistd::tcsetpgrp;
 use std::collections::HashMap;
@@ -21,6 +20,7 @@ use std::fs::File;
 use std::os::fd::IntoRawFd;
 use std::os::unix::io::OwnedFd;
 use std::vec;
+use nix::unistd::Pid;
 
 pub fn invoke_command(
     cmd: &Word,
@@ -29,6 +29,7 @@ pub fn invoke_command(
     redirects: &Vec<Redirect>,
     env: &mut ShellEnv,
     piping_fds: Option<&HashMap<u64, OwnedFd>>,
+    gid : Option<Pid>,
 ) -> Result<i32, ShellError> {
     // 1. Expand command and args
     let mut all_args: Vec<String> = vec![];
@@ -110,8 +111,20 @@ pub fn invoke_command(
                 }
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
-                        CommandResult::Child(mut child) => {
-                            setpgid(child, child).unwrap();
+                        CommandResult::Child(mut child_pid) => {
+                            let mut g = match gid {
+                                Some(val) => val,
+                                None => child_pid,
+                            };
+
+                            // set the process group id to the current child
+                            setpgid(child_pid, child_pid).unwrap();
+
+                            println!("{}", env.current_command);
+                            // Create a new job and add it to the jobs class
+                            let new_job = jobs::Job::new(child_pid, child_pid, env.jobs.size, jobs::JobStatus::Running, cmd_str);
+                            
+                            env.jobs.add_job(new_job);
 
                             // Get shell PGID
                             let shell_pgid = getpgrp();
@@ -119,15 +132,19 @@ pub fn invoke_command(
                             // Temporarily ignore SIGTTOU so parent doesn't suspend
                             let old = unsafe {signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)}.unwrap();
                             // Give terminal control to child
-                            tcsetpgrp(fd, child).unwrap();
+                            tcsetpgrp(fd, child_pid).unwrap();
                             // Restore SIGTTOU handler
                             unsafe { signal(Signal::SIGTTOU, old).unwrap() };
 
                             // Wait for child to finish
-                            let exitcode = match nix::sys::wait::waitpid(child, None) {
+                            let exitcode = match nix::sys::wait::waitpid(child_pid, Some(nix::sys::wait::WaitPidFlag::WUNTRACED)) {
                                 Ok(wait_status) => match wait_status {
                                     nix::sys::wait::WaitStatus::Exited(_, code) => code,
                                     nix::sys::wait::WaitStatus::Signaled(_, _, _) => 1,
+                                    nix::sys::wait::WaitStatus::Stopped(_, _) =>  {
+                                        println!("[{}]+ Stopped", child_pid);
+                                        1
+                                    },
                                     _ => 1,
                                 },
                                 Err(_) => 1,

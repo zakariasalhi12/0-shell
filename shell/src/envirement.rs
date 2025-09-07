@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use crate::jobs::Job;
+use crate::features::jobs::{Jobs};
 use crate::parser::types::AstNode;
 
 use dirs::home_dir;
@@ -24,10 +24,11 @@ pub struct ShellEnv {
     pub variables: HashMap<String, (String, bool)>,
     pub arith_vars: HashMap<String, i64>,
     pub functions: HashMap<String, AstNode>,
-    pub jobs: HashMap<usize, Job>,
+    pub jobs: Jobs,
     pub next_job_id: usize,
     pub last_status: i32,
     pub started_at: SystemTime,
+    pub current_command : String,
 }
 
 impl ShellEnv {
@@ -77,10 +78,11 @@ impl ShellEnv {
             variables,
             arith_vars: HashMap::new(),
             functions: HashMap::new(),
-            jobs: HashMap::new(),
+            jobs: Jobs::new(),
             next_job_id: 1,
             last_status: 0,
             started_at: SystemTime::now(),
+            current_command: String::new(),
         };
     }
 
@@ -111,24 +113,6 @@ impl ShellEnv {
     }
 
 
-    /// Add a job and increment job ID
-    pub fn add_job(&mut self, mut job: Job) -> usize {
-        let id = self.next_job_id;
-        self.next_job_id += 1;
-        job.id = id;
-        self.jobs.insert(id, job);
-        id
-    }
-
-    /// Get job by ID
-    pub fn get_job(&self, id: usize) -> Option<&Job> {
-        self.jobs.get(&id)
-    }
-
-    /// Remove completed job
-    pub fn remove_job(&mut self, id: usize) {
-        self.jobs.remove(&id);
-    }
 
     /// Set last command exit status ($?)
     pub fn set_last_status(&mut self, status: i32) {

@@ -1,3 +1,4 @@
+use crate::commands::fg::Fg;
 use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::exit::Exit;
@@ -17,6 +18,7 @@ use crate::parser::types::*;
 use std::process::Child;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    env.current_command = ast.to_text(env);
     match ast {
         AstNode::Command {
             cmd,
@@ -24,7 +26,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let child = invoke_command(cmd, args, assignments, redirects, env, None)?;
+            let child = invoke_command(cmd, args, assignments, redirects, env, None , None)?;
             env.set_last_status(child);
             Ok(child)
         }
@@ -38,6 +40,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             let mut prev_read: Option<OwnedFd> = None;
+            let mut gid = Option::<Pid>::None;
 
             for (i, node) in nodes.iter().enumerate() {
                 let is_last = i == nodes.len() - 1;
@@ -74,7 +77,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     };
 
                     let stat =
-                        invoke_command(cmd, args, &vec![], redirects, env, fds_map.as_ref())?;
+                        invoke_command(cmd, args, &vec![], redirects, env, fds_map.as_ref() , gid)?;
                     env.set_last_status(stat);
                     prev_read = read_end; // becomes stdin for next command
                 } else {
@@ -279,6 +282,7 @@ pub fn build_command(
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
         "type" => Some(Box::new(Type::new(args))),
+        "fg" => Some(Box::new(Fg::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
@@ -301,7 +305,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
+        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" | "fg" => {
             CommandType::Builtin
         }
         _ => match env.get("PATH") {
