@@ -163,7 +163,7 @@ pub fn invoke_command(
                                     },
                                     Err(_) => 1,
                                 };
-
+                                env.jobs.remove_job(child_pid);
                                 // Return terminal control to shell
                                 let old = unsafe {
                                     signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)

@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 
-use crate::features::jobs::{Jobs};
+use crate::features::jobs::Jobs;
 use crate::parser::types::AstNode;
 
 use dirs::home_dir;
+use std::env;
 use std::fs::read_to_string;
-use std::{env};
 use whoami;
 
 fn get_user_shell(username: &str) -> Option<String> {
@@ -28,7 +28,7 @@ pub struct ShellEnv {
     pub next_job_id: usize,
     pub last_status: i32,
     pub started_at: SystemTime,
-    pub current_command : String,
+    pub current_command: String,
 }
 
 impl ShellEnv {
@@ -99,20 +99,26 @@ impl ShellEnv {
 
     /// Get a shell variable
     pub fn get(&self, key: &str) -> Option<String> {
-        if key == "?"{
+        if key == "?" {
             return Some(self.last_status.to_string());
-        }else if let Some(value) = self.variables.get(key) {
+        } else if let Some(value) = self.variables.get(key) {
             Some(value.0.clone())
         } else {
             Some("".to_string())
         }
     }
 
-    pub fn get_environment_only(&self) -> HashMap<String,String> {
-        self.variables.iter().filter(|(_, v)| v.1).map(|(k, v)| (k.clone(), v.0.clone())).collect()
+    pub fn get_environment_only(&self) -> HashMap<String, String> {
+        self.variables
+            .iter()
+            .filter(|(_, v)| v.1)
+            .map(|(k, v)| (k.clone(), v.0.clone()))
+            .collect()
     }
 
-
+    pub fn last_job_pid(&self) -> Option<i32> {
+        self.jobs.get_last_job().map(|job| job.pgid.as_raw())
+    }
 
     /// Set last command exit status ($?)
     pub fn set_last_status(&mut self, status: i32) {

@@ -1,13 +1,31 @@
-use crate::{ShellCommand, commands::jobs, envirement::ShellEnv};
+use crate::features::jobs::JobStatus;
+use crate::{ShellCommand, envirement::ShellEnv};
 
 pub struct Jobs {
-    args: Vec<String>,
-    flags: Vec<String>,
-    env: ShellEnv,
+    pub args: Vec<String>,
+    pub env: ShellEnv,
+}
+
+impl Jobs {
+    pub fn new(args: Vec<String>, env: ShellEnv) -> Self {
+        Self { args, env }
+    }
 }
 
 impl ShellCommand for Jobs {
-    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, env: &mut ShellEnv) -> std::io::Result<()> {
+        let mut i = 1;
+        for (id, job) in &env.jobs.jobs {
+            let status_str = match job.status {
+                JobStatus::Running => "running",
+                JobStatus::Stopped => "stopped",
+                JobStatus::Terminated => "done",
+            };
+
+            // Example output: [1]  + 12345 running    sleep 10
+            println!("[{}]  {}  {}    {}", i, id, status_str, job.command);
+            i += 1;
+        }
         Ok(())
     }
 }

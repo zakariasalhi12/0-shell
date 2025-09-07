@@ -2,6 +2,8 @@ use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::exit::Exit;
 use crate::commands::fg::Fg;
+use crate::commands::jobs::Jobs;
+use crate::commands::kill::Kill;
 use crate::executor::spawn_commande::invoke_command;
 use nix::unistd::Pid;
 use nix::unistd::pipe;
@@ -26,7 +28,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let child = invoke_command(cmd, args, assignments, redirects, env, None, None , false)?;
+            let child = invoke_command(cmd, args, assignments, redirects, env, None, None, false)?;
             env.set_last_status(child);
             Ok(child)
         }
@@ -76,8 +78,16 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         Some(map)
                     };
 
-                    let stat =
-                        invoke_command(cmd, args, &vec![], redirects, env, fds_map.as_ref(), gid , false)?;
+                    let stat = invoke_command(
+                        cmd,
+                        args,
+                        &vec![],
+                        redirects,
+                        env,
+                        fds_map.as_ref(),
+                        gid,
+                        false,
+                    )?;
                     env.set_last_status(stat);
                     prev_read = read_end; // becomes stdin for next command
                 } else {
@@ -131,25 +141,24 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             env.set_last_status(inverted_status);
             Ok(inverted_status)
         }
-        AstNode::Background(node) => {
-            match **node {
-                AstNode::Command {
-                    ref cmd,
-                    ref args,
-                    ref assignments,
-                    ref redirects,
-                } => {
-                    let child = invoke_command(cmd, args, assignments, redirects, env, None, None , true)?;
-                    env.set_last_status(child);
-                    Ok(child)
-                }
-                _ => {
-                    let status = execute(&node, env)?;
-                    env.set_last_status(status);
-                    Ok(status)
-                }
+        AstNode::Background(node) => match **node {
+            AstNode::Command {
+                ref cmd,
+                ref args,
+                ref assignments,
+                ref redirects,
+            } => {
+                let child =
+                    invoke_command(cmd, args, assignments, redirects, env, None, None, true)?;
+                env.set_last_status(child);
+                Ok(child)
             }
-        }
+            _ => {
+                let status = execute(&node, env)?;
+                env.set_last_status(status);
+                Ok(status)
+            }
+        },
         AstNode::Subshell(node) => {
             let status = execute(node, env)?;
             env.set_last_status(status);
@@ -293,6 +302,8 @@ pub fn build_command(
         "type" => Some(Box::new(Type::new(args))),
         "fg" => Some(Box::new(Fg::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
+        "jobs" => Some(Box::new(Jobs::new(args, shellenv))),
+        "kill" => Some(Box::new(Kill::new(args, shellenv))),
         _ => None,
     }
 }
@@ -315,7 +326,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
 
     match cmd {
         "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type"
-        | "fg" => CommandType::Builtin,
+        | "fg" | "jobs" | "kill" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();
