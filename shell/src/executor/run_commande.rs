@@ -3,6 +3,9 @@ use crate::error::ShellError;
 use crate::exec::CommandResult;
 use crate::exec::build_command;
 use nix::fcntl::{FcntlArg, fcntl};
+use nix::unistd::getpid;
+use nix::unistd::setpgid;
+use nix::unistd::tcsetpgrp;
 use nix::unistd::{ForkResult, Pid, close, dup, dup2, execve, fork};
 use std::collections::HashMap;
 use std::env;
@@ -119,6 +122,10 @@ fn execute_external_with_fork(
 
         Ok(ForkResult::Child) => {
             // Child process - setup file descriptors and exec
+            let child_pid = getpid();
+            // Make child leader of new PGID
+            let _ = setpgid(child_pid, child_pid);
+
 
             // Setup standard file descriptors
             if let Some(new_fd) = stdin_new_fd {
