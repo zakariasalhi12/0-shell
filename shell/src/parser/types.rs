@@ -294,8 +294,11 @@ impl AstNode {
                 format!("until {}; do {}; done", condition.to_text(env), body.to_text(env)),
 
             AstNode::For { var, values, body } => {
-                let vals = values.join(" ");
-                format!("for {} in {}; do {}; done", var, vals, body.to_text(env))
+                // let vals = values.iter().reduce(|w1, w2| {
+                //     return w1.expand(env);
+                // });
+                // format!("for {} in {}; do {}; done", "".to_string(),"".to_string(), "".to_string() body.to_text(env))
+                return String::new();
             }
 
             AstNode::Case { word, arms } => {
