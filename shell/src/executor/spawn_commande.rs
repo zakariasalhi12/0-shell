@@ -121,7 +121,7 @@ pub fn invoke_command(
                             // set the process group id to the current child
                             setpgid(child_pid, child_pid).unwrap();
 
-                            println!("{}", env.current_command);
+                            // println!("{}", env.current_command);
                             // Create a new job and add it to the jobs class
 
                             let new_job = jobs::Job::new(
@@ -153,27 +153,19 @@ pub fn invoke_command(
                                     Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
                                 ) {
                                     Ok(wait_status) => match wait_status {
-                                        nix::sys::wait::WaitStatus::Exited(_, code) => {
-                                            // Remove job when process exits
-                                            env.jobs.remove_job(child_pid);
-                                            code
-                                        }
-                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
-                                            env.jobs.remove_job(child_pid);
-                                            1
-                                        }
+                                        nix::sys::wait::WaitStatus::Exited(_, code) => code,
+                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => 1,
                                         nix::sys::wait::WaitStatus::Stopped(_, _) => {
                                             println!("[{}]+ Stopped", child_pid);
-                                            env.jobs.update_job_status(
-                                                child_pid,
-                                                jobs::JobStatus::Stopped,
-                                            );
                                             1
                                         }
                                         _ => 1,
                                     },
                                     Err(_) => 1,
                                 };
+
+                                env.jobs.remove_job(child_pid);
+
                                 // Return terminal control to shell
                                 let old = unsafe {
                                     signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)

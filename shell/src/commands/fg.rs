@@ -45,25 +45,23 @@ impl ShellCommand for Fg {
         nix::sys::signal::killpg(pgid, nix::sys::signal::SIGCONT).ok();
 
         // Wait for the job to finish or stop again
-        loop {
-            match nix::sys::wait::waitpid(pgid, Some(nix::sys::wait::WaitPidFlag::WUNTRACED)) {
-                Ok(wait_status) => match wait_status {
-                    nix::sys::wait::WaitStatus::Exited(_, code) => {
-                        // Remove job when process exits
-                        env.jobs.remove_job(pgid);
-                    }
-                    nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
-                        env.jobs.remove_job(pgid);
-                    }
-                    nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                        println!("[{}]+ Stopped", pgid);
-                        env.jobs.update_job_status(pgid, JobStatus::Stopped);
-                    }
-                    _ => break,
-                },
-                Err(_) => break,
-                // No need for a wildcard arm anymore
-            }
+        match nix::sys::wait::waitpid(pgid, Some(nix::sys::wait::WaitPidFlag::WUNTRACED)) {
+            Ok(wait_status) => match wait_status {
+                nix::sys::wait::WaitStatus::Exited(_, code) => {
+                    // Remove job when process exits
+                    env.jobs.remove_job(pgid);
+                }
+                nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
+                    env.jobs.remove_job(pgid);
+                }
+                nix::sys::wait::WaitStatus::Stopped(_, _) => {
+                    println!("[{}]+ Stopped", pgid);
+                    env.jobs.update_job_status(pgid, JobStatus::Stopped);
+                }
+                _ => unreachable!(),
+            },
+            Err(_) => unreachable!(),
+            // No need for a wildcard arm anymore
         }
 
         // Return terminal control to shell

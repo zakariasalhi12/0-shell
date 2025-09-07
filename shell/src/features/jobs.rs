@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::format};
+use std::{collections::HashMap};
 
 use nix::unistd::Pid;
 
@@ -7,7 +7,33 @@ pub enum JobStatus {
     Running,
     Stopped,
     Terminated,
+    Done,
 }
+//[id][prev or current] [status]  [command]
+
+// impl JobStatus {
+//     // fn printStatus(&self , job : Job) {
+//     //     let mut prev_or_next = String::new();
+
+//     //     if job.prev_job {prev_or_next = "-".to_owned()}
+//     //     if job.current_job {prev_or_next = "+".to_owned()}
+
+//     //     match self {
+//     //         Self::Running => {
+//     //             format!("[{}]{}  Running {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
+//     //         }
+//     //         Self::Done => {
+//     //             format!("[{}]{}  Done {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
+//     //         }
+//     //         Self::Stopped => {
+//     //             format!("[{}]{}  Stopped {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
+//     //         }
+//     //         Self::Terminated => {
+//     //             format!("[{}]{}  Terminated {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
+//     //         }
+//     //     }
+//     // }
+// }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Jobs {
@@ -24,6 +50,8 @@ pub struct Job {
     pub id: String,
     pub status: JobStatus,
     pub command: String,
+    pub current_job : bool,
+    pub prev_job : bool,
 }
 
 impl Jobs {
@@ -63,6 +91,7 @@ impl Jobs {
     pub fn update_job_status(&mut self, pid: nix::unistd::Pid, status: JobStatus) {
         if let Some(job) = self.jobs.iter_mut().find(|job| *job.0 == pid) {
             job.1.status = status;
+            // job.1.status.printStatus(job.1.to_owned());
         }
     }
 
@@ -86,6 +115,8 @@ impl Job {
             id: format!("%{}", id),
             status,
             command,
+            current_job : false,
+            prev_job : false,
         }
     }
 

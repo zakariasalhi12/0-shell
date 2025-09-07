@@ -16,9 +16,10 @@ impl ShellCommand for Jobs {
         let mut i = 1;
         for (id, job) in &env.jobs.jobs {
             let status_str = match job.status {
-                JobStatus::Running => "running",
-                JobStatus::Stopped => "stopped",
-                JobStatus::Terminated => "done",
+                JobStatus::Running => "Running",
+                JobStatus::Stopped => "Stopped",
+                JobStatus::Terminated => "Terminated",
+                JobStatus::Done => unreachable!(),
             };
 
             // Example output: [1]  + 12345 running    sleep 10

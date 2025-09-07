@@ -274,7 +274,8 @@ impl Shell {
 
                 // Interrupt (placeholder)
                 termion::event::Key::Ctrl('c') => {
-                    // TODO: Send SIGINT
+                    self.ctrl();
+                    continue;
                 }
 
                 // Suspend (placeholder)
