@@ -1,5 +1,6 @@
 use crate::PathBuf;
 use crate::ShellCommand;
+use crate::commands::bg::Bg;
 use crate::commands::exit::Exit;
 use crate::commands::fg::Fg;
 use crate::commands::jobs::Jobs;
@@ -302,8 +303,9 @@ pub fn build_command(
         "type" => Some(Box::new(Type::new(args))),
         "fg" => Some(Box::new(Fg::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
-        "jobs" => Some(Box::new(Jobs::new(args, shellenv))),
-        "kill" => Some(Box::new(Kill::new(args, shellenv))),
+        "jobs" => Some(Box::new(Jobs::new(args))),
+        "kill" => Some(Box::new(Kill::new(args))),
+        "bg" => Some(Box::new(Bg::new(args))),
         _ => None,
     }
 }
@@ -326,7 +328,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
 
     match cmd {
         "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type"
-        | "fg" | "jobs" | "kill" => CommandType::Builtin,
+        | "fg" | "jobs" | "kill" | "bg" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();

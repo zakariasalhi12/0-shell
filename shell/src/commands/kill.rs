@@ -1,18 +1,17 @@
-use crate::{ShellCommand, envirement::ShellEnv};
+use crate::ShellCommand;
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 
 pub struct Kill {
     args: Vec<String>,
-    env: ShellEnv,
 }
 
 impl Kill {
-    pub fn new(args: Vec<String>, env: ShellEnv) -> Self {
-        Self { args, env }
+    pub fn new(args: Vec<String>) -> Self {
+        Self { args }
     }
 
-    pub fn ValidateArgs(&self) -> Result<i32, String> {
+    pub fn validate_args(&self) -> Result<i32, String> {
         if self.args.len() == 0 {
             return Err("No args".to_string());
         } else if self.args.len() > 1 {
@@ -28,7 +27,7 @@ impl Kill {
 
 impl ShellCommand for Kill {
     fn execute(&self, env: &mut crate::envirement::ShellEnv) -> std::io::Result<()> {
-        match self.ValidateArgs() {
+        match self.validate_args() {
             Ok(pid) => match kill(Pid::from_raw(pid), Signal::SIGKILL) {
                 Ok(_) => {
                     env.jobs.remove_job(Pid::from_raw(pid)); // Clean up job after killing

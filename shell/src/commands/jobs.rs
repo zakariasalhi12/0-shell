@@ -3,12 +3,11 @@ use crate::{ShellCommand, envirement::ShellEnv};
 
 pub struct Jobs {
     pub args: Vec<String>,
-    pub env: ShellEnv,
 }
 
 impl Jobs {
-    pub fn new(args: Vec<String>, env: ShellEnv) -> Self {
-        Self { args, env }
+    pub fn new(args: Vec<String>) -> Self {
+        Self { args }
     }
 }
 

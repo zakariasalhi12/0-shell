@@ -14,6 +14,7 @@ pub struct Jobs {
     pub jobs: HashMap<Pid, Job>,
     pub size: u32,
     pub last_job: Option<Pid>,
+    pub order: Vec<Pid>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -31,11 +32,13 @@ impl Jobs {
             jobs: HashMap::new(),
             size: 0,
             last_job: None,
+            order: vec![],
         }
     }
 
     pub fn add_job(&mut self, job: Job) {
-        self.last_job = Some(job.pgid.clone());
+        self.last_job = Some(job.pgid);
+        self.order.push(job.pgid.clone());
         self.jobs.insert(job.pgid, job);
         self.size += 1;
     }
@@ -49,11 +52,29 @@ impl Jobs {
 
     pub fn remove_job(&mut self, pid: Pid) {
         self.jobs.remove(&pid);
+        self.order.retain(|&p| p != pid);
         self.size -= 1;
     }
 
     pub fn get_job(&self, pid: Pid) -> Option<&Job> {
         self.jobs.get(&pid)
+    }
+
+    pub fn update_job_status(&mut self, pid: nix::unistd::Pid, status: JobStatus) {
+        if let Some(job) = self.jobs.iter_mut().find(|job| *job.0 == pid) {
+            job.1.status = status;
+        }
+    }
+
+    pub fn get_last_stopped_job(&self) -> Option<&Job> {
+        for pid in self.order.iter().rev() {
+            if let Some(job) = self.jobs.get(pid) {
+                if job.status == JobStatus::Stopped {
+                    return Some(job);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -62,7 +83,7 @@ impl Job {
         Job {
             pgid,
             pids: vec![pid],
-            id : format!("%{}", id),
+            id: format!("%{}", id),
             status,
             command,
         }
@@ -79,5 +100,4 @@ impl Job {
     pub fn update_status(&mut self, status: JobStatus) {
         self.status = status;
     }
-
 }
