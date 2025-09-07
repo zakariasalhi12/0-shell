@@ -1,7 +1,9 @@
 use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::exit::Exit;
+use crate::commands::fg::Fg;
 use crate::executor::spawn_commande::invoke_command;
+use nix::unistd::Pid;
 use nix::unistd::pipe;
 use std::collections::HashMap;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
@@ -16,6 +18,7 @@ use crate::parser::types::*;
 use std::process::Child;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    env.current_command = ast.to_text(env);
     match ast {
         AstNode::Command {
             cmd,
@@ -23,7 +26,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let child = invoke_command(cmd, args, assignments, redirects, env, None)?;
+            let child = invoke_command(cmd, args, assignments, redirects, env, None, None , false)?;
             env.set_last_status(child);
             Ok(child)
         }
@@ -37,6 +40,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             let mut prev_read: Option<OwnedFd> = None;
+            let mut gid = Option::<Pid>::None;
 
             for (i, node) in nodes.iter().enumerate() {
                 let is_last = i == nodes.len() - 1;
@@ -73,7 +77,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     };
 
                     let stat =
-                        invoke_command(cmd, args, &vec![], redirects, env, fds_map.as_ref())?;
+                        invoke_command(cmd, args, &vec![], redirects, env, fds_map.as_ref(), gid , false)?;
                     env.set_last_status(stat);
                     prev_read = read_end; // becomes stdin for next command
                 } else {
@@ -128,14 +132,23 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             Ok(inverted_status)
         }
         AstNode::Background(node) => {
-            // Execute node in background (basic implementation)
-            // In a full implementation, this would:
-            // - Fork the process
-            // - Add to job control
-            // - Return immediately
-            let status = execute(node, env)?;
-            env.set_last_status(status);
-            Ok(status)
+            match **node {
+                AstNode::Command {
+                    ref cmd,
+                    ref args,
+                    ref assignments,
+                    ref redirects,
+                } => {
+                    let child = invoke_command(cmd, args, assignments, redirects, env, None, None , true)?;
+                    env.set_last_status(child);
+                    Ok(child)
+                }
+                _ => {
+                    let status = execute(&node, env)?;
+                    env.set_last_status(status);
+                    Ok(status)
+                }
+            }
         }
         AstNode::Subshell(node) => {
             let status = execute(node, env)?;
@@ -181,15 +194,15 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 let mut status = condition_status;
 
                 for (elif_cond, elif_body) in elif.iter() {
-                        let elif_cond_status = execute(elif_cond, env)?;
-                        if elif_cond_status == 0 {
-                            status = execute(elif_body, env)?;
-                            matched = true;
-                            break;
-                        } else {
-                            status = elif_cond_status;
-                        }
+                    let elif_cond_status = execute(elif_cond, env)?;
+                    if elif_cond_status == 0 {
+                        status = execute(elif_body, env)?;
+                        matched = true;
+                        break;
+                    } else {
+                        status = elif_cond_status;
                     }
+                }
 
                 if !matched {
                     // Execute else branch if present
@@ -278,12 +291,13 @@ pub fn build_command(
         "mkdir" => Some(Box::new(Mkdir::new(args, opts))),
         "export" => Some(Box::new(Export::new(args))),
         "type" => Some(Box::new(Type::new(args))),
+        "fg" => Some(Box::new(Fg::new(args))),
         "exit" => Some(Box::new(Exit::new(args, opts))),
         _ => None,
     }
 }
 pub enum CommandResult {
-    Child(Child),
+    Child(Pid),
     Builtin,
 }
 
@@ -300,9 +314,8 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
     }
 
     match cmd {
-        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type" => {
-            CommandType::Builtin
-        }
+        "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type"
+        | "fg" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();

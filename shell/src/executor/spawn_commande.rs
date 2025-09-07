@@ -6,11 +6,19 @@ use crate::exec::execute;
 use crate::exec::get_command_type;
 use crate::executor::run_commande::run_commande;
 use crate::expansion::expand_and_split;
+use crate::features::jobs;
 use crate::lexer::types::Word;
 use crate::redirection::setup_redirections_ownedfds;
 use crate::types::Redirect;
-use libc::{SIGINT as libc_SIGINT, SIGTERM as libc_SIGTERM};
+use nix::sys::signal::Signal;
+use nix::sys::signal::signal;
+use nix::unistd::Pid;
+use nix::unistd::getpgrp;
+use nix::unistd::setpgid;
+use nix::unistd::tcsetpgrp;
 use std::collections::HashMap;
+use std::fs::File;
+use std::os::fd::IntoRawFd;
 use std::os::unix::io::OwnedFd;
 use std::vec;
 
@@ -21,6 +29,8 @@ pub fn invoke_command(
     redirects: &Vec<Redirect>,
     env: &mut ShellEnv,
     piping_fds: Option<&HashMap<u64, OwnedFd>>,
+    gid: Option<Pid>,
+    is_backgound: bool,
 ) -> Result<i32, ShellError> {
     // 1. Expand command and args
     let mut all_args: Vec<String> = vec![];
@@ -93,26 +103,84 @@ pub fn invoke_command(
             }
 
             CommandType::External(path) => {
+                let tty = File::open("/dev/tty").unwrap();
+                let fd = tty.into_raw_fd();
+
                 let mut envs = env.get_environment_only();
                 for ass in assignments.clone() {
                     envs.insert(ass.0, ass.1.expand(&env));
                 }
-                use signal_hook::iterator::Signals;
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
-                        CommandResult::Child(mut child) => {
-                            let mut signals = Signals::new(&[libc_SIGINT, libc_SIGTERM])?;
+                        CommandResult::Child(mut child_pid) => {
+                            let mut g = match gid {
+                                Some(val) => val,
+                                None => child_pid,
+                            };
 
-                            for sig in signals.pending() {
-                                if sig == libc_SIGINT {
-                                    child.kill()?;
+                            // set the process group id to the current child
+                            setpgid(child_pid, child_pid).unwrap();
+
+                            println!("{}", env.current_command);
+                            // Create a new job and add it to the jobs class
+
+                            let new_job = jobs::Job::new(
+                                child_pid,
+                                child_pid,
+                                env.jobs.size,
+                                jobs::JobStatus::Running,
+                                cmd_str,
+                            );
+                            env.jobs.add_job(new_job);
+
+                            if (!is_backgound) {
+                                // Get shell PGID
+                                let shell_pgid = getpgrp();
+
+                                // Temporarily ignore SIGTTOU so parent doesn't suspend
+                                let old = unsafe {
+                                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
                                 }
-                            }
+                                .unwrap();
+                                // Give terminal control to child
+                                tcsetpgrp(fd, child_pid).unwrap();
+                                // Restore SIGTTOU handler
+                                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
 
-                            child.wait().map(|s| s.code().unwrap_or(1)).unwrap_or(1)
+                                // Wait for child to finish
+                                let exitcode = match nix::sys::wait::waitpid(
+                                    child_pid,
+                                    Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
+                                ) {
+                                    Ok(wait_status) => match wait_status {
+                                        nix::sys::wait::WaitStatus::Exited(_, code) => code,
+                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => 1,
+                                        nix::sys::wait::WaitStatus::Stopped(_, _) => {
+                                            println!("[{}]+ Stopped", child_pid);
+                                            1
+                                        }
+                                        _ => 1,
+                                    },
+                                    Err(_) => 1,
+                                };
+
+                                // Return terminal control to shell
+                                let old = unsafe {
+                                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
+                                }
+                                .unwrap();
+                                tcsetpgrp(fd, shell_pgid).ok();
+                                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
+
+                                exitcode
+                            } else {
+                                0
+                            }
                         }
                         CommandResult::Builtin => 0,
                     };
+
+                //  tcsetpgrp(fd, getpid()).unwrap();
 
                 env.set_last_status(status);
                 Ok(status)
