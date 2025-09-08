@@ -114,15 +114,21 @@ pub fn invoke_command(
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
                         CommandResult::Child(mut child_pid) => {
-                            *gid = Some(child_pid);
-                            // set the process group id to the current child
-                            setpgid(child_pid, child_pid).unwrap();
+                            if let Some(val) = gid {
+                                match setpgid(child_pid, *val) {
+                                    Ok(_) => {}
+                                    Err(e) => {
+                                        println!("{e}");
+                                    }
+                                };
+                            }
 
-                            // println!("{}", env.current_command);
-                            // Create a new job and add it to the jobs class
+                            if let None = gid {
+                                *gid = Some(child_pid);
+                            }
 
                             let new_job = jobs::Job::new(
-                                child_pid,
+                                gid.unwrap_or(child_pid),
                                 child_pid,
                                 env.jobs.size + 1,
                                 jobs::JobStatus::Running,
