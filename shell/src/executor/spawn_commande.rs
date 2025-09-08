@@ -99,6 +99,7 @@ pub fn invoke_command(
                     false,
                     HashMap::new(),
                     env,
+                    gid,
                 )?;
                 Ok(0)
             }
@@ -111,85 +112,77 @@ pub fn invoke_command(
                 for ass in assignments.clone() {
                     envs.insert(ass.0, ass.1.expand(&env));
                 }
-                let status =
-                    match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
-                        CommandResult::Child(mut child_pid) => {
-                            if let Some(val) = gid {
-                                match setpgid(child_pid, *val) {
-                                    Ok(_) => {}
-                                    Err(e) => {
-                                        println!("{e}");
-                                    }
-                                };
-                            }
+                let status = match run_commande(
+                    &path,
+                    &all_args,
+                    merged_fds.as_ref(),
+                    true,
+                    envs,
+                    env,
+                    gid,
+                )? {
+                    CommandResult::Child(mut child_pid) => {
+                        let new_job = jobs::Job::new(
+                            gid.unwrap_or(child_pid),
+                            child_pid,
+                            env.jobs.size + 1,
+                            jobs::JobStatus::Running,
+                            cmd_str,
+                        );
+                        env.jobs.add_job(new_job);
+                        if (!is_backgound) {
+                            // Get shell PGID
+                            let shell_pgid = getpgrp();
 
-                            if let None = gid {
-                                *gid = Some(child_pid);
+                            // Temporarily ignore SIGTTOU so parent doesn't suspend
+                            let old = unsafe {
+                                signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
                             }
+                            .unwrap();
+                            // Give terminal control to child
+                            tcsetpgrp(fd, child_pid).unwrap();
+                            // Restore SIGTTOU handler
+                            unsafe { signal(Signal::SIGTTOU, old).unwrap() };
 
-                            let new_job = jobs::Job::new(
-                                gid.unwrap_or(child_pid),
+                            // Wait for child to finish
+                            let exitcode = match nix::sys::wait::waitpid(
                                 child_pid,
-                                env.jobs.size + 1,
-                                jobs::JobStatus::Running,
-                                cmd_str,
-                            );
-                            env.jobs.add_job(new_job);
+                                Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
+                            ) {
+                                Ok(wait_status) => match wait_status {
+                                    nix::sys::wait::WaitStatus::Exited(_, code) => {
+                                        env.jobs.remove_job(child_pid);
+                                        code
+                                    }
+                                    nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
+                                        env.jobs.remove_job(child_pid);
+                                        1
+                                    }
+                                    nix::sys::wait::WaitStatus::Stopped(_, _) => {
+                                        env.jobs.update_job_status(child_pid, JobStatus::Stopped);
+                                        println!();
+                                        1
+                                    }
+                                    _ => 1,
+                                },
+                                Err(_) => 1,
+                            };
 
-                            if (!is_backgound) {
-                                // Get shell PGID
-                                let shell_pgid = getpgrp();
-
-                                // Temporarily ignore SIGTTOU so parent doesn't suspend
-                                let old = unsafe {
-                                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
-                                }
-                                .unwrap();
-                                // Give terminal control to child
-                                tcsetpgrp(fd, child_pid).unwrap();
-                                // Restore SIGTTOU handler
-                                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
-
-                                // Wait for child to finish
-                                let exitcode = match nix::sys::wait::waitpid(
-                                    child_pid,
-                                    Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
-                                ) {
-                                    Ok(wait_status) => match wait_status {
-                                        nix::sys::wait::WaitStatus::Exited(_, code) => {
-                                            env.jobs.remove_job(child_pid);
-                                            code
-                                        }
-                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
-                                            env.jobs.remove_job(child_pid);
-                                            1
-                                        }
-                                        nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                                            env.jobs
-                                                .update_job_status(child_pid, JobStatus::Stopped);
-                                            println!();
-                                            1
-                                        }
-                                        _ => 1,
-                                    },
-                                    Err(_) => 1,
-                                };
-
-                                // Return terminal control to shell
-                                let old = unsafe {
-                                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
-                                }
-                                .unwrap();
-                                tcsetpgrp(fd, shell_pgid).ok();
-                                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
-
-                                exitcode
-                            } else {
-                                0
+                            // Return terminal control to shell
+                            let old = unsafe {
+                                signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
                             }
+                            .unwrap();
+                            tcsetpgrp(fd, shell_pgid).ok();
+                            unsafe { signal(Signal::SIGTTOU, old).unwrap() };
+
+                            exitcode
+                        } else {
+                            0
                         }
-                        CommandResult::Builtin => 0,
-                    };
+                    }
+                    CommandResult::Builtin => 0,
+                };
 
                 //  tcsetpgrp(fd, getpid()).unwrap();
 
