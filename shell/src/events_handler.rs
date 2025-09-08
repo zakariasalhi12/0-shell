@@ -4,6 +4,7 @@ use crate::features::history::History;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
 use crate::shell_interactions::utils::parse_input;
+use crate::shell_interactions::utils::*;
 use crate::{exec::*, parser};
 use std::env;
 use std::fs::read_to_string;
@@ -13,10 +14,6 @@ use std::{self};
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::raw::RawTerminal;
-use crate::shell_interactions::utils::*;
-
-
-
 
 #[derive(Clone, PartialEq)]
 pub enum ShellMode {

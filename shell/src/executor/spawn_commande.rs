@@ -30,7 +30,7 @@ pub fn invoke_command(
     redirects: &Vec<Redirect>,
     env: &mut ShellEnv,
     piping_fds: Option<&HashMap<u64, OwnedFd>>,
-    gid: Option<Pid>,
+    gid: &mut Option<Pid>,
     is_backgound: bool,
 ) -> Result<i32, ShellError> {
     // 1. Expand command and args
@@ -114,11 +114,7 @@ pub fn invoke_command(
                 let status =
                     match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env)? {
                         CommandResult::Child(mut child_pid) => {
-                            let mut g = match gid {
-                                Some(val) => val,
-                                None => child_pid,
-                            };
-
+                            *gid = Some(child_pid);
                             // set the process group id to the current child
                             setpgid(child_pid, child_pid).unwrap();
 
@@ -157,13 +153,14 @@ pub fn invoke_command(
                                         nix::sys::wait::WaitStatus::Exited(_, code) => {
                                             env.jobs.remove_job(child_pid);
                                             code
-                                        },
+                                        }
                                         nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
                                             env.jobs.remove_job(child_pid);
                                             1
-                                        } 
+                                        }
                                         nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                                            env.jobs.update_job_status(child_pid, JobStatus::Stopped);
+                                            env.jobs
+                                                .update_job_status(child_pid, JobStatus::Stopped);
                                             println!();
                                             1
                                         }
@@ -171,7 +168,6 @@ pub fn invoke_command(
                                     },
                                     Err(_) => 1,
                                 };
-
 
                                 // Return terminal control to shell
                                 let old = unsafe {

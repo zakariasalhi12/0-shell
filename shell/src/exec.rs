@@ -18,7 +18,6 @@ use crate::commands::{
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::parser::types::*;
-use std::process::Child;
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     env.current_command = ast.to_text(env);
@@ -29,7 +28,16 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let child = invoke_command(cmd, args, assignments, redirects, env, None, None, false)?;
+            let child = invoke_command(
+                cmd,
+                args,
+                assignments,
+                redirects,
+                env,
+                None,
+                &mut None,
+                false,
+            )?;
             env.set_last_status(child);
             Ok(child)
         }
@@ -86,7 +94,7 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         redirects,
                         env,
                         fds_map.as_ref(),
-                        gid,
+                        &mut gid,
                         false,
                     )?;
                     env.set_last_status(stat);
@@ -149,8 +157,16 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 ref assignments,
                 ref redirects,
             } => {
-                let child =
-                    invoke_command(cmd, args, assignments, redirects, env, None, None, true)?;
+                let child = invoke_command(
+                    cmd,
+                    args,
+                    assignments,
+                    redirects,
+                    env,
+                    None,
+                    &mut None,
+                    true,
+                )?;
                 env.set_last_status(child);
                 Ok(child)
             }
