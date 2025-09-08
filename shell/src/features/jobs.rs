@@ -39,7 +39,8 @@ pub enum JobStatus {
 pub struct Jobs {
     pub jobs: HashMap<Pid, Job>,
     pub size: u32,
-    pub last_job: Option<Pid>,
+    pub current_job: Option<Pid>,
+    pub prev_job: Option<Pid>,
     pub order: Vec<Pid>,
 }
 
@@ -47,11 +48,9 @@ pub struct Jobs {
 pub struct Job {
     pub pgid: Pid,
     pub pids: Vec<Pid>,
-    pub id: String,
+    pub id: u32,
     pub status: JobStatus,
     pub command: String,
-    pub current_job : bool,
-    pub prev_job : bool,
 }
 
 impl Jobs {
@@ -59,20 +58,28 @@ impl Jobs {
         Jobs {
             jobs: HashMap::new(),
             size: 0,
-            last_job: None,
+            prev_job: None,
+            current_job: None,
             order: vec![],
         }
     }
 
     pub fn add_job(&mut self, job: Job) {
-        self.last_job = Some(job.pgid);
+        self.current_job = Some(job.pgid);
         self.order.push(job.pgid.clone());
         self.jobs.insert(job.pgid, job);
         self.size += 1;
     }
 
-    pub fn get_last_job(&self) -> Option<&Job> {
-        match self.last_job {
+    pub fn get_current_job(&self) -> Option<&Job> {
+        match self.current_job {
+            Some(pid) => self.jobs.get(&pid),
+            None => None,
+        }
+    }
+
+    pub fn get_prev_job(&self) -> Option<&Job> {
+        match self.prev_job {
             Some(pid) => self.jobs.get(&pid),
             None => None,
         }
@@ -86,6 +93,14 @@ impl Jobs {
 
     pub fn get_job(&self, pid: Pid) -> Option<&Job> {
         self.jobs.get(&pid)
+    }
+
+    pub fn get_job_mut(&mut self, pid: Pid) -> Option<&mut Job> {
+        self.jobs.get_mut(&pid)
+    }
+
+    pub fn get_job_byid(&self , id: u32) -> Option<&Job> {
+        self.jobs.values().find(|job| job.id == id)
     }
 
     pub fn update_job_status(&mut self, pid: nix::unistd::Pid, status: JobStatus) {
@@ -112,11 +127,9 @@ impl Job {
         Job {
             pgid,
             pids: vec![pid],
-            id: format!("%{}", id),
+            id: id,
             status,
             command,
-            current_job : false,
-            prev_job : false,
         }
     }
 

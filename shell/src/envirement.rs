@@ -117,7 +117,7 @@ impl ShellEnv {
     }
 
     pub fn last_job_pid(&self) -> Option<i32> {
-        self.jobs.get_last_job().map(|job| job.pgid.as_raw())
+        self.jobs.get_current_job().map(|job| job.pgid.as_raw())
     }
 
     /// Set last command exit status ($?)

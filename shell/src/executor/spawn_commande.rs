@@ -7,6 +7,7 @@ use crate::exec::get_command_type;
 use crate::executor::run_commande::run_commande;
 use crate::expansion::expand_and_split;
 use crate::features::jobs;
+use crate::features::jobs::JobStatus;
 use crate::lexer::types::Word;
 use crate::redirection::setup_redirections_ownedfds;
 use crate::types::Redirect;
@@ -127,7 +128,7 @@ pub fn invoke_command(
                             let new_job = jobs::Job::new(
                                 child_pid,
                                 child_pid,
-                                env.jobs.size,
+                                env.jobs.size + 1,
                                 jobs::JobStatus::Running,
                                 cmd_str,
                             );
@@ -153,10 +154,17 @@ pub fn invoke_command(
                                     Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
                                 ) {
                                     Ok(wait_status) => match wait_status {
-                                        nix::sys::wait::WaitStatus::Exited(_, code) => code,
-                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => 1,
+                                        nix::sys::wait::WaitStatus::Exited(_, code) => {
+                                            env.jobs.remove_job(child_pid);
+                                            code
+                                        },
+                                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
+                                            env.jobs.remove_job(child_pid);
+                                            1
+                                        } 
                                         nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                                            println!("[{}]+ Stopped", child_pid);
+                                            env.jobs.update_job_status(child_pid, JobStatus::Stopped);
+                                            println!();
                                             1
                                         }
                                         _ => 1,
@@ -164,7 +172,6 @@ pub fn invoke_command(
                                     Err(_) => 1,
                                 };
 
-                                env.jobs.remove_job(child_pid);
 
                                 // Return terminal control to shell
                                 let old = unsafe {

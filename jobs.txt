@@ -33,3 +33,6 @@ some cases:
 [3]+  Stopped                 python
 
 
+useful information:
+1- At any point in time, one of the process groups in a session is the foreground
+process group for the terminal, and the others are background process groups. Only processes in the foreground process group can read input from the controlling terminal
