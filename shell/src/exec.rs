@@ -72,6 +72,7 @@ pub fn execute_with_background(
                             jobs::JobStatus::Running,
                             cmd.expand(env),
                         );
+                        new_job.status.clone().printStatus(new_job.clone());
                         env.jobs.add_job(new_job);
                         Ok(0)
                     }
@@ -371,7 +372,6 @@ fn wait_for_single_process(pid: Pid, env: &mut ShellEnv) -> Result<i32, ShellErr
             }
             WaitStatus::Stopped(_, _) => {
                 env.jobs.update_job_status(pid, JobStatus::Stopped);
-                println!();
                 1
             }
             _ => 1,

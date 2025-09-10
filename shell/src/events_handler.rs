@@ -364,8 +364,13 @@ fn reap_children(env: &mut crate::envirement::ShellEnv) {
             None,
             Some(WaitPidFlag::WNOHANG | WaitPidFlag::WUNTRACED | WaitPidFlag::WCONTINUED),
         ) {
-            Ok(WaitStatus::Exited(pid, _)) | Ok(WaitStatus::Signaled(pid, _, _)) => {
+            Ok(WaitStatus::Signaled(pid, _, _)) => {
                 env.jobs.update_job_status(pid, JobStatus::Terminated);
+                env.jobs.remove_job(pid);
+            }
+            Ok(WaitStatus::Exited(pid, _ )) => {
+                env.jobs.update_job_status(pid, JobStatus::Done);
+                env.jobs.remove_job(pid);
             }
             Ok(WaitStatus::Stopped(pid, _)) => {
                 env.jobs.update_job_status(pid, JobStatus::Stopped);
