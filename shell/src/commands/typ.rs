@@ -1,5 +1,6 @@
 use crate::envirement::ShellEnv;
 
+use crate::error::ShellError;
 use crate::ShellCommand;
 use crate::exec::CommandType;
 
@@ -15,12 +16,9 @@ impl Type {
     }
 }
 impl ShellCommand for Type {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         if self.args.len() < 1  {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "typ: missing operand",
-            ));
+            return Err(ShellError::InvalidInput("type: missing operand".to_owned()));
         }else{
             let cmd = self.args[0].as_str();
         match  get_command_type(cmd, _env){
@@ -29,7 +27,7 @@ impl ShellCommand for Type {
             CommandType::Function(func) =>  println!("{} is a function with definition: {}\r", cmd, func),
             CommandType::Undefined => println!("{} is not a command\r", cmd),
         }
-        return  Ok(());
+        return  Ok(0);
         }
     }
 }

@@ -1,5 +1,4 @@
-use crate::ShellCommand;
-use std::io::{ Error, Result};
+use crate::{error::ShellError, ShellCommand};
 use crate::envirement::ShellEnv;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -18,12 +17,9 @@ impl Exit {
 }
 
 impl ShellCommand for Exit {
-    fn execute(&self, _env: &mut ShellEnv) -> Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         if self.args.len() > 1 {
-            return Err(Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Exit command accepts at most one argument",
-            ));
+            return Err(ShellError::Exec(String::from("Exit command accepts at most one argument")));
         }
         let exit_code: i32 = self.args.get(0)
             .and_then(|s| s.parse::<i32>().ok())

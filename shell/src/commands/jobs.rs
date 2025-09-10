@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 use crate::features::jobs::JobStatus;
 use crate::{ShellCommand, envirement::ShellEnv};
 
@@ -12,7 +13,7 @@ impl Jobs {
 }
 
 impl ShellCommand for Jobs {
-    fn execute(&self, env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, env: &mut ShellEnv) -> Result<i32, ShellError> {
         let mut i = 1;
         for (id, job) in &env.jobs.jobs {
             let status_str = match job.status {
@@ -26,6 +27,6 @@ impl ShellCommand for Jobs {
             println!("[{}]  {}  {}    {}", i, id, status_str, job.command);
             i += 1;
         }
-        Ok(())
+        Ok(0)
     }
 }

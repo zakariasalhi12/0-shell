@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::error::ShellError;
 use crate::ShellCommand;
 use crate::envirement::ShellEnv;
 
@@ -47,7 +48,7 @@ impl Rm {
     }
 }
 
-fn delete_recursive(path: &Path) -> std::io::Result<()> {
+fn delete_recursive(path: &Path) -> Result<i32, ShellError> {
     if path.is_dir() {
         for entry in fs::read_dir(path)? {
             let entry = entry?;
@@ -62,23 +63,17 @@ fn delete_recursive(path: &Path) -> std::io::Result<()> {
     } else {
         fs::remove_file(path)?;
     }
-    Ok(())
+    Ok(0)
 }
 
 impl ShellCommand for Rm {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         if self.args.is_empty() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "rm: missing operand",
-            ));
+            return Err(ShellError::InvalidInput("rm: missing operand".to_owned()));
         }
         let recursive = self.is_recursion;
         if self.opts.len() != 0 && !recursive {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                format!("{}: Invalid flag", self.opts[0]),
-            ));
+            return Err(ShellError::InvalidInput(format!("{}: Invalid flag", self.opts[0])));
         }
 
         for target in &self.args {
@@ -105,6 +100,6 @@ impl ShellCommand for Rm {
                 fs::remove_file(&path)?;
             }
         }
-        Ok(())
+        Ok(0)
     }
 }

@@ -231,14 +231,14 @@ pub fn run_commande(
         }
         match com {
             Some(val) => {
-                val.execute(env)?;
+                let status = val.execute(env)?;
                 if let Some(back) = backups {
                     for (fd, backup) in back {
                         dup2(backup, fd as i32).ok();
                         close(backup).ok();
                     }
                 }
-                return Ok(CommandResult::Builtin);
+                return Ok(CommandResult::Builtin(status));
             }
             None => {
                 return Err(ShellError::Exec(format!(

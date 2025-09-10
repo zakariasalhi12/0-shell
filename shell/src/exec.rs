@@ -327,7 +327,7 @@ pub fn build_command(
 }
 pub enum CommandResult {
     Child(Pid),
-    Builtin,
+    Builtin(i32), // Status
 }
 
 pub enum CommandType {

@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 use crate::ShellCommand;
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
@@ -26,18 +27,14 @@ impl Kill {
 }
 
 impl ShellCommand for Kill {
-    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> Result<i32, ShellError> {
         match self.validate_args() {
             Ok(pid) => match kill(Pid::from_raw(pid), Signal::SIGKILL) {
                 Ok(_) => {
                     env.jobs.remove_job(Pid::from_raw(pid)); // Clean up job after killing
-                    Ok(())
+                    Ok(0)
                 }
-                Err(e) => Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    e.to_string(),
-                )),
-            },
+                Err(e) => Err(ShellError::Exec(e.desc().to_owned()))},
             Err(msg) => {
                 if msg == "No args" {
                     // Try to get the last job from env and kill it
@@ -45,21 +42,16 @@ impl ShellCommand for Kill {
                         match kill(Pid::from_raw(last_job_pid), Signal::SIGKILL) {
                             Ok(_) => {
                                 env.jobs.remove_job(Pid::from_raw(last_job_pid)); // Clean up job after killing
-                                Ok(())
+                                Ok(0)
                             }
-                            Err(e) => Err(std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                e.to_string(),
-                            )),
+                            Err(e) => Err(ShellError::Exec(e.desc().to_owned()))
+,
                         }
                     } else {
-                        Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            "No jobs to kill".to_string(),
-                        ))
+                        Err(ShellError::Exec("No jobs to kill".to_string()))
                     }
                 } else {
-                    Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, msg))
+                    Err(ShellError::Exec(msg.to_owned()))
                 }
             }
         }

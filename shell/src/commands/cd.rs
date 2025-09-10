@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 // use core::error;
 use crate::ShellCommand;
 use std::env;
@@ -19,7 +20,7 @@ impl Cd {
 }   
 
 impl ShellCommand for Cd {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         let target_dir: PathBuf;
 
         if self.args.is_empty() {
@@ -41,10 +42,10 @@ impl ShellCommand for Cd {
                 "cd: no such directory: {}\r",
                 target_dir.to_str().unwrap_or("<invalid path>")
             );
-            return Err(Error::new(ErrorKind::NotFound, "Directory does not exist"));
+            return Err(ShellError::Exec(String::from("Directory does not exist")));
         }
 
         env::set_current_dir(&target_dir)?;
-        Ok(())
+        Ok(0)
     }
 }

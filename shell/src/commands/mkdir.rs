@@ -1,4 +1,5 @@
 use std::{fs, path::PathBuf};
+use crate::error::ShellError;
 use crate::ShellCommand;
 use crate::envirement::ShellEnv;
 
@@ -23,7 +24,7 @@ impl Mkdir {
 }
 
 impl ShellCommand for Mkdir {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         let is_parent = self.parse_flags();
 
         for drc in &self.args {
@@ -33,14 +34,11 @@ impl ShellCommand for Mkdir {
                 fs::create_dir_all(&path)?;
             } else {
                 if path.exists() {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::AlreadyExists,
-                        format!("Mkdir: cannot create directory '{}': File exists", drc),
-                    ));
+                    return Err(ShellError::Exec(format!("mkdir: cannot create directory '{}': File exists", drc),));
                 }
                 fs::create_dir(&path)?;
             }
         }
-        Ok(())
+        Ok(0)
     }
 }

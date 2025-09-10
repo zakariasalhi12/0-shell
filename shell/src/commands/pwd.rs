@@ -1,5 +1,6 @@
 use std::env;
 
+use crate::error::ShellError;
 use crate::ShellCommand;
 use crate::envirement::ShellEnv;
 
@@ -17,7 +18,7 @@ impl Pwd {
 }
 
 impl ShellCommand for Pwd {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         let current = env::current_dir()?;
         println!(
             "{}\r",
@@ -26,6 +27,6 @@ impl ShellCommand for Pwd {
                 .to_str()
                 .unwrap_or("Error: current Directory")
         );
-        Ok(())
+        Ok(0)
     }
 }

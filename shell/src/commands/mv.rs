@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 use crate::ShellCommand;
 use std::path::{Path, PathBuf};
 use std::{
@@ -53,9 +54,9 @@ pub fn is_direc(path: &str) -> bool {
     current.join(path).is_dir()
 }
 
-pub fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> std::io::Result<()> {
+pub fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> Result<i32, ShellError> {
     match fs::rename(src, dest) {
-        Ok(_) => Ok(()),
+        Ok(_) => Ok(0),
         Err(e) if e.kind() == ErrorKind::CrossesDevices => {
             let dest_path = if dest.is_dir() {
                 dest.join(
@@ -68,13 +69,13 @@ pub fn try_rename_or_copy(src: &PathBuf, dest: &PathBuf) -> std::io::Result<()> 
 
             fs::copy(src, &dest_path)?;
             fs::remove_file(src)?;
-            Ok(())
+            Ok(0)
         }
-        Err(e) => Err(e),
+        Err(e) => Err(ShellError::Io(e)),
     }
 }
 
-fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
+fn copy_directory(src: &Path, dest: &Path) -> Result<i32, ShellError> {
     if src.is_dir() {
         // Create the destination directory
         fs::create_dir_all(dest)?;
@@ -97,27 +98,23 @@ fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
     } else if src.is_file() {
         fs::copy(src, dest)?;
     } else {
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Source is not file or directory",
-        ));
+        return Err(ShellError::Exec(
+            "Source is not file or directory".to_owned()));
     }
 
-    Ok(())
+    Ok(0)
 }
 
 impl ShellCommand for Mv {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         if !self.validate_args() {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "mv: missing file operand",
-            ));
+            return Err(ShellError::Exec(
+                "mv: missing file operand".to_owned()));
         }
         let (source, dest) = match self.get_param() {
             Ok(val) => val,
             Err(e) => {
-                return Err(Error::new(ErrorKind::InvalidInput, e));
+                return Err(ShellError::InvalidInput(e.to_owned()));
             }
         };
         if is_direc(dest) {
@@ -140,10 +137,8 @@ impl ShellCommand for Mv {
             }
         } else {
             if source.is_empty() {
-                return Err(Error::new(
-                    ErrorKind::InvalidInput,
-                    "mv: missing source file",
-                ));
+                return Err(ShellError::InvalidInput(
+                    "mv: missing source file".to_owned()));
             }
 
             let src_path = fs::canonicalize(&source[0])?;
@@ -151,6 +146,6 @@ impl ShellCommand for Mv {
 
             try_rename_or_copy(&src_path, &dest_path)?;
         }
-        Ok(())
+        Ok(0)
     }
 }

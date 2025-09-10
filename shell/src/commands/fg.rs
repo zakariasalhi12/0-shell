@@ -1,4 +1,5 @@
 use std::io::Write;
+use crate::error::ShellError;
 use crate::{
     ShellCommand,
     features::jobs::JobStatus,
@@ -16,30 +17,21 @@ impl Fg {
 }
 
 impl ShellCommand for Fg {
-    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, env: &mut crate::envirement::ShellEnv) -> Result<i32, ShellError> {
         if self.args.len() == 0 && env.jobs.size == 0 {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("fg: no current job"),
-            ));
+            return Err(ShellError::Exec(String::from(format!("fg: no current job"))));
         }
 
         let job = if self.args.len() >= 1 {
             let first_arg = &self.args[0];
             if !first_arg.starts_with('%') {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    format!("fg: job not found: {}", first_arg),
-                ));
+                return Err(ShellError::Exec(format!("fg: job not found: {}", first_arg)));
             }
 
             let id = match first_arg[1..].parse::<u32>() {
                 Ok(id) => id,
                 Err(_) => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("fg: job not found: {}", first_arg),
-                    ));
+                    return Err(ShellError::Exec(format!("fg: job not found: {}", first_arg)));
                 }
             };
 
@@ -75,10 +67,7 @@ impl ShellCommand for Fg {
             unsafe { 
                 let _ = signal(Signal::SIGTTOU, old);
             }
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to set terminal control: {}", e),
-            ));
+            return Err(ShellError::Exec(String::from(format!("Failed to set terminal control: {}", e))));
         }
 
         // Restore SIGTTOU
@@ -91,10 +80,7 @@ impl ShellCommand for Fg {
 
         // Resume the job if it was stopped
         if let Err(e) = nix::sys::signal::killpg(pgid, nix::sys::signal::SIGCONT) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to send SIGCONT to process group: {}", e)
-            ));
+            return Err(ShellError::Exec(String::from(format!("Failed to send SIGCONT to process group: {}", e))));
         }
 
         // Wait for the job to finish or stop again
@@ -115,17 +101,11 @@ impl ShellCommand for Fg {
                     env.jobs.update_job_status(pgid, JobStatus::Stopped);
                 }
                 other => {
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("Unexpected wait status: {:?}", other)
-                    ));
+                    return Err(ShellError::Exec(format!("Unexpected wait status: {:?}", other)));
                 }
             },
             Err(e) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("waitpid failed: {}", e)
-                ));
+                return Err(ShellError::Exec(format!("waitpid failed: {}", e)));
             }
         }
 
@@ -139,10 +119,7 @@ impl ShellCommand for Fg {
         };
 
         if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, shell_pgid) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to return terminal control to shell: {}", e)
-            ));
+            return Err(ShellError::Exec(String::from(format!("Failed to return terminal control to shell: {}", e))));
         }
 
         unsafe {
@@ -152,6 +129,6 @@ impl ShellCommand for Fg {
             ))?
         };
 
-        Ok(())
+        Ok(0)
     }
 }

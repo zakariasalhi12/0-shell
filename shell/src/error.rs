@@ -15,6 +15,7 @@ pub enum ShellError {
     UnclosedQuote,
     InvalidVariable(String),
     DivisionByZero,
+    InvalidInput(String),
 }
 
 impl ShellError {
@@ -31,6 +32,7 @@ impl ShellError {
             ShellError::UnclosedQuote => 2,
             ShellError::InvalidVariable(_) => 5,
             ShellError::DivisionByZero => 6,
+            Self::InvalidInput(_) => 1,
         }
     }
 }
@@ -43,71 +45,46 @@ impl From<io::Error> for ShellError {
 
 impl fmt::Display for ShellError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let format_error = |category: &str, color: colored::Color, msg: &str| {
+            format!("{} {}", category.color(color).bold(), msg)
+        };
+
         match self {
-            ShellError::InvalidVariableSyntax => write!(f, "Invalid variable syntax"),
+            ShellError::InvalidVariableSyntax => {
+                write!(f, "{}", format_error("[Syntax]", colored::Color::Red, "Invalid variable syntax"))
+            }
             ShellError::Io(err) => {
-                write!(f, "{}", format!("IO error: {}", err).red().bold().italic())
+                write!(f, "{}", format_error("[IO]", colored::Color::Red, &err.to_string()))
             }
             ShellError::Syntax(msg) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("Syntax error: {}", msg).red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Syntax]", colored::Color::Red, msg))
             }
-            ShellError::Parse(msg) => write!(
-                f,
-                "{}",
-                format!("Parse error: {}", msg).red().bold().italic()
-            ),
+            ShellError::Parse(msg) => {
+                write!(f, "{}", format_error("[Parse]", colored::Color::Red, msg))
+            }
             ShellError::Eval(msg) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("Evaluation error: {}", msg).red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Eval]", colored::Color::Yellow, msg))
             }
             ShellError::Exec(msg) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("Execution error: {}", msg).red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Exec]", colored::Color::Magenta, msg))
             }
             ShellError::Expansion(msg) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("Expansion error: {}", msg).red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Expansion]", colored::Color::Cyan, msg))
             }
             ShellError::UnexpectedEof => {
-                write!(
-                    f,
-                    "{}",
-                    String::from("Unexpected end of file").red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Syntax]", colored::Color::Red, "Unexpected end of file"))
             }
             ShellError::UnclosedQuote => {
-                write!(
-                    f,
-                    "{}",
-                    String::from("Unclosed quote").red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Syntax]", colored::Color::Red, "Unclosed quote"))
             }
             ShellError::InvalidVariable(var) => {
-                write!(
-                    f,
-                    "{}",
-                    format!("Invalid variable: {}", var).red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Variable]", colored::Color::Blue, var))
             }
             ShellError::DivisionByZero => {
-                write!(
-                    f,
-                    "{}",
-                    String::from("Division by zero").red().bold().italic()
-                )
+                write!(f, "{}", format_error("[Math]", colored::Color::Yellow, "Division by zero"))
+            }
+            ShellError::InvalidInput(err) => {
+                write!(f, "{}", format_error("[Input]", colored::Color::Red, err))
             }
         }
     }

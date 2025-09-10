@@ -182,7 +182,7 @@ pub fn invoke_command(
                                 0
                             }
                         }
-                        CommandResult::Builtin => 0,
+                        CommandResult::Builtin(n) => n,
                     };
 
                 //  tcsetpgrp(fd, getpid()).unwrap();

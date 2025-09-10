@@ -20,7 +20,7 @@ pub mod commands {
     pub mod rm;
     pub mod typ;
 }
-use crate::events_handler::OutputTarget;
+use crate::{error::ShellError, events_handler::OutputTarget};
 use envirement as v;
 use std::path::PathBuf;
 
@@ -42,5 +42,5 @@ pub mod expansion;
 pub mod lexer;
 
 pub trait ShellCommand {
-    fn execute(&self, env: &mut v::ShellEnv) -> std::io::Result<()>;
+    fn execute(&self, env: &mut v::ShellEnv) -> Result<i32, ShellError>;
 }

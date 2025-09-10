@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 use crate::ShellCommand;
 use std::path::{Path, PathBuf};
 use std::{
@@ -35,12 +36,9 @@ impl Cp {
 }
 
 /// Recursively copies a directory
-pub fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
+pub fn copy_directory(src: &Path, dest: &Path) -> Result<i32, ShellError> {
     if !src.is_dir() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "Source is not a directory",
-        ));
+        return Err(ShellError::Exec(String::from("Source is not a directory")));
     }
     fs::create_dir_all(dest)?;
 
@@ -55,16 +53,13 @@ pub fn copy_directory(src: &Path, dest: &Path) -> std::io::Result<()> {
             fs::copy(&entry_path, &dest_path)?;
         }
     }
-    Ok(())
+    Ok(0)
 }
 
 impl ShellCommand for Cp {
-    fn execute(&self, _env: &mut ShellEnv) -> std::io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         if !self.validate_args() {
-            return Err(Error::new(
-                ErrorKind::InvalidInput,
-                "cp: missing file operand",
-            ));
+            return Err(ShellError::Exec(String::from("cp: missing file operand")));
         }
 
         let (sources, dest) = self.get_param();
@@ -75,10 +70,7 @@ impl ShellCommand for Cp {
             let src_path = PathBuf::from(&src_str);
 
             if !src_path.exists() {
-                return Err(Error::new(
-                    ErrorKind::NotFound,
-                    format!("cp: cannot stat '{}': No such file or directory", src_str),
-                ));
+                return Err(ShellError::Exec(format!("cp: cannot stat '{}': No such file or directory", src_str)));
             }
 
             let target_path = if dest_is_dir {
@@ -96,16 +88,13 @@ impl ShellCommand for Cp {
                 if self.check_is_rec() {
                     copy_directory(&src_path, &target_path)?;
                 } else {
-                    return Err(Error::new(
-                        ErrorKind::Other,
-                        format!("cp: -r not specified; omitting directory '{}'", src_str),
-                    ));
+                    return Err(ShellError::Exec(format!("cp: -r not specified; omitting directory '{}'", src_str)));
                 }
             } else {
                 fs::copy(&src_path, &target_path)?;
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 }

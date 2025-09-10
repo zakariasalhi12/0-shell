@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{self, Write};
 use std::os::fd::OwnedFd;
 use std::os::unix::io::{AsRawFd, FromRawFd};
+use crate::error::ShellError;
 
 use crate::ShellCommand;
 use crate::envirement::ShellEnv;
@@ -51,13 +52,18 @@ fn interpret_escapes(input: &str) -> String {
 }
 
 impl ShellCommand for Echo {
-    fn execute(&self, _env: &mut ShellEnv) -> io::Result<()> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         let joined = self.args.join(" ");
         let output = interpret_escapes(&joined) + "\n";
 
         match &self.stdout {
             Some(raw_stdout) => {
-                let fd = dup(raw_stdout.as_raw_fd())?; // duplicate to avoid closing original
+                let fd =  match dup(raw_stdout.as_raw_fd()){
+                    Ok(fd) => fd,
+                    Err(e) => {
+                        return Err(ShellError::Exec(e.desc().to_owned()))
+                    }
+                }; // duplicate to avoid closing original
                 let mut file = unsafe { File::from_raw_fd(fd) };
                 write!(file, "{}", output)?;
                 file.flush()?;
@@ -69,6 +75,6 @@ impl ShellCommand for Echo {
             }
         }
 
-        Ok(())
+        Ok(0)
     }
 }
