@@ -5,7 +5,6 @@ use crate::exec::build_command;
 use nix::fcntl::{FcntlArg, fcntl};
 use nix::unistd::getpid;
 use nix::unistd::setpgid;
-use nix::unistd::tcsetpgrp;
 use nix::unistd::{ForkResult, Pid, close, dup, dup2, execve, fork};
 use std::collections::HashMap;
 use std::env;
@@ -118,16 +117,24 @@ fn execute_external_with_fork(
             if let Some(fd) = stderr_new_fd {
                 let _ = close(fd);
             }
+
+            // Set up process group in parent as well for race condition prevention
+            if gid.is_none() {
+                *gid = Some(child);
+            }
+            let _ = setpgid(child, gid.unwrap_or(child));
+
             Ok(CommandResult::Child(child))
         }
 
         Ok(ForkResult::Child) => {
             // Child process - setup file descriptors and exec
             let child_pid = getpid();
-            if let None = gid {
+
+            // Set up process group - child becomes leader if first in pipeline
+            if gid.is_none() {
                 *gid = Some(child_pid);
             }
-            // Make child leader of new PGID
             let _ = setpgid(child_pid, gid.unwrap_or(child_pid));
 
             // Setup standard file descriptors
@@ -202,9 +209,10 @@ pub fn run_commande(
 ) -> Result<CommandResult, ShellError> {
     if use_external {
         // cmd_str is now the full path to the external command
+        // Return the child PID without waiting
         return execute_external_with_fork(cmd_str, args, fds_map, &assignements, gid);
     } else {
-        // Handle builtin commands (unchanged)
+        // Handle builtin commands (unchanged, but no waiting involved)
         let com = build_command(
             &cmd_str.to_owned(),
             args.to_vec(),

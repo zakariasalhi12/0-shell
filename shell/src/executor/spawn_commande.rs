@@ -15,7 +15,6 @@ use nix::sys::signal::Signal;
 use nix::sys::signal::signal;
 use nix::unistd::Pid;
 use nix::unistd::getpgrp;
-use nix::unistd::setpgid;
 use nix::unistd::tcsetpgrp;
 use std::collections::HashMap;
 use std::fs::File;
@@ -31,8 +30,79 @@ pub fn invoke_command(
     env: &mut ShellEnv,
     piping_fds: Option<&HashMap<u64, OwnedFd>>,
     gid: &mut Option<Pid>,
-    is_backgound: bool,
+    is_background: bool,
 ) -> Result<i32, ShellError> {
+    match spawn_command(cmd, args, assignments, redirects, env, piping_fds, gid)? {
+        CommandResult::Child(pid) => {
+            if !is_background {
+                // This should now be handled in exec.rs
+                // For compatibility, we'll wait here, but ideally exec.rs should handle this
+
+                let tty = File::open("/dev/tty").unwrap();
+                let fd = tty.into_raw_fd();
+
+                let new_job = jobs::Job::new(
+                    gid.unwrap_or(pid),
+                    pid,
+                    env.jobs.size + 1,
+                    jobs::JobStatus::Running,
+                    cmd.expand(env),
+                );
+                env.jobs.add_job(new_job);
+
+                let shell_pgid = getpgrp();
+                let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+                    .unwrap();
+                tcsetpgrp(fd, pid).unwrap();
+                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
+
+                let exitcode = match nix::sys::wait::waitpid(
+                    pid,
+                    Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
+                ) {
+                    Ok(wait_status) => match wait_status {
+                        nix::sys::wait::WaitStatus::Exited(_, code) => {
+                            env.jobs.remove_job(pid);
+                            code
+                        }
+                        nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
+                            env.jobs.remove_job(pid);
+                            1
+                        }
+                        nix::sys::wait::WaitStatus::Stopped(_, _) => {
+                            env.jobs.update_job_status(pid, JobStatus::Stopped);
+                            println!();
+                            1
+                        }
+                        _ => 1,
+                    },
+                    Err(_) => 1,
+                };
+
+                let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+                    .unwrap();
+                tcsetpgrp(fd, shell_pgid).ok();
+                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
+
+                env.set_last_status(exitcode);
+                Ok(exitcode)
+            } else {
+                Ok(0)
+            }
+        }
+        CommandResult::Builtin => Ok(0),
+    }
+}
+
+pub fn spawn_command(
+    cmd: &Word,
+    args: &Vec<Word>,
+    assignments: &Vec<(String, Word)>,
+    redirects: &Vec<Redirect>,
+    env: &mut ShellEnv,
+    piping_fds: Option<&HashMap<u64, OwnedFd>>,
+    gid: &mut Option<Pid>,
+) -> Result<CommandResult, ShellError> {
     // 1. Expand command and args
     let mut all_args: Vec<String> = vec![];
     let mut expanded_command = expand_and_split(cmd, env);
@@ -58,8 +128,6 @@ pub fn invoke_command(
 
             // First, clone all piping FDs
             for (fd, owned_fd) in piping_fds_map {
-                // Note: This assumes OwnedFd implements Clone or you have a way to duplicate it
-                // If OwnedFd doesn't implement Clone, you might need to use a different approach
                 merged_map.insert(*fd, owned_fd.try_clone().map_err(|e| ShellError::Io(e))?);
             }
 
@@ -82,13 +150,14 @@ pub fn invoke_command(
         // Case 4: No FDs to merge
         (false, None) => None,
     };
-    // 3. Execute the command
+
+    // 3. Execute the command without waiting
     if !cmd_str.is_empty() {
         match get_command_type(cmd.expand(env).as_str(), env) {
             CommandType::Function(func) => {
                 let status = execute(&func, env)?;
                 env.set_last_status(status);
-                return Ok(status);
+                return Ok(CommandResult::Builtin);
             }
 
             CommandType::Builtin => {
@@ -101,93 +170,22 @@ pub fn invoke_command(
                     env,
                     gid,
                 )?;
-                Ok(0)
+                Ok(CommandResult::Builtin)
             }
 
             CommandType::External(path) => {
-                let tty = File::open("/dev/tty").unwrap();
-                let fd = tty.into_raw_fd();
-
                 let mut envs = env.get_environment_only();
                 for ass in assignments.clone() {
                     envs.insert(ass.0, ass.1.expand(&env));
                 }
-                let status = match run_commande(
-                    &path,
-                    &all_args,
-                    merged_fds.as_ref(),
-                    true,
-                    envs,
-                    env,
-                    gid,
-                )? {
-                    CommandResult::Child(mut child_pid) => {
-                        let new_job = jobs::Job::new(
-                            gid.unwrap_or(child_pid),
-                            child_pid,
-                            env.jobs.size + 1,
-                            jobs::JobStatus::Running,
-                            cmd_str,
-                        );
-                        env.jobs.add_job(new_job);
-                        if (!is_backgound) {
-                            // Get shell PGID
-                            let shell_pgid = getpgrp();
 
-                            // Temporarily ignore SIGTTOU so parent doesn't suspend
-                            let old = unsafe {
-                                signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
-                            }
-                            .unwrap();
-                            // Give terminal control to child
-                            tcsetpgrp(fd, child_pid).unwrap();
-                            // Restore SIGTTOU handler
-                            unsafe { signal(Signal::SIGTTOU, old).unwrap() };
-
-                            // Wait for child to finish
-                            let exitcode = match nix::sys::wait::waitpid(
-                                child_pid,
-                                Some(nix::sys::wait::WaitPidFlag::WUNTRACED),
-                            ) {
-                                Ok(wait_status) => match wait_status {
-                                    nix::sys::wait::WaitStatus::Exited(_, code) => {
-                                        env.jobs.remove_job(child_pid);
-                                        code
-                                    }
-                                    nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
-                                        env.jobs.remove_job(child_pid);
-                                        1
-                                    }
-                                    nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                                        env.jobs.update_job_status(child_pid, JobStatus::Stopped);
-                                        println!();
-                                        1
-                                    }
-                                    _ => 1,
-                                },
-                                Err(_) => 1,
-                            };
-
-                            // Return terminal control to shell
-                            let old = unsafe {
-                                signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
-                            }
-                            .unwrap();
-                            tcsetpgrp(fd, shell_pgid).ok();
-                            unsafe { signal(Signal::SIGTTOU, old).unwrap() };
-
-                            exitcode
-                        } else {
-                            0
-                        }
+                match run_commande(&path, &all_args, merged_fds.as_ref(), true, envs, env, gid)? {
+                    CommandResult::Child(child_pid) => {
+                        // Return the child PID without waiting
+                        Ok(CommandResult::Child(child_pid))
                     }
-                    CommandResult::Builtin => 0,
-                };
-
-                //  tcsetpgrp(fd, getpid()).unwrap();
-
-                env.set_last_status(status);
-                Ok(status)
+                    CommandResult::Builtin => Ok(CommandResult::Builtin),
+                }
             }
             CommandType::Undefined => {
                 Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
@@ -199,8 +197,8 @@ pub fn invoke_command(
             for ass in assignments {
                 env.set_local_var(&ass.0, &ass.1.expand(&env));
             }
-            return Ok(0);
+            return Ok(CommandResult::Builtin);
         }
-        return Ok(0);
+        return Ok(CommandResult::Builtin);
     }
 }
