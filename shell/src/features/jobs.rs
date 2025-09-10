@@ -10,30 +10,30 @@ pub enum JobStatus {
     Done,
 }
 //[id][prev or current] [status]  [command]
+// [1] 8287
+impl JobStatus {
+    pub fn printStatus(&self , job : Job) {
+        let mut prev_or_next = String::new();
 
-// impl JobStatus {
-//     // fn printStatus(&self , job : Job) {
-//     //     let mut prev_or_next = String::new();
+        if job.prev_job {prev_or_next = "-".to_owned()}
+        if job.current_job {prev_or_next = "+".to_owned()}
 
-//     //     if job.prev_job {prev_or_next = "-".to_owned()}
-//     //     if job.current_job {prev_or_next = "+".to_owned()}
-
-//     //     match self {
-//     //         Self::Running => {
-//     //             format!("[{}]{}  Running {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
-//     //         }
-//     //         Self::Done => {
-//     //             format!("[{}]{}  Done {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
-//     //         }
-//     //         Self::Stopped => {
-//     //             format!("[{}]{}  Stopped {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
-//     //         }
-//     //         Self::Terminated => {
-//     //             format!("[{}]{}  Terminated {} {}" , job.id , prev_or_next , " ".repeat(15) , job.command);
-//     //         }
-//     //     }
-//     // }
-// }
+        match self {
+            Self::Running => {
+                println!("[{}]{} {}\r" , job.id , prev_or_next , job.pgid);
+            }
+            Self::Done => {
+                // println!("\n[{}]{}  Done {} {}\r" , job.id , prev_or_next , " ".repeat(5) , job.command);
+            }
+            Self::Stopped => {
+                println!("[{}]{}  Stopped {} {}\r" , job.id , prev_or_next , " ".repeat(5) , job.command);
+            }
+            Self::Terminated => {
+                // println!("\n[{}]{}  Terminated {} {}\r" , job.id , prev_or_next , " ".repeat(5) , job.command);
+            }
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Jobs {
@@ -47,10 +47,13 @@ pub struct Jobs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Job {
     pub pgid: Pid,
+    pub pid: Pid,
     pub pids: Vec<Pid>,
     pub id: u32,
     pub status: JobStatus,
     pub command: String,
+    pub prev_job : bool,
+    pub current_job : bool,
 }
 
 impl Jobs {
@@ -88,7 +91,9 @@ impl Jobs {
     pub fn remove_job(&mut self, pid: Pid) {
         self.jobs.remove(&pid);
         self.order.retain(|&p| p != pid);
-        self.size -= 1;
+        if self.size > 0 {
+            self.size -= 1;
+        }
     }
 
     pub fn get_job(&self, pid: Pid) -> Option<&Job> {
@@ -106,7 +111,7 @@ impl Jobs {
     pub fn update_job_status(&mut self, pid: nix::unistd::Pid, status: JobStatus) {
         if let Some(job) = self.jobs.iter_mut().find(|job| *job.0 == pid) {
             job.1.status = status;
-            // job.1.status.printStatus(job.1.to_owned());
+            job.1.status.printStatus(job.1.to_owned());
         }
     }
 
@@ -126,10 +131,13 @@ impl Job {
     pub fn new(pgid: Pid, pid: Pid, id: u32, status: JobStatus, command: String) -> Self {
         Job {
             pgid,
+            pid: pid,
             pids: vec![pid],
             id: id,
             status,
             command,
+            current_job : false,
+            prev_job : false,
         }
     }
 

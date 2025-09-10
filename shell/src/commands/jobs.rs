@@ -20,7 +20,7 @@ impl ShellCommand for Jobs {
                 JobStatus::Running => "Running",
                 JobStatus::Stopped => "Stopped",
                 JobStatus::Terminated => "Terminated",
-                JobStatus::Done => unreachable!(),
+                JobStatus::Done => "Done",
             };
 
             // Example output: [1]  + 12345 running    sleep 10

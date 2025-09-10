@@ -1,3 +1,4 @@
+// Modified exec.rs
 use crate::PathBuf;
 use crate::ShellCommand;
 use crate::commands::bg::Bg;
@@ -5,10 +6,15 @@ use crate::commands::exit::Exit;
 use crate::commands::fg::Fg;
 use crate::commands::jobs::Jobs;
 use crate::commands::kill::Kill;
-use crate::executor::spawn_commande::invoke_command;
+use crate::executor::spawn_commande::spawn_command;
+use nix::sys::signal::{Signal, signal};
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::Pid;
 use nix::unistd::pipe;
+use nix::unistd::{getpgrp, tcsetpgrp};
 use std::collections::HashMap;
+use std::fs::File;
+use std::os::fd::IntoRawFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
 use std::vec;
 
@@ -17,9 +23,25 @@ use crate::commands::{
 };
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
+use crate::features::jobs;
+use crate::features::jobs::JobStatus;
 use crate::parser::types::*;
 
+pub enum CommandResult {
+    Child(Pid),
+    Builtin(i32),
+}
+
+
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    execute_with_background(ast, env, false)
+}
+
+pub fn execute_with_background(
+    ast: &AstNode,
+    env: &mut ShellEnv,
+    is_background: bool,
+) -> Result<i32, ShellError> {
     env.current_command = ast.to_text(env);
     match ast {
         AstNode::Command {
@@ -28,18 +50,29 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             assignments,
             redirects,
         } => {
-            let child = invoke_command(
-                cmd,
-                args,
-                assignments,
-                redirects,
-                env,
-                None,
-                &mut None,
-                false,
-            )?;
-            env.set_last_status(child);
-            Ok(child)
+            // For single commands, use the existing spawn logic
+            match spawn_command(cmd, args, assignments, redirects, env, None, &mut None)? {
+                CommandResult::Child(pid) => {
+                    if !is_background {
+                        let status = wait_for_single_process(pid, env)?;
+                        env.set_last_status(status);
+                        Ok(status)
+                    } else {
+                        // Add to jobs and don't wait
+                        let new_job = jobs::Job::new(
+                            pid,
+                            pid,
+                            env.jobs.size + 1,
+                            jobs::JobStatus::Running,
+                            cmd.expand(env),
+                        );
+                        new_job.status.clone().printStatus(new_job.clone());
+                        env.jobs.add_job(new_job);
+                        Ok(0)
+                    }
+                }
+                CommandResult::Builtin(n) => Ok(n),
+            }
         }
         AstNode::Pipeline(nodes) => {
             if nodes.is_empty() {
@@ -47,20 +80,22 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
             }
 
             if nodes.len() == 1 {
-                return execute(&nodes[0], env);
+                return execute_with_background(&nodes[0], env, is_background);
             }
 
             let mut prev_read: Option<OwnedFd> = None;
             let mut gid = Option::<Pid>::None;
+            let mut child_pids = Vec::<Pid>::new();
 
+            // Execute all commands in the pipeline concurrently
             for (i, node) in nodes.iter().enumerate() {
                 let is_last = i == nodes.len() - 1;
 
                 if let AstNode::Command {
                     cmd,
                     args,
+                    assignments,
                     redirects,
-                    ..
                 } = node
                 {
                     let stdin = prev_read.take();
@@ -87,17 +122,25 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                         Some(map)
                     };
 
-                    let stat = invoke_command(
+                    // Spawn the command without waiting
+                    match spawn_command(
                         cmd,
                         args,
-                        &vec![],
+                        assignments,
                         redirects,
                         env,
                         fds_map.as_ref(),
                         &mut gid,
-                        false,
-                    )?;
-                    env.set_last_status(stat);
+                    )? {
+                        CommandResult::Child(child_pid) => {
+                            child_pids.push(child_pid);
+                        }
+                        CommandResult::Builtin(n) => {
+                            // Builtin commands are executed immediately
+                            // In a real pipeline, builtins should also fork, but this is a simplification
+                        }
+                    }
+
                     prev_read = read_end; // becomes stdin for next command
                 } else {
                     return Err(ShellError::Exec(
@@ -105,25 +148,60 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                     ));
                 }
             }
-            Ok(env.get_last_status())
+
+            // Now handle waiting based on whether it's background or not
+            if !child_pids.is_empty() {
+                if let Some(pgid) = gid {
+                    let pipeline_cmd = nodes
+                        .iter()
+                        .filter_map(|node| {
+                            if let AstNode::Command { cmd, .. } = node {
+                                Some(cmd.expand(env))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+
+                    if is_background {
+                        // Add job but don't wait
+                        let new_job = jobs::Job::new(
+                            pgid,
+                            pgid,
+                            env.jobs.size + 1,
+                            jobs::JobStatus::Running,
+                            pipeline_cmd,
+                        );
+                        env.jobs.add_job(new_job);
+                        return Ok(0);
+                    } else {
+                        // Wait for the entire pipeline
+                        let status = wait_for_pipeline(pgid, child_pids, pipeline_cmd, env)?;
+                        env.set_last_status(status);
+                        return Ok(status);
+                    }
+                }
+            }
+
+            Ok(0)
         }
+
+        AstNode::Background(node) => execute_with_background(node, env, true),
 
         AstNode::Sequence(nodes) => {
             let mut last_status = 0;
-
             for node in nodes {
-                last_status = execute(node, env)?;
-                // Continue execution even if a command fails
+                last_status = execute_with_background(node, env, is_background)?;
             }
-
             env.set_last_status(last_status);
             Ok(last_status)
         }
+
         AstNode::And(left, right) => {
-            // Execute left, if success then right
-            let left_status = execute(left, env)?;
+            let left_status = execute_with_background(left, env, is_background)?;
             if left_status == 0 {
-                let right_status = execute(right, env)?;
+                let right_status = execute_with_background(right, env, is_background)?;
                 env.set_last_status(right_status);
                 Ok(right_status)
             } else {
@@ -131,11 +209,11 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 Ok(left_status)
             }
         }
+
         AstNode::Or(left, right) => {
-            // Execute left, if fail then right
-            let left_status = execute(left, env)?;
+            let left_status = execute_with_background(left, env, is_background)?;
             if left_status != 0 {
-                let right_status = execute(right, env)?;
+                let right_status = execute_with_background(right, env, is_background)?;
                 env.set_last_status(right_status);
                 Ok(right_status)
             } else {
@@ -143,86 +221,51 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 Ok(left_status)
             }
         }
+
         AstNode::Not(node) => {
-            // Execute node, invert status
-            let status = execute(node, env)?;
+            let status = execute_with_background(node, env, is_background)?;
             let inverted_status = if status == 0 { 1 } else { 0 };
             env.set_last_status(inverted_status);
             Ok(inverted_status)
         }
-        AstNode::Background(node) => match **node {
-            AstNode::Command {
-                ref cmd,
-                ref args,
-                ref assignments,
-                ref redirects,
-            } => {
-                let child = invoke_command(
-                    cmd,
-                    args,
-                    assignments,
-                    redirects,
-                    env,
-                    None,
-                    &mut None,
-                    true,
-                )?;
-                env.set_last_status(child);
-                Ok(child)
-            }
-            _ => {
-                let status = execute(&node, env)?;
-                env.set_last_status(status);
-                Ok(status)
-            }
-        },
+
         AstNode::Subshell(node) => {
-            let status = execute(node, env)?;
+            let status = execute_with_background(node, env, is_background)?;
             env.set_last_status(status);
             Ok(status)
         }
+
         AstNode::Group {
             commands,
-            redirects,
+            redirects: _,
         } => {
-            // Execute group of commands, handle redirects
             let mut last_status = 0;
-
             for command in commands {
-                last_status = execute(command, env)?;
+                last_status = execute_with_background(command, env, is_background)?;
             }
-
-            // Handle redirects (basic implementation)
-            if !redirects.is_empty() {
-                // println!("[exec] Group redirects: {:?}", redirects);
-            }
-
             env.set_last_status(last_status);
             Ok(last_status)
         }
+
         AstNode::If {
             condition,
             then_branch,
             elif,
             else_branch,
         } => {
-            // Execute condition
-            let condition_status = execute(condition, env)?;
-
+            let condition_status = execute_with_background(condition, env, is_background)?;
             if condition_status == 0 {
-                // Condition succeeded, execute then branch
-                let status = execute(then_branch, env)?;
+                let status = execute_with_background(then_branch, env, is_background)?;
                 env.set_last_status(status);
                 Ok(status)
             } else {
-                // Try elif branches in order
                 let mut matched = false;
                 let mut status = condition_status;
 
                 for (elif_cond, elif_body) in elif.iter() {
-                    let elif_cond_status = execute(elif_cond, env)?;
+                    let elif_cond_status = execute_with_background(elif_cond, env, is_background)?;
                     if elif_cond_status == 0 {
-                        status = execute(elif_body, env)?;
+                        status = execute_with_background(elif_body, env, is_background)?;
                         matched = true;
                         break;
                     } else {
@@ -231,9 +274,8 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 }
 
                 if !matched {
-                    // Execute else branch if present
                     if let Some(else_node) = else_branch {
-                        status = execute(else_node, env)?;
+                        status = execute_with_background(else_node, env, is_background)?;
                     }
                 }
 
@@ -241,63 +283,193 @@ pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
                 Ok(status)
             }
         }
+
         AstNode::While { condition, body } => {
-            // Execute while loop
             let mut last_status = 0;
-
             loop {
-                let condition_status = execute(condition, env)?;
+                let condition_status = execute_with_background(condition, env, is_background)?;
                 if condition_status != 0 {
-                    // Condition failed, exit loop
                     break;
                 }
-
-                last_status = execute(body, env)?;
-                // Continue loop regardless of body status
+                last_status = execute_with_background(body, env, is_background)?;
             }
-
             env.set_last_status(last_status);
             Ok(last_status)
         }
+
         AstNode::Until { condition, body } => {
-            // Execute until loop (opposite of while)
             let mut last_status = 0;
-
             loop {
-                let condition_status = execute(condition, env)?;
+                let condition_status = execute_with_background(condition, env, is_background)?;
                 if condition_status == 0 {
-                    // Condition succeeded, exit loop
                     break;
                 }
-
-                last_status = execute(body, env)?;
-                // Continue loop regardless of body status
+                last_status = execute_with_background(body, env, is_background)?;
             }
-
             env.set_last_status(last_status);
             Ok(last_status)
         }
+
         AstNode::For {
             var: _,
             values,
             body,
         } => {
-            // Execute for loop
             let mut last_status = 0;
-
             for _ in values {
-                // Set the loop variable
-                // env.set_var(var, value);
-
-                last_status = execute(body, env)?;
-                // Continue loop regardless of body status
+                last_status = execute_with_background(body, env, is_background)?;
             }
-
             env.set_last_status(last_status);
             Ok(last_status)
         }
+
         _ => Ok(0),
     }
+}
+
+fn wait_for_single_process(pid: Pid, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    // Add job
+    let new_job = jobs::Job::new(
+        pid,
+        pid,
+        env.jobs.size + 1,
+        jobs::JobStatus::Running,
+        "".to_string(), // You might want to pass the actual command
+    );
+    env.jobs.add_job(new_job);
+
+    // Give terminal control
+    let tty = File::open("/dev/tty").map_err(|e| ShellError::Io(e))?;
+    let fd = tty.into_raw_fd();
+    let shell_pgid = getpgrp();
+
+    let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+        .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?;
+
+    tcsetpgrp(fd, pid).map_err(|e| ShellError::Exec(format!("tcsetpgrp error: {}", e)))?;
+
+    unsafe {
+        signal(Signal::SIGTTOU, old)
+            .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?
+    };
+
+    // Wait for process
+    let exit_code = match waitpid(pid, Some(WaitPidFlag::WUNTRACED)) {
+        Ok(wait_status) => match wait_status {
+            WaitStatus::Exited(_, code) => {
+                env.jobs.remove_job(pid);
+                code
+            }
+            WaitStatus::Signaled(_, _, _) => {
+                env.jobs.remove_job(pid);
+                1
+            }
+            WaitStatus::Stopped(_, _) => {
+                env.jobs.update_job_status(pid, JobStatus::Stopped);
+                1
+            }
+            _ => 1,
+        },
+        Err(_) => 1,
+    };
+
+    // Return terminal control to shell
+    let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+        .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?;
+
+    tcsetpgrp(fd, shell_pgid).ok();
+    unsafe {
+        signal(Signal::SIGTTOU, old)
+            .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?
+    };
+
+    Ok(exit_code)
+}
+
+fn wait_for_pipeline(
+    pgid: Pid,
+    child_pids: Vec<Pid>,
+    pipeline_cmd: String,
+    env: &mut ShellEnv,
+) -> Result<i32, ShellError> {
+    // Add job for the entire pipeline
+    let new_job = jobs::Job::new(
+        pgid,
+        pgid,
+        env.jobs.size + 1,
+        jobs::JobStatus::Running,
+        pipeline_cmd,
+    );
+    env.jobs.add_job(new_job);
+
+    // Give terminal control to the pipeline process group
+    let tty = File::open("/dev/tty").map_err(|e| ShellError::Io(e))?;
+    let fd = tty.into_raw_fd();
+    let shell_pgid = getpgrp();
+
+    let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+        .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?;
+
+    tcsetpgrp(fd, pgid).map_err(|e| ShellError::Exec(format!("tcsetpgrp error: {}", e)))?;
+
+    unsafe {
+        signal(Signal::SIGTTOU, old)
+            .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?
+    };
+
+    // Wait for all processes in the pipeline to complete
+    let mut remaining_processes = child_pids.len();
+    let mut pipeline_status = 0;
+
+    while remaining_processes > 0 {
+        match waitpid(
+            Some(Pid::from_raw(-pgid.as_raw())), // Wait for any process in the group
+            Some(WaitPidFlag::WUNTRACED),
+        ) {
+            Ok(wait_status) => match wait_status {
+                WaitStatus::Exited(pid, code) => {
+                    remaining_processes -= 1;
+                    // Use exit code from the last command in pipeline
+                    if child_pids.last() == Some(&pid) {
+                        pipeline_status = code;
+                    }
+                }
+                WaitStatus::Signaled(pid, _, _) => {
+                    remaining_processes -= 1;
+                    if child_pids.last() == Some(&pid) {
+                        pipeline_status = 1;
+                    }
+                }
+                WaitStatus::Stopped(_, _) => {
+                    env.jobs.update_job_status(pgid, JobStatus::Stopped);
+                    println!();
+                    pipeline_status = 1;
+                    break;
+                }
+                _ => {}
+            },
+            Err(_) => {
+                remaining_processes = 0;
+                pipeline_status = 1;
+            }
+        }
+    }
+
+    if remaining_processes == 0 {
+        env.jobs.remove_job(pgid);
+    }
+
+    // Return terminal control to shell
+    let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
+        .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?;
+
+    tcsetpgrp(fd, shell_pgid).ok();
+    unsafe {
+        signal(Signal::SIGTTOU, old)
+            .map_err(|e| ShellError::Exec(format!("Signal error: {}", e)))?
+    };
+
+    Ok(pipeline_status)
 }
 
 pub fn build_command(
@@ -325,10 +497,7 @@ pub fn build_command(
         _ => None,
     }
 }
-pub enum CommandResult {
-    Child(Pid),
-    Builtin(i32), // Status
-}
+
 
 pub enum CommandType {
     Builtin,

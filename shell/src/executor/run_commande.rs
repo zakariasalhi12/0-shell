@@ -5,7 +5,6 @@ use crate::exec::build_command;
 use nix::fcntl::{FcntlArg, fcntl};
 use nix::unistd::getpid;
 use nix::unistd::setpgid;
-use nix::unistd::tcsetpgrp;
 use nix::unistd::{ForkResult, Pid, close, dup, dup2, execve, fork};
 use std::collections::HashMap;
 use std::env;
@@ -18,6 +17,7 @@ fn execute_external_with_fork(
     args: &[String],
     fds_map: Option<&HashMap<u64, OwnedFd>>,
     assignments: &HashMap<String, String>,
+    gid: &mut Option<Pid>,
 ) -> Result<CommandResult, ShellError> {
     // Prepare command and arguments as CStrings
     let cmd_cstring = CString::new(cmd_path)
@@ -117,15 +117,25 @@ fn execute_external_with_fork(
             if let Some(fd) = stderr_new_fd {
                 let _ = close(fd);
             }
+
+            // Set up process group in parent as well for race condition prevention
+            if gid.is_none() {
+                *gid = Some(child);
+            }
+            let _ = setpgid(child, gid.unwrap_or(child));
+
             Ok(CommandResult::Child(child))
         }
 
         Ok(ForkResult::Child) => {
             // Child process - setup file descriptors and exec
             let child_pid = getpid();
-            // Make child leader of new PGID
-            let _ = setpgid(child_pid, child_pid);
 
+            // Set up process group - child becomes leader if first in pipeline
+            if gid.is_none() {
+                *gid = Some(child_pid);
+            }
+            let _ = setpgid(child_pid, gid.unwrap_or(child_pid));
 
             // Setup standard file descriptors
             if let Some(new_fd) = stdin_new_fd {
@@ -195,12 +205,14 @@ pub fn run_commande(
     use_external: bool,
     assignements: HashMap<String, String>,
     env: &mut ShellEnv,
+    gid: &mut Option<Pid>,
 ) -> Result<CommandResult, ShellError> {
     if use_external {
         // cmd_str is now the full path to the external command
-        return execute_external_with_fork(cmd_str, args, fds_map, &assignements);
+        // Return the child PID without waiting
+        return execute_external_with_fork(cmd_str, args, fds_map, &assignements, gid);
     } else {
-        // Handle builtin commands (unchanged)
+        // Handle builtin commands (unchanged, but no waiting involved)
         let com = build_command(
             &cmd_str.to_owned(),
             args.to_vec(),

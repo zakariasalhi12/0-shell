@@ -1,8 +1,12 @@
 use crate::envirement::ShellEnv;
 use crate::features::history;
 use crate::features::history::History;
+use crate::features::jobs::JobStatus;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
+use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
+use nix::unistd::Pid;
+
 use crate::shell_interactions::utils::parse_input;
 use crate::shell_interactions::utils::*;
 use crate::{exec::*, parser};
@@ -156,6 +160,7 @@ impl Shell {
             }
         };
         display_promt(std);
+        reap_children(shell);
     }
 
     pub fn run_interactive_shell(&mut self) {
@@ -350,6 +355,35 @@ impl Shell {
             ShellMode::Interactive => self.run_interactive_shell(),
             ShellMode::NonInteractive => self.run_non_interactive_stdin(),
             ShellMode::Command(cmd) => self.handle_command(cmd.clone().as_str()),
+        }
+    }
+}
+fn reap_children(env: &mut crate::envirement::ShellEnv) {
+    loop {
+        match waitpid(
+            None,
+            Some(WaitPidFlag::WNOHANG | WaitPidFlag::WUNTRACED | WaitPidFlag::WCONTINUED),
+        ) {
+            Ok(WaitStatus::Signaled(pid, _, _)) => {
+                env.jobs.update_job_status(pid, JobStatus::Terminated);
+                env.jobs.remove_job(pid);
+            }
+            Ok(WaitStatus::Exited(pid, _ )) => {
+                env.jobs.update_job_status(pid, JobStatus::Done);
+                env.jobs.remove_job(pid);
+            }
+            Ok(WaitStatus::Stopped(pid, _)) => {
+                env.jobs.update_job_status(pid, JobStatus::Stopped);
+            }
+            Ok(WaitStatus::Continued(pid)) => {
+                env.jobs.update_job_status(pid, JobStatus::Running);
+            }
+            Ok(WaitStatus::StillAlive) => break,
+            Ok(WaitStatus::PtraceEvent(_, _, _)) | Ok(WaitStatus::PtraceSyscall(_)) => {
+                // ignore these for normal shell
+            }
+            Err(nix::errno::Errno::ECHILD) => break,
+            Err(_) => break,
         }
     }
 }

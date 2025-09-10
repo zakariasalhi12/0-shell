@@ -53,25 +53,7 @@ impl ShellCommand for Bg {
         }
         env.jobs
             .update_job_status(job.pgid, crate::features::jobs::JobStatus::Running);
-        loop {
-            match nix::sys::wait::waitpid(gid, Some(nix::sys::wait::WaitPidFlag::WUNTRACED)) {
-                Ok(wait_status) => match wait_status {
-                    nix::sys::wait::WaitStatus::Exited(_, code) => {
-                        // Remove job when process exits
-                        env.jobs.remove_job(gid);
-                    }
-                    nix::sys::wait::WaitStatus::Signaled(_, _, _) => {
-                        env.jobs.remove_job(gid);
-                    }
-                    nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                        println!("[{}]+ Stopped", gid);
-                        env.jobs.update_job_status(gid, JobStatus::Stopped);
-                    }
-                    _ => break,
-                },
-                Err(_) => break,
-            }
-        }
+
         println!("Job [{}] continued in background", gid);
 
         Ok(0)
