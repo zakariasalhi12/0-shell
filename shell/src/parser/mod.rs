@@ -122,7 +122,7 @@ impl Parser {
                         self.current()
                     )));
                 }
-                // println!("{:?}", ast);
+                println!("{:?}", ast);
                 return Ok(ast);
             }
             Err(e) => {

@@ -278,8 +278,16 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::Default, '!') => {
                     self.chars.next();
-
-                    tokens.push(Token::LogicalNot);
+                    match self.chars.peek(){
+                        Some(' ') | Some('\t') | Some('\n') =>{
+                            tokens.push(Token::LogicalNot);
+                        },
+                        _ =>{
+                            buffer.1 = QuoteType::None;
+                            buffer.0.push('!');
+                            state = State::InWord;
+                        }
+                    }
                 }
                 (State::Default, '>') => {
                     self.chars.next();

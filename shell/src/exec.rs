@@ -1,3 +1,4 @@
+use crate::commands::test::Test;
 // Modified exec.rs
 use crate::PathBuf;
 use crate::ShellCommand;
@@ -494,6 +495,8 @@ pub fn build_command(
         "jobs" => Some(Box::new(Jobs::new(args))),
         "kill" => Some(Box::new(Kill::new(args))),
         "bg" => Some(Box::new(Bg::new(args))),
+        "test" => Some(Box::new(Test::new(args, false))),
+        "[" => Some(Box::new(Test::new(args, true))),
         _ => None,
     }
 }
@@ -513,7 +516,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
 
     match cmd {
         "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type"
-        | "fg" | "jobs" | "kill" | "bg" => CommandType::Builtin,
+        | "fg" | "jobs" | "kill" | "bg" | "test" | "[" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();

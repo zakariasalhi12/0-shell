@@ -19,6 +19,7 @@ pub mod commands {
     pub mod pwd;
     pub mod rm;
     pub mod typ;
+    pub mod test;
 }
 use crate::{error::ShellError, events_handler::OutputTarget};
 use envirement as v;

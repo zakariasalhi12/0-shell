@@ -1,7 +1,6 @@
 use crate::ShellCommand;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
-use std::io::{self, ErrorKind};
 use std::path::Path;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -37,7 +36,7 @@ struct TestArgs<'a> {
 }
 
 impl<'a> TestArgs<'a> {
-    fn unary_test(&self, op: &str, arg: &str) -> io::Result<i32> {
+    fn unary_test(&self, op: &str, arg: &str) -> Result<i32, ShellError> {
         match op {
             "-n" => Ok(if !arg.is_empty() { 0 } else { 1 }),
             "-z" => Ok(if arg.is_empty() { 0 } else { 1 }),
@@ -47,97 +46,62 @@ impl<'a> TestArgs<'a> {
             "-r" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
             "-w" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
             "-x" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
-            _ => Err(io::Error::new(
-                ErrorKind::InvalidInput,
-                format!("test: unknown unary operator '{}'", op),
-            )),
+            _ => Err(ShellError::Exec(format!("test: unknown unary operator '{}'", op))),
         }
     }
 
-    fn binary_test(&self, left: &str, op: &str, right: &str) -> io::Result<i32> {
+    fn binary_test(&self, left: &str, op: &str, right: &str) -> Result<i32, ShellError> {
         match op {
             "=" => Ok(if left == right { 0 } else { 1 }),
             "!=" => Ok(if left != right { 0 } else { 1 }),
             "-eq" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left == right { 0 } else { 1 })
             }
             "-ne" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left != right { 0 } else { 1 })
             }
             "-lt" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left < right { 0 } else { 1 })
             }
             "-le" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left <= right { 0 } else { 1 })
             }
             "-gt" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left > right { 0 } else { 1 })
             }
             "-ge" => {
-                let left = left.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
-                let right = right.parse::<i64>().map_err(|_| {
-                    io::Error::new(ErrorKind::InvalidInput, "test: invalid integer")
-                })?;
+                let left = left.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
+                let right = right.parse::<i64>().map_err(|_| ShellError::Exec("test: invalid integer".to_string()))?;
                 Ok(if left >= right { 0 } else { 1 })
             }
-            _ => Err(io::Error::new(
-                ErrorKind::InvalidInput,
-                format!("test: unknown binary operator '{}'", op),
-            )),
+            _ => Err(ShellError::Exec(format!("test: unknown binary operator '{}'", op))),
         }
     }
 
-    fn evaluate(&self) -> io::Result<i32> {
+    fn evaluate(&self) -> Result<i32, ShellError> {
         match self.args.len() {
-            0 => Ok(1), // false
+            0 => Ok(1),
             1 => Ok(if self.args[0].is_empty() { 1 } else { 0 }),
             2 => self.unary_test(&self.args[0], &self.args[1]),
             3 => self.binary_test(&self.args[0], &self.args[1], &self.args[2]),
-            _ => Err(io::Error::new(
-                ErrorKind::InvalidInput,
-                "test: too many arguments",
-            )),
+            _ => Err(ShellError::Exec("test: too many arguments".to_string())),
         }
     }
 }
 
 impl ShellCommand for Test {
     fn execute(&self, env: &mut ShellEnv) -> Result<i32, ShellError> {
-        let test_args = self.parse_args().map_err(|e| {
-            io::Error::new(ErrorKind::InvalidInput, e.to_string())
-        })?;
+        let test_args = self.parse_args()?;
         test_args.evaluate()
     }
 }
