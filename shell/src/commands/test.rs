@@ -2,6 +2,9 @@ use crate::ShellCommand;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use std::path::Path;
+use std::fs;
+use std::os::unix::fs::MetadataExt; 
+use libc::{geteuid, getegid};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Test {
@@ -14,7 +17,7 @@ impl Test {
         Self { args, is_bracket }
     }
 
-    pub fn parse_args(&self) -> Result<TestArgs, ShellError> {
+    fn parse_args(&self) -> Result<TestArgs, ShellError> {
         let args = if self.is_bracket {
             if self.args.is_empty() {
                 return Err(ShellError::Exec("[ : needs closing ]".to_string()));
@@ -43,9 +46,10 @@ impl<'a> TestArgs<'a> {
             "-d" => Ok(if Path::new(arg).is_dir() { 0 } else { 1 }),
             "-e" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
             "-f" => Ok(if Path::new(arg).is_file() { 0 } else { 1 }),
-            "-r" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
-            "-w" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
-            "-x" => Ok(if Path::new(arg).exists() { 0 } else { 1 }),
+            "-r" => Ok(if Self::check_permission(arg, 0o4) { 0 } else { 1 }), // read
+            "-w" => Ok(if Self::check_permission(arg, 0o2) { 0 } else { 1 }), // write
+            "-x" => Ok(if Self::check_permission(arg, 0o1) { 0 } else { 1 }), // execute
+
             _ => Err(ShellError::Exec(format!("test: unknown unary operator '{}'", op))),
         }
     }
@@ -97,10 +101,35 @@ impl<'a> TestArgs<'a> {
             _ => Err(ShellError::Exec("test: too many arguments".to_string())),
         }
     }
+
+    fn check_permission(path: &str, perm_bit: u32) -> bool {
+        let path = Path::new(path);
+        if let Ok(metadata) = fs::metadata(path) {
+            let mode = metadata.mode(); 
+            let file_uid = metadata.uid();
+            let file_gid = metadata.gid();
+            let euid = unsafe { geteuid() }; 
+            let egid = unsafe { getegid() }; 
+
+            let bits = if euid == 0 {
+                0o777
+            } else if euid == file_uid {
+                (mode >> 6) & 0o7
+            } else if egid == file_gid {
+                (mode >> 3) & 0o7
+            } else {
+                mode & 0o7
+            };
+
+            (bits & perm_bit) != 0
+        } else {
+            false
+        }
+    }
 }
 
 impl ShellCommand for Test {
-    fn execute(&self, env: &mut ShellEnv) -> Result<i32, ShellError> {
+    fn execute(&self, _env: &mut ShellEnv) -> Result<i32, ShellError> {
         let test_args = self.parse_args()?;
         test_args.evaluate()
     }
