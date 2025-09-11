@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, os::unix::process};
 
 use nix::unistd::Pid;
 
@@ -209,12 +209,19 @@ impl Jobs {
             // Update the specific process
             if let Some(process) = job.processes.iter_mut().find(|p| p.pid == pid) {
                 process.status = status;
-
+                // println!("yeeeeeeessss   {:?}", process.status);
                 // Update overall job status based on all processes
                 job.update_overall_status();
                 job.status.printStatus(job.clone());
 
                 return job.all_processes_finished();
+            } else {
+                match status {
+                    ProcessStatus::Done => job.status = JobStatus::Done,
+                    ProcessStatus::Running => job.status = JobStatus::Running,
+                    ProcessStatus::Stopped => job.status = JobStatus::Stopped,
+                    ProcessStatus::Terminated => job.status = JobStatus::Terminated,
+                }
             }
         }
         false
