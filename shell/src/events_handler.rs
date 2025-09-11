@@ -358,6 +358,8 @@ impl Shell {
         }
     }
 }
+use crate::features::jobs::ProcessStatus;
+
 fn reap_children(env: &mut crate::envirement::ShellEnv) {
     loop {
         match waitpid(
@@ -365,18 +367,34 @@ fn reap_children(env: &mut crate::envirement::ShellEnv) {
             Some(WaitPidFlag::WNOHANG | WaitPidFlag::WUNTRACED | WaitPidFlag::WCONTINUED),
         ) {
             Ok(WaitStatus::Signaled(pid, _, _)) => {
-                env.jobs.update_job_status(pid, JobStatus::Terminated);
-                env.jobs.remove_job(pid);
+                // Update the specific process status and check if job should be removed
+                let should_remove = env
+                    .jobs
+                    .update_process_status(pid, ProcessStatus::Terminated);
+                if should_remove {
+                    // Find the job and remove it only if all processes are finished
+                    if let Some(job) = env.jobs.find_job_by_any_pid(pid) {
+                        let pgid = job.pgid;
+                        env.jobs.remove_job(pgid);
+                    }
+                }
             }
-            Ok(WaitStatus::Exited(pid, _ )) => {
-                env.jobs.update_job_status(pid, JobStatus::Done);
-                env.jobs.remove_job(pid);
+            Ok(WaitStatus::Exited(pid, _)) => {
+                // Update the specific process status and check if job should be removed
+                let should_remove = env.jobs.update_process_status(pid, ProcessStatus::Done);
+                if should_remove {
+                    // Find the job and remove it only if all processes are finished
+                    if let Some(job) = env.jobs.find_job_by_any_pid(pid) {
+                        let pgid = job.pgid;
+                        env.jobs.remove_job(pgid);
+                    }
+                }
             }
             Ok(WaitStatus::Stopped(pid, _)) => {
-                env.jobs.update_job_status(pid, JobStatus::Stopped);
+                env.jobs.update_process_status(pid, ProcessStatus::Stopped);
             }
             Ok(WaitStatus::Continued(pid)) => {
-                env.jobs.update_job_status(pid, JobStatus::Running);
+                env.jobs.update_process_status(pid, ProcessStatus::Running);
             }
             Ok(WaitStatus::StillAlive) => break,
             Ok(WaitStatus::PtraceEvent(_, _, _)) | Ok(WaitStatus::PtraceSyscall(_)) => {
