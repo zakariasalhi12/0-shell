@@ -11,6 +11,7 @@ use nix::sys::signal::{Signal, signal};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::Pid;
 use nix::unistd::pipe;
+use nix::unistd::setpgid;
 use nix::unistd::{getpgrp, tcsetpgrp};
 use std::collections::HashMap;
 use std::fs::File;
@@ -31,7 +32,6 @@ pub enum CommandResult {
     Child(Pid),
     Builtin(i32),
 }
-
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
     execute_with_background(ast, env, false)
@@ -84,12 +84,13 @@ pub fn execute_with_background(
             }
 
             let mut prev_read: Option<OwnedFd> = None;
-            let mut gid = Option::<Pid>::None;
+            let mut pipeline_gid = Option::<Pid>::None; // This will store the pipeline's process group ID
             let mut child_pids = Vec::<Pid>::new();
 
             // Execute all commands in the pipeline concurrently
             for (i, node) in nodes.iter().enumerate() {
                 let is_last = i == nodes.len() - 1;
+                let is_first = i == 0;
 
                 if let AstNode::Command {
                     cmd,
@@ -122,6 +123,14 @@ pub fn execute_with_background(
                         Some(map)
                     };
 
+                    // For the first command, we need to create a new process group
+                    // For subsequent commands, we add them to the existing group
+                    let mut current_gid = if is_first {
+                        None // Let spawn_command create a new group
+                    } else {
+                        pipeline_gid // Use the established group
+                    };
+
                     // Spawn the command without waiting
                     match spawn_command(
                         cmd,
@@ -130,10 +139,28 @@ pub fn execute_with_background(
                         redirects,
                         env,
                         fds_map.as_ref(),
-                        &mut gid,
+                        &mut current_gid,
                     )? {
                         CommandResult::Child(child_pid) => {
                             child_pids.push(child_pid);
+
+                            // If this is the first command, its PID becomes the process group ID
+                            if is_first {
+                                pipeline_gid = Some(child_pid);
+
+                                // Make sure the first process becomes the group leader
+                                // This should be done in spawn_command, but ensure it here
+                                if let Err(e) = setpgid(child_pid, child_pid) {
+                                    eprintln!("Warning: Failed to set process group leader: {}", e);
+                                }
+                            } else {
+                                // Add subsequent processes to the pipeline's process group
+                                if let Some(pgid) = pipeline_gid {
+                                    if let Err(e) = setpgid(child_pid, pgid) {
+                                        eprintln!("Warning: Failed to add process to group: {}", e);
+                                    }
+                                }
+                            }
                         }
                         CommandResult::Builtin(n) => {
                             // Builtin commands are executed immediately
@@ -151,7 +178,7 @@ pub fn execute_with_background(
 
             // Now handle waiting based on whether it's background or not
             if !child_pids.is_empty() {
-                if let Some(pgid) = gid {
+                if let Some(pgid) = pipeline_gid {
                     let pipeline_cmd = nodes
                         .iter()
                         .filter_map(|node| {
@@ -165,18 +192,29 @@ pub fn execute_with_background(
                         .join(" | ");
 
                     if is_background {
-                        // Add job but don't wait
-                        let new_job = jobs::Job::new(
+                        // Create job and add all processes to it
+                        let mut new_job = jobs::Job::new(
                             pgid,
-                            pgid,
+                            pgid, // leader_pid is same as pgid for pipelines
                             env.jobs.size + 1,
                             jobs::JobStatus::Running,
                             pipeline_cmd,
                         );
+
+                        // Add all child processes to the job
+                        for (i, &pid) in child_pids.iter().enumerate() {
+                            let cmd_name = if let AstNode::Command { cmd, .. } = &nodes[i] {
+                                cmd.expand(env)
+                            } else {
+                                "unknown".to_string()
+                            };
+                            new_job.add_process(pid, cmd_name);
+                        }
+
                         env.jobs.add_job(new_job);
                         return Ok(0);
                     } else {
-                        // Wait for the entire pipeline
+                        // For foreground pipelines, we don't add to jobs but still wait properly
                         let status = wait_for_pipeline(pgid, child_pids, pipeline_cmd, env)?;
                         env.set_last_status(status);
                         return Ok(status);
@@ -497,7 +535,6 @@ pub fn build_command(
         _ => None,
     }
 }
-
 
 pub enum CommandType {
     Builtin,
