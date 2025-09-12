@@ -1,4 +1,6 @@
 use crate::commands::test::Test;
+use crate::lexer::types::QuoteType;
+use crate::lexer::types::Word;
 // Modified exec.rs
 use crate::PathBuf;
 use crate::ShellCommand;
@@ -60,12 +62,17 @@ pub fn execute_with_background(
                         Ok(status)
                     } else {
                         // Add to jobs and don't wait
+                        let merged = Word {
+                            parts: args.iter().flat_map(|w| w.parts.clone()).collect(),
+                            quote: QuoteType::None, // or however you want to handle quotes
+                        };
+
                         let new_job = jobs::Job::new(
                             pid,
                             pid,
                             env.jobs.size + 1,
                             jobs::JobStatus::Running,
-                            cmd.expand(env),
+                            cmd.expand(env) + " " + &merged.expand(env),
                         );
                         new_job.status.clone().printStatus(new_job.clone());
                         env.jobs.add_job(new_job);
