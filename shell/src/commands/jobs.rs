@@ -98,8 +98,8 @@ impl ShellCommand for Jobs {
                     } else {
                         // Default format
                         println!(
-                            "[{}]{}  {}    {}",
-                            job.id, prev_or_next, status_str, job.command
+                            "[{}]{}{}{}    {}",
+                            job.id, prev_or_next, " ".repeat(2 - prev_or_next.len()), status_str, job.command
                         );
                     }
                 }

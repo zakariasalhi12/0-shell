@@ -119,6 +119,19 @@ impl Jobs {
         self.current_job = Some(job.pgid);
         self.order.push(job.pgid.clone());
         self.jobs.insert(job.pgid, job.clone());
+
+        let mut last_index = 0;
+
+        for pid  in self.order.clone().iter() {
+            let job_id = self.get_job(pid.clone()).unwrap();
+            if last_index + 1 != job_id.id  {
+                let current_job = self.get_job_mut(job.pid.clone()).unwrap();
+                current_job.id  = last_index +1;
+                return;
+            } 
+            last_index = job_id.id;
+        }
+
         self.size += 1;
         self.update_job_marks();
     }

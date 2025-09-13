@@ -74,8 +74,8 @@ pub fn execute_with_background(
                             jobs::JobStatus::Running,
                             cmd.expand(env) + " " + &merged.expand(env),
                         );
-                        new_job.status.clone().printStatus(new_job.clone());
-                        env.jobs.add_job(new_job);
+                        env.jobs.add_job(new_job.clone());
+                        env.jobs.get_job(new_job.pid.clone()).unwrap().status.printStatus( env.jobs.get_job(new_job.pid.clone()).unwrap().clone());
                         Ok(0)
                     }
                 }
