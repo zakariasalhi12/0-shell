@@ -129,20 +129,34 @@ impl Jobs {
 
     pub fn add_job(&mut self, job: Job) {
         self.current_job = Some(job.pgid);
-        self.order.push(job.pgid.clone());
+        self.order.push(job.pgid);
         self.jobs.insert(job.pgid, job.clone());
 
         let mut last_index = 0;
 
-        for pid in self.order.clone().iter() {
-            let job_id = self.get_job(pid.clone()).unwrap();
-            if last_index + 1 != job_id.id {
-                let current_job = self.get_job_mut(job.pid.clone()).unwrap();
-                current_job.id = last_index + 1;
-                return;
+        for pid in self.order.clone() {
+            let job_ref = self.get_job(pid).unwrap();
+            if last_index + 1 != job_ref.id {
+                if let Some(current_job) = self.get_job_mut(job.pgid) {
+                    current_job.id = last_index + 1;
+                }
+                break;
             }
-            last_index = job_id.id;
+            last_index = job_ref.id;
         }
+
+        // Build a local map of pgid -> id to avoid borrowing self inside sort_by
+        let id_map: std::collections::HashMap<_, _> = self
+            .jobs
+            .iter()
+            .map(|(pgid, job)| (*pgid, job.id))
+            .collect();
+
+        self.order.sort_by(|a, b| {
+            let id_a = id_map.get(a).unwrap();
+            let id_b = id_map.get(b).unwrap();
+            id_a.cmp(id_b)
+        });
 
         self.size += 1;
         self.update_job_marks();

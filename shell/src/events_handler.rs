@@ -1,19 +1,20 @@
 use crate::envirement::ShellEnv;
 use crate::features::history;
 use crate::features::history::History;
-use crate::features::jobs::JobStatus;
 use crate::lexer::tokenize::Tokenizer;
 use crate::parser::*;
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
-use nix::unistd::Pid;
 
+use crate::features::jobs::ProcessStatus;
 use crate::shell_interactions::utils::parse_input;
 use crate::shell_interactions::utils::*;
 use crate::{exec::*, parser};
-use std::env;
-use std::fs::read_to_string;
+
 use std::io::*;
 use std::io::{self, BufRead};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 use std::{self};
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
@@ -42,7 +43,7 @@ pub struct Shell {
     pub buffer_lines: u16,
     pub need_to_up: bool,
     pub free_lines: u16,
-    pub env: ShellEnv,
+    pub env: Arc<Mutex<ShellEnv>>,
     pub mode: ShellMode,
     pub cursor_position: CursorPosition,
 }
@@ -60,12 +61,13 @@ impl Shell {
         } else {
             OutputTarget::Stdout(stdout())
         };
-
+        let env = Arc::new(Mutex::new(ShellEnv::new()));
+        start_reaper(env.clone());
         Self {
             stdin: stdin(),
             stdout: stdout,
             buffer: String::new(),
-            env: ShellEnv::new(),
+            env: env.clone(),
             history: history::History::new(),
             cursor_position_x: 0,
             cursor_position_y: 0,
@@ -111,7 +113,7 @@ impl Shell {
         stdout: &mut OutputTarget,
         buffer: &mut String,
         history: &mut History,
-        shell: &mut ShellEnv,
+        env: &Arc<Mutex<ShellEnv>>,
     ) {
         match stdout {
             OutputTarget::Raw(raw) => match raw {
@@ -147,7 +149,13 @@ impl Shell {
         if !buffer.trim().is_empty() {
             history.save(buffer.clone());
             Shell::cooked_mode(stdout);
-            parse_input(&buffer, shell);
+
+            // Properly lock and use the environment
+            {
+                let mut shell = env.lock().unwrap_or_else(|e| e.into_inner());
+                parse_input(&buffer, &mut *shell);
+            }
+
             Shell::raw_mode(stdout);
         }
 
@@ -160,44 +168,23 @@ impl Shell {
             }
         };
         display_promt(std);
-        reap_children(shell);
+
+        // Properly lock and use the environment for reaping children
+        {
+            let mut shell = env.lock().unwrap_or_else(|e| e.into_inner());
+            reap_children(&mut *shell);
+        }
     }
 
     pub fn run_interactive_shell(&mut self) {
-        // let stdin = &self.stdin;
         let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
             OutputTarget::Raw(std) => std,
             OutputTarget::Stdout(_) => &mut None,
-            _ => {
-                return;
-            }
+            _ => return,
         };
-        if let Ok(home) = env::var("HOME") {
-            match read_to_string(format!("{}/.push/.pushrc", home)) {
-                Ok(mut data) => {
-                    let mut dev_null = OutputTarget::Null;
-                    Shell::parse_and_exec(
-                        &mut dev_null,
-                        &mut data,
-                        &mut self.history,
-                        &mut self.env,
-                    );
-                }
-                Err(e) => {
-                    eprintln!(
-                        "Error reading pushrc: {}\n add pushrc file in $(HOME)/.push/",
-                        e
-                    );
-                    std::process::exit(1);
-                }
-            };
-        } else {
-            eprintln!("HOME environment variable not set.");
-        }
-
         display_promt(stdout);
-        let stdin = self.stdin.lock();
 
+        let stdin = self.stdin.lock();
         for key in stdin.keys() {
             let new_key = match key {
                 Ok(val) => val,
@@ -206,85 +193,57 @@ impl Shell {
                     std::process::exit(0);
                 }
             };
+
             match new_key {
-                // Execute command
                 termion::event::Key::Char('\n') => {
                     self.cursor_position.reset();
                     Shell::parse_and_exec(
                         &mut self.stdout,
                         &mut self.buffer,
                         &mut self.history,
-                        &mut self.env,
+                        &self.env, // Pass Arc<Mutex<ShellEnv>> instead of trying to lock it here
                     );
                 }
-
-                // Tab completion (placeholder)
                 termion::event::Key::Char('\t') => {
-                    // TODO: Implement tab completion
+                    // TODO: Tab completion
                 }
-
-                // Insert character
                 termion::event::Key::Char(c) => {
                     self.insert_char(c);
                 }
-
-                // Delete character
                 termion::event::Key::Backspace => {
                     self.delete_char();
                 }
-
-                // History navigation
                 termion::event::Key::Up => {
                     self.load_history_prev();
                 }
-
                 termion::event::Key::Down => {
                     self.load_history_next();
                 }
-
-                // Cursor movement
                 termion::event::Key::Left => {
                     self.move_cursor_left();
                 }
-
                 termion::event::Key::Right => {
                     self.move_cursor_right();
                 }
-
-                // Clear screen
                 termion::event::Key::Ctrl('l') => {
                     self.clear_screen();
                 }
-
-                // Exit
                 termion::event::Key::Ctrl('d') => {
                     let stdout: &mut Option<RawTerminal<std::io::Stdout>> = match &mut self.stdout {
                         OutputTarget::Raw(std) => std,
                         OutputTarget::Stdout(_) => &mut None,
-                        _ => {
-                            return;
-                        }
+                        _ => return,
                     };
                     Self::print_out_static(stdout, "\r");
                     return;
                 }
-
-                // Word deletion (placeholder)
-                termion::event::Key::Ctrl('w') => {
-                    // TODO: Implement word deletion
-                }
-
-                // Interrupt (placeholder)
                 termion::event::Key::Ctrl('c') => {
                     self.ctrl();
                     continue;
                 }
-
-                // Suspend (placeholder)
                 termion::event::Key::Ctrl('z') => {
                     // TODO: Send SIGTSTP
                 }
-
                 _ => {}
             }
         }
@@ -303,14 +262,18 @@ impl Shell {
             match Tokenizer::new(&line).tokenize() {
                 Ok(tokens) => match parser::Parser::new(tokens).parse() {
                     Ok(ast) => match ast {
-                        Some(tree) => match execute(&tree, &mut self.env) {
-                            Ok(status) => {
-                                self.env.last_status = status;
+                        Some(tree) => {
+                            // Properly lock the mutex before using it
+                            let mut env_guard = self.env.lock().unwrap_or_else(|e| e.into_inner());
+                            match execute(&tree, &mut *env_guard) {
+                                Ok(status) => {
+                                    env_guard.last_status = status;
+                                }
+                                Err(err) => {
+                                    eprintln!("{}", err);
+                                }
                             }
-                            Err(err) => {
-                                eprintln!("{}", err);
-                            }
-                        },
+                        }
                         None => return,
                     },
                     Err(error) => {
@@ -328,14 +291,18 @@ impl Shell {
         match Tokenizer::new(cmd).tokenize() {
             Ok(tokens) => match Parser::new(tokens).parse() {
                 Ok(ast) => match ast {
-                    Some(tree) => match execute(&tree, &mut self.env) {
-                        Ok(status) => {
-                            self.env.last_status = status;
+                    Some(tree) => {
+                        // Properly lock the mutex before using it
+                        let mut env_guard = self.env.lock().unwrap_or_else(|e| e.into_inner());
+                        match execute(&tree, &mut *env_guard) {
+                            Ok(status) => {
+                                env_guard.last_status = status;
+                            }
+                            Err(err) => {
+                                eprintln!("{}", err);
+                            }
                         }
-                        Err(err) => {
-                            eprintln!("{}", err);
-                        }
-                    },
+                    }
                     None => {
                         return;
                     }
@@ -358,7 +325,21 @@ impl Shell {
         }
     }
 }
-use crate::features::jobs::ProcessStatus;
+
+fn start_reaper(env: Arc<Mutex<ShellEnv>>) {
+    thread::spawn(move || {
+        loop {
+            {
+                let mut env_guard = match env.lock() {
+                    Ok(guard) => guard,
+                    Err(poisoned) => poisoned.into_inner(),
+                };
+                reap_children(&mut *env_guard);
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+    });
+}
 
 fn reap_children(env: &mut crate::envirement::ShellEnv) {
     loop {
