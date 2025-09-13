@@ -1,4 +1,6 @@
+use crate::commands::fals::False;
 use crate::commands::test::Test;
+use crate::commands::tru::True;
 use crate::lexer::types::QuoteType;
 use crate::lexer::types::Word;
 // Modified exec.rs
@@ -635,6 +637,8 @@ pub fn build_command(
         "bg" => Some(Box::new(Bg::new(args))),
         "test" => Some(Box::new(Test::new(args, false))),
         "[" => Some(Box::new(Test::new(args, true))),
+        "true" => Some(Box::new(True::new(args))),
+        "false" => Some(Box::new(False::new(args))),
         _ => None,
     }
 }
@@ -653,7 +657,7 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
 
     match cmd {
         "echo" | "cd" | "pwd" | "cp" | "rm" | "mv" | "mkdir" | "export" | "exit" | "type"
-        | "fg" | "jobs" | "kill" | "bg" | "test" | "[" => CommandType::Builtin,
+        | "fg" | "jobs" | "kill" | "bg" | "test" | "[" | "true" | "false" => CommandType::Builtin,
         _ => match env.get("PATH") {
             Some(bin_path) => {
                 let paths: Vec<&str> = bin_path.split(':').collect();

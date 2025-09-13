@@ -84,7 +84,7 @@ impl JobStatus {
             }
             Self::Terminated => {
                 println!(
-                    "\n[{}]{}  Terminated {} {}\r",
+                    "[{}]{}  Terminated {} {}\r",
                     job.id,
                     prev_or_next,
                     " ".repeat(5),

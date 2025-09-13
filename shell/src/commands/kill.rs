@@ -45,8 +45,10 @@ impl ShellCommand for Kill {
                 let pid = Pid::from_raw(pid_raw);
                 match kill(pid, Signal::SIGKILL) {
                     Ok(_) => {
+                        env.jobs
+                            .update_job_status(pid, crate::features::jobs::JobStatus::Terminated);
                         // remove from both jobs map and order
-                        env.jobs.jobs.remove(&pid);
+                        env.jobs.remove_job(pid);
                         env.jobs.order.retain(|p| *p != pid);
                         env.jobs.update_job_marks();
 
@@ -66,7 +68,11 @@ impl ShellCommand for Kill {
                 {
                     match kill(job.pgid, Signal::SIGKILL) {
                         Ok(_) => {
-                            env.jobs.jobs.remove(&pgid);
+                            env.jobs.update_job_status(
+                                job.pid,
+                                crate::features::jobs::JobStatus::Terminated,
+                            );
+                            env.jobs.remove_job(pgid);
                             env.jobs.order.retain(|p| *p != pgid);
                             env.jobs.update_job_marks();
 
@@ -83,7 +89,11 @@ impl ShellCommand for Kill {
                     if let Some(last_pid) = env.jobs.order.last().cloned() {
                         match kill(last_pid, Signal::SIGKILL) {
                             Ok(_) => {
-                                env.jobs.jobs.remove(&last_pid);
+                                env.jobs.update_job_status(
+                                    last_pid,
+                                    crate::features::jobs::JobStatus::Terminated,
+                                );
+                                env.jobs.remove_job(last_pid);
                                 env.jobs.order.pop();
                                 env.jobs.update_job_marks();
 

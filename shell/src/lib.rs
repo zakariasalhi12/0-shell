@@ -11,6 +11,7 @@ pub mod commands {
     pub mod echo;
     pub mod exit;
     pub mod export;
+    pub mod fals;
     pub mod fg;
     pub mod jobs;
     pub mod kill;
@@ -18,8 +19,9 @@ pub mod commands {
     pub mod mv;
     pub mod pwd;
     pub mod rm;
-    pub mod typ;
     pub mod test;
+    pub mod tru;
+    pub mod typ;
 }
 use crate::{error::ShellError, events_handler::OutputTarget};
 use envirement as v;

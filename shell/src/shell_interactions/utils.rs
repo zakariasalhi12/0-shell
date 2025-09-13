@@ -96,24 +96,28 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) 
 
 pub fn parse_input(buffer: &str, env: &mut ShellEnv) {
     match Tokenizer::new(buffer).tokenize() {
-        Ok(tokens) => match Parser::new(tokens).parse() {
-            Ok(ast_opt) => {
-                if let Some(ast) = ast_opt {
-                    match execute(&ast, env) {
-                        Ok(_status) => {
-                            print!("\r");
-                        }
-                        Err(e) => {
-                            // env.set_last_status(e.code());
-                            eprintln!("{e}");
+        Ok(tokens) => {
+            // println!("{:?}", tokens);
+            match Parser::new(tokens).parse() {
+                Ok(ast_opt) => {
+                    if let Some(ast) = ast_opt {
+                        match execute(&ast, env) {
+                            Ok(status) => {
+                                env.set_last_status(status);
+                                print!("\r");
+                            }
+                            Err(e) => {
+                                // env.set_last_status(e.code());
+                                eprintln!("{e}");
+                            }
                         }
                     }
                 }
+                Err(err) => {
+                    eprintln!("{err}");
+                }
             }
-            Err(err) => {
-                eprintln!("{err}");
-            }
-        },
+        }
         Err(err) => {
             eprintln!("{err}");
         }
