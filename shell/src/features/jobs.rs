@@ -130,7 +130,7 @@ impl Jobs {
         }
     }
 
-    fn update_job_marks(&mut self) {
+    pub fn update_job_marks(&mut self) {
         self.current_job = None;
         self.prev_job = None;
         // Clear all job marks

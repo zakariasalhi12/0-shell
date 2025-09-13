@@ -1,4 +1,5 @@
 use crate::commands::test::Test;
+use crate::lexer::types::QuoteType;
 use crate::lexer::types::Word;
 // Modified exec.rs
 use crate::PathBuf;
@@ -19,7 +20,6 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::os::fd::IntoRawFd;
 use std::os::unix::io::{AsRawFd, FromRawFd, OwnedFd};
-use std::vec;
 
 use crate::commands::{
     cd::Cd, cp::Cp, echo::Echo, export::Export, mkdir::Mkdir, mv::Mv, pwd::Pwd, rm::Rm, typ::Type,
@@ -62,12 +62,17 @@ pub fn execute_with_background(
                         Ok(status)
                     } else {
                         // Add to jobs and don't wait
+                        let merged = Word {
+                            parts: args.iter().flat_map(|w| w.parts.clone()).collect(),
+                            quote: QuoteType::None, // or however you want to handle quotes
+                        };
+
                         let new_job = jobs::Job::new(
                             pid,
                             pid,
                             env.jobs.size + 1,
                             jobs::JobStatus::Running,
-                            cmd.expand(env),
+                            cmd.expand(env) + " " + &merged.expand(env),
                         );
                         new_job.status.clone().printStatus(new_job.clone());
                         env.jobs.add_job(new_job);
