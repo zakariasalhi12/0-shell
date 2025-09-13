@@ -391,6 +391,7 @@ fn reap_children(env: &mut crate::envirement::ShellEnv) {
                 }
             }
             Ok(WaitStatus::Stopped(pid, _)) => {
+                println!();
                 env.jobs.update_process_status(pid, ProcessStatus::Stopped);
             }
             Ok(WaitStatus::Continued(pid)) => {

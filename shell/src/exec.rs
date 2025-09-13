@@ -495,6 +495,7 @@ fn wait_for_single_process(pid: Pid, env: &mut ShellEnv) -> Result<i32, ShellErr
                 1
             }
             WaitStatus::Stopped(_, _) => {
+                println!();
                 env.jobs.update_job_status(pid, JobStatus::Stopped);
                 1
             }

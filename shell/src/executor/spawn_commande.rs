@@ -70,7 +70,7 @@ pub fn invoke_command(
                             1
                         }
                         nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                            // println!("\r");
+                            println!("");
                             // env.jobs.update_job_status(pid, JobStatus::Stopped);
                             1
                         }

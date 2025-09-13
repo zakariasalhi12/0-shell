@@ -112,7 +112,7 @@ impl ShellCommand for Fg {
                     }
                 }
                 nix::sys::wait::WaitStatus::Stopped(_, _) => {
-                    println!("[{}]+ Stopped", pgid);
+                    println!();
                     env.jobs.update_job_status(pgid, JobStatus::Stopped);
                 }
                 other => {
