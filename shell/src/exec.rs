@@ -56,16 +56,20 @@ pub fn execute_with_background(
             // For single commands, use the existing spawn logic
             match spawn_command(cmd, args, assignments, redirects, env, None, &mut None)? {
                 CommandResult::Child(pid) => {
+                    let merged = Word {
+                        parts: args.iter().flat_map(|w| w.parts.clone()).collect(),
+                        quote: QuoteType::None, // or however you want to handle quotes
+                    };
                     if !is_background {
-                        let status = wait_for_single_process(pid, env)?;
+                        let status = wait_for_single_process(
+                            pid,
+                            env,
+                            cmd.expand(env) + " " + &merged.expand(env),
+                        )?;
                         env.set_last_status(status);
                         Ok(status)
                     } else {
                         // Add to jobs and don't wait
-                        let merged = Word {
-                            parts: args.iter().flat_map(|w| w.parts.clone()).collect(),
-                            quote: QuoteType::None, // or however you want to handle quotes
-                        };
 
                         let new_job = jobs::Job::new(
                             pid,
@@ -75,7 +79,11 @@ pub fn execute_with_background(
                             cmd.expand(env) + " " + &merged.expand(env),
                         );
                         env.jobs.add_job(new_job.clone());
-                        env.jobs.get_job(new_job.pid.clone()).unwrap().status.printStatus( env.jobs.get_job(new_job.pid.clone()).unwrap().clone());
+                        env.jobs
+                            .get_job(new_job.pid.clone())
+                            .unwrap()
+                            .status
+                            .printStatus(env.jobs.get_job(new_job.pid.clone()).unwrap().clone());
                         Ok(0)
                     }
                 }
@@ -457,14 +465,14 @@ pub fn execute_with_background(
     }
 }
 
-fn wait_for_single_process(pid: Pid, env: &mut ShellEnv) -> Result<i32, ShellError> {
+fn wait_for_single_process(pid: Pid, env: &mut ShellEnv, cmd: String) -> Result<i32, ShellError> {
     // Add job
     let new_job = jobs::Job::new(
         pid,
         pid,
         env.jobs.size + 1,
         jobs::JobStatus::Running,
-        "".to_string(), // You might want to pass the actual command
+        cmd, // You might want to pass the actual command
     );
     env.jobs.add_job(new_job);
 

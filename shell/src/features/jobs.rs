@@ -65,7 +65,13 @@ impl JobStatus {
                 println!("[{}]{} {}\r", job.id, prev_or_next, job.pgid);
             }
             Self::Done => {
-                // println!("\n[{}]{}  Done {} {}\r" , job.id , prev_or_next , " ".repeat(5) , job.command);
+                println!(
+                    "\n[{}]{}  Done {} {}\r",
+                    job.id,
+                    prev_or_next,
+                    " ".repeat(5),
+                    job.command
+                );
             }
             Self::Stopped => {
                 println!(
@@ -77,7 +83,13 @@ impl JobStatus {
                 );
             }
             Self::Terminated => {
-                // println!("\n[{}]{}  Terminated {} {}\r" , job.id , prev_or_next , " ".repeat(5) , job.command);
+                println!(
+                    "\n[{}]{}  Terminated {} {}\r",
+                    job.id,
+                    prev_or_next,
+                    " ".repeat(5),
+                    job.command
+                );
             }
         }
     }
@@ -122,13 +134,13 @@ impl Jobs {
 
         let mut last_index = 0;
 
-        for pid  in self.order.clone().iter() {
+        for pid in self.order.clone().iter() {
             let job_id = self.get_job(pid.clone()).unwrap();
-            if last_index + 1 != job_id.id  {
+            if last_index + 1 != job_id.id {
                 let current_job = self.get_job_mut(job.pid.clone()).unwrap();
-                current_job.id  = last_index +1;
+                current_job.id = last_index + 1;
                 return;
-            } 
+            }
             last_index = job_id.id;
         }
 
