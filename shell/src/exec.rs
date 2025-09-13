@@ -1,4 +1,5 @@
 use crate::commands::test::Test;
+use crate::lexer::types::Word;
 // Modified exec.rs
 use crate::PathBuf;
 use crate::ShellCommand;
@@ -35,13 +36,14 @@ pub enum CommandResult {
 }
 
 pub fn execute(ast: &AstNode, env: &mut ShellEnv) -> Result<i32, ShellError> {
-    execute_with_background(ast, env, false)
+    execute_with_background(ast, env, false, 0)
 }
 
 pub fn execute_with_background(
     ast: &AstNode,
     env: &mut ShellEnv,
     is_background: bool,
+    loop_depth: usize,
 ) -> Result<i32, ShellError> {
     env.current_command = ast.to_text(env);
     match ast {
@@ -81,7 +83,7 @@ pub fn execute_with_background(
             }
 
             if nodes.len() == 1 {
-                return execute_with_background(&nodes[0], env, is_background);
+                return execute_with_background(&nodes[0], env, is_background, loop_depth);
             }
 
             let mut prev_read: Option<OwnedFd> = None;
@@ -226,21 +228,21 @@ pub fn execute_with_background(
             Ok(0)
         }
 
-        AstNode::Background(node) => execute_with_background(node, env, true),
+        AstNode::Background(node) => execute_with_background(node, env, true, loop_depth),
 
         AstNode::Sequence(nodes) => {
             let mut last_status = 0;
             for node in nodes {
-                last_status = execute_with_background(node, env, is_background)?;
+                last_status = execute_with_background(node, env, is_background, loop_depth)?;
             }
             env.set_last_status(last_status);
             Ok(last_status)
         }
 
         AstNode::And(left, right) => {
-            let left_status = execute_with_background(left, env, is_background)?;
+            let left_status = execute_with_background(left, env, is_background, loop_depth)?;
             if left_status == 0 {
-                let right_status = execute_with_background(right, env, is_background)?;
+                let right_status = execute_with_background(right, env, is_background, loop_depth)?;
                 env.set_last_status(right_status);
                 Ok(right_status)
             } else {
@@ -250,9 +252,9 @@ pub fn execute_with_background(
         }
 
         AstNode::Or(left, right) => {
-            let left_status = execute_with_background(left, env, is_background)?;
+            let left_status = execute_with_background(left, env, is_background, loop_depth)?;
             if left_status != 0 {
-                let right_status = execute_with_background(right, env, is_background)?;
+                let right_status = execute_with_background(right, env, is_background, loop_depth)?;
                 env.set_last_status(right_status);
                 Ok(right_status)
             } else {
@@ -262,14 +264,14 @@ pub fn execute_with_background(
         }
 
         AstNode::Not(node) => {
-            let status = execute_with_background(node, env, is_background)?;
+            let status = execute_with_background(node, env, is_background, loop_depth)?;
             let inverted_status = if status == 0 { 1 } else { 0 };
             env.set_last_status(inverted_status);
             Ok(inverted_status)
         }
 
         AstNode::Subshell(node) => {
-            let status = execute_with_background(node, env, is_background)?;
+            let status = execute_with_background(node, env, is_background, loop_depth)?;
             env.set_last_status(status);
             Ok(status)
         }
@@ -280,7 +282,7 @@ pub fn execute_with_background(
         } => {
             let mut last_status = 0;
             for command in commands {
-                last_status = execute_with_background(command, env, is_background)?;
+                last_status = execute_with_background(command, env, is_background, loop_depth)?;
             }
             env.set_last_status(last_status);
             Ok(last_status)
@@ -292,9 +294,10 @@ pub fn execute_with_background(
             elif,
             else_branch,
         } => {
-            let condition_status = execute_with_background(condition, env, is_background)?;
+            let condition_status =
+                execute_with_background(condition, env, is_background, loop_depth)?;
             if condition_status == 0 {
-                let status = execute_with_background(then_branch, env, is_background)?;
+                let status = execute_with_background(then_branch, env, is_background, loop_depth)?;
                 env.set_last_status(status);
                 Ok(status)
             } else {
@@ -302,9 +305,11 @@ pub fn execute_with_background(
                 let mut status = condition_status;
 
                 for (elif_cond, elif_body) in elif.iter() {
-                    let elif_cond_status = execute_with_background(elif_cond, env, is_background)?;
+                    let elif_cond_status =
+                        execute_with_background(elif_cond, env, is_background, loop_depth)?;
                     if elif_cond_status == 0 {
-                        status = execute_with_background(elif_body, env, is_background)?;
+                        status =
+                            execute_with_background(elif_body, env, is_background, loop_depth)?;
                         matched = true;
                         break;
                     } else {
@@ -314,7 +319,8 @@ pub fn execute_with_background(
 
                 if !matched {
                     if let Some(else_node) = else_branch {
-                        status = execute_with_background(else_node, env, is_background)?;
+                        status =
+                            execute_with_background(else_node, env, is_background, loop_depth)?;
                     }
                 }
 
@@ -323,43 +329,123 @@ pub fn execute_with_background(
             }
         }
 
+        AstNode::For { var, values, body } => {
+            let mut last_status = 0;
+            let new_depth = loop_depth + 1; // entering a loop
+
+            for v in values {
+                env.set_local_var(&var, &v.expand(env));
+
+                match execute_with_background(body, env, is_background, new_depth) {
+                    Err(ShellError::Break(mut remaining)) => {
+                        if remaining == 1 {
+                            break;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Break(remaining));
+                        }
+                    }
+                    Err(ShellError::Continue(mut remaining)) => {
+                        if remaining == 1 {
+                            continue;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Continue(remaining));
+                        }
+                    }
+                    Err(e) => return Err(e),
+                    Ok(status) => last_status = status,
+                }
+            }
+
+            env.set_last_status(last_status);
+            Ok(last_status)
+        }
+
         AstNode::While { condition, body } => {
             let mut last_status = 0;
+            let new_depth = loop_depth + 1; // entering a loop
+
             loop {
-                let condition_status = execute_with_background(condition, env, is_background)?;
+                let condition_status =
+                    execute_with_background(condition, env, is_background, new_depth)?;
                 if condition_status != 0 {
                     break;
                 }
-                last_status = execute_with_background(body, env, is_background)?;
+
+                match execute_with_background(body, env, is_background, new_depth) {
+                    Err(ShellError::Break(mut remaining)) => {
+                        if remaining == 1 {
+                            break;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Break(remaining));
+                        }
+                    }
+                    Err(ShellError::Continue(mut remaining)) => {
+                        if remaining == 1 {
+                            continue;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Continue(remaining));
+                        }
+                    }
+                    Err(e) => return Err(e),
+                    Ok(status) => last_status = status,
+                }
             }
+
             env.set_last_status(last_status);
             Ok(last_status)
         }
 
         AstNode::Until { condition, body } => {
             let mut last_status = 0;
+            let new_depth = loop_depth + 1;
+
             loop {
-                let condition_status = execute_with_background(condition, env, is_background)?;
+                let condition_status =
+                    execute_with_background(condition, env, is_background, new_depth)?;
                 if condition_status == 0 {
                     break;
                 }
-                last_status = execute_with_background(body, env, is_background)?;
+
+                match execute_with_background(body, env, is_background, new_depth) {
+                    Err(ShellError::Break(mut remaining)) => {
+                        if remaining == 1 {
+                            break;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Break(remaining));
+                        }
+                    }
+                    Err(ShellError::Continue(mut remaining)) => {
+                        if remaining == 1 {
+                            continue;
+                        } else {
+                            remaining -= 1;
+                            return Err(ShellError::Continue(remaining));
+                        }
+                    }
+                    Err(e) => return Err(e),
+                    Ok(status) => last_status = status,
+                }
             }
+
             env.set_last_status(last_status);
             Ok(last_status)
         }
 
-        AstNode::For {
-            var: _,
-            values,
-            body,
-        } => {
-            let mut last_status = 0;
-            for _ in values {
-                last_status = execute_with_background(body, env, is_background)?;
-            }
-            env.set_last_status(last_status);
-            Ok(last_status)
+        AstNode::Break(level_word) => {
+            let n = parse_level(level_word, env, "break")?;
+            let n = n.min(loop_depth);
+            Err(ShellError::Break(n))
+        }
+
+        AstNode::Continue(level_word) => {
+            let n = parse_level(level_word, env, "continue")?;
+            let n = n.min(loop_depth);
+            Err(ShellError::Continue(n))
         }
 
         _ => Ok(0),
@@ -568,5 +654,22 @@ pub fn get_command_type(cmd: &str, env: &mut ShellEnv) -> CommandType {
             }
             None => return CommandType::Undefined,
         },
+    }
+}
+
+fn parse_level(word: &Option<Word>, env: &ShellEnv, cmd: &str) -> Result<usize, ShellError> {
+    let level_str = match word {
+        Some(w) => w.expand(env),
+        None => return Ok(1),
+    };
+
+    match level_str.parse::<usize>() {
+        Ok(n) if n >= 1 => Ok(n),
+        _ => {
+            return Err(ShellError::Push(format!(
+                "{}: {}: numeric argument required",
+                cmd, level_str
+            )));
+        }
     }
 }

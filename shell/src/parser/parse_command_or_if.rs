@@ -5,6 +5,10 @@ use crate::types::AstNode;
 
 impl Parser {
     pub fn parse_command_or_if(&mut self) -> Result<Option<AstNode>, ShellError> {
+        let node = self.parse_flow_control()?; // break/continue
+        if node.is_some() {
+            return Ok(node);
+        }
         let should_negate = match self.current() {
             Some(Token::LogicalNot) => {
                 self.advance();

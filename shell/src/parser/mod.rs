@@ -11,6 +11,7 @@ pub mod parse_sequence;
 pub mod types;
 pub mod parse_while_or_until;
 pub mod parse_for;
+pub mod parse_flow_control;
 
 use crate::error::ShellError;
 use crate::lexer::types::{QuoteType, Token, WordPart};

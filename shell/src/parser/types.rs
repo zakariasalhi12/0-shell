@@ -123,7 +123,8 @@ pub enum AstNode {
         name: Word,
         body: Box<AstNode>,
     },
-
+    Break(Option<Word>),
+    Continue(Option<Word>),
     ArithmeticCommand(ArithmeticExpr),
 }
 

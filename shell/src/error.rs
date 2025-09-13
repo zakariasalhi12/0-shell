@@ -2,6 +2,7 @@ use colored::Colorize;
 use std::fmt;
 use std::io;
 
+
 #[derive(Debug)]
 pub enum ShellError {
     InvalidVariableSyntax,
@@ -9,6 +10,7 @@ pub enum ShellError {
     Syntax(String),
     Parse(String),
     Eval(String),
+    Push(String),
     Exec(String),
     Expansion(String),
     UnexpectedEof,
@@ -16,6 +18,8 @@ pub enum ShellError {
     InvalidVariable(String),
     DivisionByZero,
     InvalidInput(String),
+    Break(usize),
+    Continue(usize),
 }
 
 impl ShellError {
@@ -33,6 +37,8 @@ impl ShellError {
             ShellError::InvalidVariable(_) => 5,
             ShellError::DivisionByZero => 6,
             Self::InvalidInput(_) => 1,
+            ShellError::Push(_) => 1,
+            _ => 1
         }
     }
 }
@@ -67,7 +73,10 @@ impl fmt::Display for ShellError {
             }
             ShellError::Exec(msg) => {
                 write!(f, "{}", format_error("[Exec]", colored::Color::Magenta, msg))
-            }
+            },
+            ShellError::Push(msg) => {
+                write!(f, "{}", format_error("[push]", colored::Color::Magenta, msg))
+            },
             ShellError::Expansion(msg) => {
                 write!(f, "{}", format_error("[Expansion]", colored::Color::Cyan, msg))
             }
@@ -85,7 +94,13 @@ impl fmt::Display for ShellError {
             }
             ShellError::InvalidInput(err) => {
                 write!(f, "{}", format_error("[Input]", colored::Color::Red, err))
-            }
+            },
+            ShellError::Break(_) => {
+                    write!(f, "{}", format_error("[Push]", colored::Color::Yellow, 
+                        "break: only meaningful in a `for', `while', or `until' loop"))},
+            ShellError::Continue(_) => {
+              write!(f, "{}", format_error("[Push]", colored::Color::Yellow, 
+                        "continue: only meaningful in a `for', `while', or `until' loop"))},
         }
     }
 }

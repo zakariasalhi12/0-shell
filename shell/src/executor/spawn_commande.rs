@@ -188,7 +188,7 @@ pub fn spawn_command(
                 }
             }
             CommandType::Undefined => {
-                Err(ShellError::Exec(format!("Command not found: {}", cmd_str)))
+                Err(ShellError::Push(format!("Command not found: {}", cmd_str)))
             }
         }
     } else {

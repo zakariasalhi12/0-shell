@@ -1,3 +1,4 @@
+use crate::error::ShellError;
 use crate::Parser;
 use crate::envirement::ShellEnv;
 use crate::exec::execute;
@@ -93,28 +94,28 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) 
     }
 }
 
-pub fn parse_input(buffer: &str, mut env: &mut ShellEnv) {
-    match Tokenizer::new(buffer.to_owned().as_str()).tokenize() {
-        Ok(res) => match Parser::new(res).parse() {
-            Ok(ast) => match ast {
-                Some(ast) => match execute(&ast, &mut env) {
-                    Ok(_status) => {
-                        print!("\r");
+pub fn parse_input(buffer: &str, env: &mut ShellEnv) {
+    match Tokenizer::new(buffer).tokenize() {
+        Ok(tokens) => match Parser::new(tokens).parse() {
+            Ok(ast_opt) => {
+                if let Some(ast) = ast_opt {
+                    match execute(&ast, env) {
+                        Ok(_status) => {
+                            print!("\r");
+                        }
+                        Err(e) => {
+                            // env.set_last_status(e.code());
+                            eprintln!("{e}");
+                        }
                     }
-                    Err(e) => {
-                        eprintln!("{e}");
-                        env.set_last_status(e.code());
-                    }
-                },
-                None => {}
-            },
-            Err(e) => {
-                eprintln!("{}", e);
+                }
+            }
+            Err(err) => {
+                eprintln!("{err}");
             }
         },
-
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
         }
     }
 }
