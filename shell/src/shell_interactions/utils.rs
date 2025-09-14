@@ -2,6 +2,7 @@ use crate::Parser;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::exec::execute;
+use crate::executor;
 use crate::lexer::tokenize::Tokenizer;
 use std::io::*;
 use termion::raw::RawTerminal;

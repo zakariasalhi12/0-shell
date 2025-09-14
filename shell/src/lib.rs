@@ -40,6 +40,7 @@ pub mod features {
 
 pub mod error;
 pub mod eval;
+pub mod executorr;
 pub mod executor;
 pub mod expansion;
 pub mod lexer;

@@ -11,7 +11,7 @@ use crate::commands::exit::Exit;
 use crate::commands::fg::Fg;
 use crate::commands::jobs::Jobs;
 use crate::commands::kill::Kill;
-use crate::executor::spawn_commande::spawn_command;
+use crate::executorr::spawn_commande::spawn_command;
 use nix::sys::signal::{Signal, signal};
 use nix::sys::wait::{WaitPidFlag, WaitStatus, waitpid};
 use nix::unistd::Pid;
@@ -467,7 +467,7 @@ pub fn execute_with_background(
     }
 }
 
-fn wait_for_single_process(pid: Pid, env: &mut ShellEnv, cmd: String) -> Result<i32, ShellError> {
+pub fn wait_for_single_process(pid: Pid, env: &mut ShellEnv, cmd: String) -> Result<i32, ShellError> {
     // Add job
     let new_job = jobs::Job::new(
         pid,
@@ -527,7 +527,7 @@ fn wait_for_single_process(pid: Pid, env: &mut ShellEnv, cmd: String) -> Result<
     Ok(exit_code)
 }
 
-fn wait_for_pipeline(
+pub fn wait_for_pipeline(
     pgid: Pid,
     child_pids: Vec<Pid>,
     pipeline_cmd: String,

@@ -4,7 +4,7 @@ use crate::exec::CommandResult;
 use crate::exec::CommandType;
 use crate::exec::execute;
 use crate::exec::get_command_type;
-use crate::executor::run_commande::run_commande;
+use crate::executorr::run_commande::run_commande;
 use crate::expansion::expand_and_split;
 use crate::features::jobs;
 use crate::features::jobs::JobStatus;
