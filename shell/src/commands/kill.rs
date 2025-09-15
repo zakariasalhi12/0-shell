@@ -1,5 +1,6 @@
 use crate::ShellCommand;
 use crate::error::ShellError;
+use crate::features::jobs::{Job, JobStatus};
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 
@@ -36,6 +37,22 @@ impl Kill {
             }
         }
     }
+    pub fn print_job(&self, job: Job) {
+        let mut prev_or_next = String::new();
+        if job.prev_job {
+            prev_or_next = "-".to_owned();
+        }
+        if job.current_job {
+            prev_or_next = "+".to_owned();
+        }
+        println!(
+            "[{}]{}{}{}",
+            job.id,
+            prev_or_next,
+            " ".repeat(2 - prev_or_next.len()),
+            job.command
+        );
+    }
 }
 
 impl ShellCommand for Kill {
@@ -68,11 +85,12 @@ impl ShellCommand for Kill {
                 {
                     match kill(job.pgid, Signal::SIGKILL) {
                         Ok(_) => {
+                            env.jobs.remove_job(pgid);
+                            self.print_job(job.clone());
                             env.jobs.update_job_status(
                                 job.pid,
                                 crate::features::jobs::JobStatus::Terminated,
                             );
-                            env.jobs.remove_job(pgid);
                             env.jobs.order.retain(|p| *p != pgid);
                             env.jobs.update_job_marks();
 
