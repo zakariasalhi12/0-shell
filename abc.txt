@@ -1,0 +1,27 @@
+1
+5
+abc.txt
+cat
+Dockerfile
+install-docker-rootless.zsh
+ls
+Makefile
+me.todo
+PROJECT_INDEX.md
+shell
+test_ctrl_z.sh
+1 5 abc.txt cat Dockerfile install-docker-rootless.zsh ls Makefile me.todo PROJECT_INDEX.md shell test_ctrl_z.sh
+/home/aelhadda/job-control
+1
+5
+abc.txt
+cat
+Dockerfile
+install-docker-rootless.zsh
+ls
+Makefile
+me.todo
+PROJECT_INDEX.md
+shell
+test_ctrl_z.sh
+*********************

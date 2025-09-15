@@ -2,7 +2,7 @@ use crate::Parser;
 use crate::envirement::ShellEnv;
 use crate::error::ShellError;
 use crate::exec::execute;
-use crate::executor;
+use crate::executor::{self, Executor};
 use crate::lexer::tokenize::Tokenizer;
 use std::io::*;
 use termion::raw::RawTerminal;
@@ -98,11 +98,13 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) 
 pub fn parse_input(buffer: &str, env: &mut ShellEnv) {
     match Tokenizer::new(buffer).tokenize() {
         Ok(tokens) => {
-            // println!("{:?}", tokens);
+            println!("{:?}", tokens);
             match Parser::new(tokens).parse() {
                 Ok(ast_opt) => {
                     if let Some(ast) = ast_opt {
-                        match execute(&ast, env) {
+                        println!("{:?}", ast);
+                        let mut executor = Executor::new(env);
+                        match executor.execute_node(&ast, false, 0) {
                             Ok(status) => {
                                 env.set_last_status(status);
                                 print!("\r");

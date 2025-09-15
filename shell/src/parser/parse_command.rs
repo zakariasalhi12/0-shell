@@ -9,10 +9,8 @@ impl Parser {
             return Ok(Some(func));
         }
 
-        if let Ok(group) = self.parse_group() {
-            if let Some(_) = group {
-                return Ok(group);
-            }
+        if let Some(group) = self.parse_group()? {
+                return Ok(Some(group));
         }
 
         let mut assignments = Vec::new();

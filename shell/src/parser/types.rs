@@ -115,17 +115,17 @@ pub enum AstNode {
         values: Vec<Word>,
         body: Box<AstNode>,
     },
-    Case {
-        word: String,
-        arms: Vec<(Vec<String>, AstNode)>,
-    },
+    // Case {
+    //     word: String,
+    //     arms: Vec<(Vec<String>, AstNode)>,
+    // },
     FunctionDef {
         name: Word,
         body: Box<AstNode>,
     },
     Break(Option<Word>),
     Continue(Option<Word>),
-    ArithmeticCommand(ArithmeticExpr),
+    // ArithmeticCommand(ArithmeticExpr),
 }
 
 impl fmt::Display for AstNode {
@@ -302,15 +302,15 @@ impl AstNode {
                 return String::new();
             }
 
-            AstNode::Case { word, arms } => {
-                let mut s = format!("case {} in", word);
-                for (pats, body) in arms {
-                    let pat_str = pats.join(" | ");
-                    s.push_str(&format!(" {} ) {} ;;", pat_str, body.to_text(env)));
-                }
-                s.push_str(" esac");
-                s
-            }
+            // AstNode::Case { word, arms } => {
+            //     let mut s = format!("case {} in", word);
+            //     for (pats, body) in arms {
+            //         let pat_str = pats.join(" | ");
+            //         s.push_str(&format!(" {} ) {} ;;", pat_str, body.to_text(env)));
+            //     }
+            //     s.push_str(" esac");
+            //     s
+            // }
 
             AstNode::FunctionDef { name, body } => 
                 format!("{}() {{ {}; }}", name.expand(env), body.to_text(env)),
