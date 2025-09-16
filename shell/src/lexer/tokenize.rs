@@ -25,19 +25,18 @@ impl<'a> Tokenizer<'a> {
         while let Some(&c) = self.chars.peek() {
             match (&mut state, c) {
                 (State::Default | State::InWord, '\\') => {
-                    self.chars.next(); 
+                    self.chars.next();
                     if let Some(next) = self.chars.next() {
                         match next {
-                            '\\' => buffer.0.push('\\'),  
-                            ' '  => buffer.0.push(' '),   
-                            '$'  => buffer.0.push('$'),  
-                            other => buffer.0.push(other), 
+                            '\\' => buffer.0.push('\\'),
+                            ' ' => buffer.0.push(' '),
+                            '$' => buffer.0.push('$'),
+                            other => buffer.0.push(other),
                         }
                     } else {
-                        buffer.0.push('\\'); 
+                        buffer.0.push('\\');
                     }
                 }
-
 
                 (State::InDoubleQuote, '\\') => {
                     self.chars.next();
@@ -278,11 +277,11 @@ impl<'a> Tokenizer<'a> {
                 }
                 (State::Default, '!') => {
                     self.chars.next();
-                    match self.chars.peek(){
-                        Some(' ') | Some('\t') | Some('\n') =>{
+                    match self.chars.peek() {
+                        Some(' ') | Some('\t') | Some('\n') => {
                             tokens.push(Token::LogicalNot);
-                        },
-                        _ =>{
+                        }
+                        _ => {
                             buffer.1 = QuoteType::None;
                             buffer.0.push('!');
                             state = State::InWord;
@@ -538,7 +537,6 @@ impl<'a> Tokenizer<'a> {
         }
 
         tokens.push(Token::Eof);
-        // println!("{:?}", tokens);
         Ok(tokens)
     }
 

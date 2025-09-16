@@ -98,11 +98,9 @@ pub fn clear_buff_ter(stdout: &mut Option<RawTerminal<Stdout>>, buffer: String) 
 pub fn parse_input(buffer: &str, env: &mut ShellEnv) {
     match Tokenizer::new(buffer).tokenize() {
         Ok(tokens) => {
-            println!("{:?}", tokens);
             match Parser::new(tokens).parse() {
                 Ok(ast_opt) => {
                     if let Some(ast) = ast_opt {
-                        println!("{:?}", ast);
                         let mut executor = Executor::new(env);
                         match executor.execute_node(&ast, false, 0) {
                             Ok(status) => {
