@@ -81,11 +81,7 @@ pub fn execute_with_background(
                             cmd.expand(env) + " " + &merged.expand(env),
                         );
                         env.jobs.add_job(new_job.clone());
-                        env.jobs
-                            .get_job(new_job.pid.clone())
-                            .unwrap()
-                            .status
-                            .printStatus(env.jobs.get_job(new_job.pid.clone()).unwrap().clone());
+                        new_job.status.printStatus(new_job.clone());
                         Ok(0)
                     }
                 }
@@ -467,7 +463,11 @@ pub fn execute_with_background(
     }
 }
 
-pub fn wait_for_single_process(pid: Pid, env: &mut ShellEnv, cmd: String) -> Result<i32, ShellError> {
+pub fn wait_for_single_process(
+    pid: Pid,
+    env: &mut ShellEnv,
+    cmd: String,
+) -> Result<i32, ShellError> {
     // Add job
     let new_job = jobs::Job::new(
         pid,

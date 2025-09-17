@@ -38,7 +38,10 @@ pub fn invoke_command(
                 // This should now be handled in exec.rs
                 // For compatibility, we'll wait here, but ideally exec.rs should handle this
 
-                let tty = File::open("/dev/tty").unwrap();
+                let tty = match File::open("/dev/tty") {
+                    Ok(val) => val,
+                    Err(e) => return Err(ShellError::Exec(e.to_string())),
+                };
                 let fd = tty.into_raw_fd();
 
                 let new_job = jobs::Job::new(
@@ -51,10 +54,22 @@ pub fn invoke_command(
                 env.jobs.add_job(new_job);
 
                 let shell_pgid = getpgrp();
-                let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
-                    .unwrap();
-                tcsetpgrp(fd, pid).unwrap();
-                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
+                let old = match unsafe {
+                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
+                } {
+                    Ok(val) => val,
+                    Err(e) => return Err(ShellError::Exec(e.desc().to_owned())),
+                };
+                match tcsetpgrp(fd, pid) {
+                    Ok(_) => {}
+                    Err(e) => return Err(ShellError::Exec(e.desc().to_owned())),
+                };
+                unsafe {
+                    match signal(Signal::SIGTTOU, old) {
+                        Ok(_) => {}
+                        Err(e) => return Err(ShellError::Exec(e.desc().to_owned())),
+                    }
+                };
 
                 let exitcode = match nix::sys::wait::waitpid(
                     pid,
@@ -79,11 +94,19 @@ pub fn invoke_command(
                     Err(_) => 1,
                 };
 
-                let old = unsafe { signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn) }
-                    .unwrap();
+                let old = match unsafe {
+                    signal(Signal::SIGTTOU, nix::sys::signal::SigHandler::SigIgn)
+                } {
+                    Ok(val) => val,
+                    Err(e) => return Err(ShellError::Exec(e.desc().to_owned())),
+                };
                 tcsetpgrp(fd, shell_pgid).ok();
-                unsafe { signal(Signal::SIGTTOU, old).unwrap() };
-
+                unsafe {
+                    match signal(Signal::SIGTTOU, old) {
+                        Ok(val) => val,
+                        Err(e) => return Err(ShellError::Exec(e.desc().to_string())),
+                    }
+                };
                 env.set_last_status(exitcode);
                 Ok(exitcode)
             } else {

@@ -14,7 +14,7 @@ pub fn calculate_cursor_xy(
     buffer_len: usize,
 ) -> (u16, u16) {
     let (width, _) = termion::terminal_size().unwrap_or((80, 24));
-    let (_, y) = stdout.as_mut().unwrap().cursor_pos().unwrap_or((1, 1));
+    let (_, y) = stdout.as_mut().cursor_pos().unwrap_or((1, 1));
 
     if width >= (buffer_len + promt_len()) as u16 {
         return ((buffer_len + promt_len() + 1) as u16, y);

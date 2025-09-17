@@ -42,14 +42,7 @@ impl<'a> Executor<'a> {
                             cmd.expand(self.env) + " " + &merged.expand(self.env),
                         );
                         self.env.jobs.add_job(new_job.clone());
-                        self.env
-                            .jobs
-                            .get_job(new_job.pid.clone())
-                            .unwrap()
-                            .status
-                            .printStatus(
-                                self.env.jobs.get_job(new_job.pid.clone()).unwrap().clone(),
-                            );
+                        new_job.status.printStatus(new_job.clone());
                         return Ok(0);
                     }
                 }

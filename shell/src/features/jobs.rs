@@ -2,6 +2,8 @@ use std::{collections::HashMap, os::unix::process};
 
 use nix::unistd::Pid;
 
+use crate::error::ShellError;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JobStatus {
     Running,
@@ -62,7 +64,7 @@ impl JobStatus {
 
         match self {
             Self::Running => {
-                println!("[{}]{} {}\r", job.id, prev_or_next, job.pgid);
+                println!("[{}]{} {}\r", job.id, prev_or_next, job.command);
             }
             Self::Done => {
                 println!(
@@ -135,7 +137,10 @@ impl Jobs {
         let mut last_index = 0;
 
         for pid in self.order.clone() {
-            let job_ref = self.get_job(pid).unwrap();
+            let job_ref = match self.get_job(pid) {
+                Some(val) => val,
+                None => unreachable!(),
+            };
             if last_index + 1 != job_ref.id {
                 if let Some(current_job) = self.get_job_mut(job.pgid) {
                     current_job.id = last_index + 1;
@@ -153,8 +158,14 @@ impl Jobs {
             .collect();
 
         self.order.sort_by(|a, b| {
-            let id_a = id_map.get(a).unwrap();
-            let id_b = id_map.get(b).unwrap();
+            let id_a = match id_map.get(a) {
+                Some(val) => val,
+                None => unreachable!(),
+            };
+            let id_b = match id_map.get(b) {
+                Some(val) => val,
+                None => unreachable!(),
+            };
             id_a.cmp(id_b)
         });
 

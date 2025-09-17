@@ -1,5 +1,5 @@
-use crate::{error::ShellError, ShellCommand};
 use crate::features::jobs::JobStatus;
+use crate::{ShellCommand, error::ShellError};
 use nix::{
     sys::signal::{Signal, signal},
     unistd::Pid,
@@ -17,9 +17,7 @@ impl Bg {
 impl ShellCommand for Bg {
     fn execute(&self, env: &mut crate::envirement::ShellEnv) -> Result<i32, ShellError> {
         if self.args.len() > 1 {
-            return Err(ShellError::Exec(
-                String::from("fg: too many arguments")
-            ));
+            return Err(ShellError::Exec(String::from("fg: too many arguments")));
         }
 
         // Determine which job to bring to foreground
@@ -53,8 +51,6 @@ impl ShellCommand for Bg {
         }
         env.jobs
             .update_job_status(job.pgid, crate::features::jobs::JobStatus::Running);
-
-        println!("Job [{}] continued in background", gid);
 
         Ok(0)
     }
