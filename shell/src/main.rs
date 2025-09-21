@@ -1,7 +1,11 @@
+use nix::sys::signal::{signal, SigHandler, Signal};
 pub use shell::parser;
 use shell::events_handler::{self, ShellMode};
 
 fn main() {
+    unsafe {
+    signal(Signal::SIGINT, SigHandler::SigIgn).unwrap(); // Ignore Ctrl+C in shell
+    }
     let args: Vec<String> = std::env::args().collect();
     let mode = if let Some(pos) = args.iter().position(|arg| arg == "-c") {
         if let Some(cmd) = args.get(pos + 1) {

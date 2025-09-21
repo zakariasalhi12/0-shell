@@ -3,6 +3,9 @@ use crate::error::ShellError;
 use crate::exec::CommandResult;
 use crate::exec::build_command;
 use nix::fcntl::{FcntlArg, fcntl};
+use nix::sys::signal::signal;
+use nix::sys::signal::SigHandler;
+use nix::sys::signal::Signal;
 use nix::unistd::getpid;
 use nix::unistd::setpgid;
 use nix::unistd::{ForkResult, Pid, close, dup, dup2, execve, fork};
@@ -137,6 +140,10 @@ fn execute_external_with_fork(
             }
             let _ = setpgid(child_pid, gid.unwrap_or(child_pid));
 
+            unsafe {
+            // Restore Ctrl+C handling in child
+                signal(Signal::SIGINT, SigHandler::SigDfl).unwrap();
+            }
             // Setup standard file descriptors
             if let Some(new_fd) = stdin_new_fd {
                 if dup2(new_fd, 0).is_err() {

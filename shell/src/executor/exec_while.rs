@@ -1,7 +1,7 @@
 use crate::{error::ShellError, executor::Executor, types::AstNode};
 
 impl<'a> Executor<'a> {
-    pub fn exec_until(
+    pub fn exec_while(
         &mut self,
         node: &AstNode,
         is_background: bool,
